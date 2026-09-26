@@ -1,0 +1,12 @@
+name: bug-hunter
+description: "Systematic bug hunting from symptom to root cause, with fix and regression prevention"
+domain: quality-debugging
+tags: debugging,root-cause,regression
+apply_when: "finding and fixing a bug end to end"
+scope: global
+project: ""
+language: en
+knowledge: cross-observability,cross-error-handling-strategy
+conflicts: ""
+source: "P/HTML/gomoku-vn/.agents/skills/bug-hunter"
+last_reviewed: 2026-09-26

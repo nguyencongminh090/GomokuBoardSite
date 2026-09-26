@@ -1,0 +1,12 @@
+name: verification-before-completion
+description: "Run verification commands and show evidence before claiming work is done"
+domain: quality-debugging
+tags: verification,evidence,completion
+apply_when: "about to claim something is fixed, done or passing"
+scope: global
+project: ""
+language: en
+knowledge: 
+conflicts: ""
+source: "P/LaTeX/CV_write/.agents/skills/verification-before-completion"
+last_reviewed: 2026-09-26

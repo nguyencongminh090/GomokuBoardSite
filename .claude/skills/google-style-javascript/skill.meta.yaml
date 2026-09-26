@@ -1,0 +1,12 @@
+name: google-style-javascript
+description: "Google JavaScript style guide for ES6+"
+domain: frontend-ui-design
+tags: google-style,javascript,style-guide
+apply_when: "writing or reviewing JavaScript"
+scope: global
+project: ""
+language: en
+knowledge: 
+conflicts: ""
+source: "https://github.com/testdino-hq/google-styleguides-skills/tree/8674a2a/javascript"
+last_reviewed: 2026-09-26

@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bàn cờ Caro</title>
+  <meta name="description" content="Bàn cờ caro cho livestream: nhánh nước đi, ô tường, giao diện tuỳ chỉnh và lưu ván trong trình duyệt.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23dcb35c'/%3E%3Ccircle cx='11' cy='11' r='6' fill='%23151515'/%3E%3Ccircle cx='21' cy='21' r='6' fill='%23f7f7f4'/%3E%3C/svg%3E">
+  <script>
+    // Apply the saved page theme before first paint to avoid a flash of the wrong theme.
+    try {
+      const ui = (JSON.parse(localStorage.getItem('gomoku-board.settings.v1')) || {}).ui;
+      const dark = ui === 'dark' || (ui === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.dataset.ui = dark ? 'dark' : 'light';
+    } catch (e) { /* storage unavailable: CSS default applies */ }
+  </script>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand" aria-hidden="true"><span class="logo"></span><span data-i18n="app.title"></span></div>
+    <input id="gameName" class="game-name" data-i18n-attr="aria-label:header.gameName" maxlength="80" spellcheck="false">
+    <span id="sizeTag" class="tag"></span>
+    <div class="spacer"></div>
+    <button id="langBtn" class="ghost-btn" title="Tiếng Việt / English">VI</button>
+    <button id="focusBtn" class="ghost-btn" data-i18n-attr="title:header.panelTitle"></button>
+  </header>
+
+  <main class="layout">
+    <section class="board-wrap" id="boardWrap">
+      <svg id="board" role="img" data-i18n-attr="aria-label:app.board"></svg>
+    </section>
+
+    <aside class="panel" id="panel">
+      <nav class="tabs" role="tablist">
+        <button role="tab" data-tab="play" aria-selected="true" data-i18n="tab.play"></button>
+        <button role="tab" data-tab="settings" aria-selected="false" data-i18n="tab.settings"></button>
+        <button role="tab" data-tab="games" aria-selected="false" data-i18n="tab.games"></button>
+      </nav>
+
+      <!-- Play -->
+      <div class="tab-body" data-panel="play">
+        <div class="turn">
+          <span class="turn-piece" id="turnPiece"></span>
+          <div>
+            <div class="turn-label" id="turnLabel"></div>
+            <div class="muted" id="moveInfo"></div>
+          </div>
+        </div>
+
+        <div class="seg" role="group" data-i18n-attr="aria-label:mode.label">
+          <button data-mode="play" data-i18n="mode.play"></button>
+          <button data-mode="setup" data-i18n="mode.setup"></button>
+        </div>
+        <div id="setupHelp" class="setup-help" hidden>
+          <p data-i18n-html="setup.help"></p>
+          <div class="row-between">
+            <span class="muted" id="wallCount"></span>
+            <button id="clearWalls" class="small" data-i18n="setup.clear"></button>
+          </div>
+        </div>
+
+        <div class="nav-row">
+          <button id="toStart" data-i18n-attr="title:nav.first;aria-label:nav.first">&#x23EE;</button>
+          <button id="back" class="primary" data-i18n="nav.back" data-i18n-attr="title:nav.backTitle"></button>
+          <button id="forward" class="primary" data-i18n="nav.forward" data-i18n-attr="title:nav.forwardTitle"></button>
+          <button id="toEnd" data-i18n-attr="title:nav.last;aria-label:nav.last">&#x23ED;</button>
+        </div>
+        <button id="newGame" class="wide" data-i18n="nav.new"></button>
+
+        <section class="block" id="branchBlock" hidden>
+          <h3 data-i18n="branches.here"></h3>
+          <div id="branches" class="chips"></div>
+        </section>
+        <section class="block" id="altBlock" hidden>
+          <h3 data-i18n="branches.alt"></h3>
+          <div id="alternatives" class="chips"></div>
+        </section>
+
+        <section class="block">
+          <h3><span data-i18n="moves.title"></span> <span class="muted" id="lineInfo"></span></h3>
+          <ol id="moveList" class="move-list"></ol>
+          <button id="deleteMove" class="danger small" data-i18n="moves.delete"></button>
+        </section>
+
+        <p class="keys muted" data-i18n-html="keys.help"></p>
+      </div>
+
+      <!-- Settings: grouped by how often the host changes them (board, display, general) -->
+      <div class="tab-body" data-panel="settings" hidden>
+        <section class="card">
+          <h3 data-i18n="set.board"></h3>
+          <div class="pick-grid cols-2" id="themePicks" role="group" data-i18n-attr="aria-label:set.boardTheme"></div>
+
+          <div data-for="paper">
+            <div class="sub-label" data-i18n="set.presets"></div>
+            <div class="swatches" id="paperSwatches"></div>
+            <div class="sub-label" data-i18n="set.colors"></div>
+            <div class="color-grid">
+              <label class="color-chip"><input type="color" data-key="paper.bg"><span data-i18n="set.paperColor"></span></label>
+              <label class="color-chip"><input type="color" data-key="paper.grid"><span data-i18n="set.gridColor"></span></label>
+              <label class="color-chip"><input type="color" data-key="paper.xColor"><span data-i18n="set.xColor"></span></label>
+              <label class="color-chip"><input type="color" data-key="paper.oColor"><span data-i18n="set.oColor"></span></label>
+              <label class="color-chip"><input type="color" data-key="paper.wall"><span data-i18n="set.wallColor"></span></label>
+            </div>
+            <div class="contrast-report" role="status" aria-live="polite"></div>
+            <div class="sub-label" data-i18n="set.symbolStyle"></div>
+            <div class="pick-grid cols-3" id="styleSwatches" role="group" data-i18n-attr="aria-label:set.symbolStyle"></div>
+          </div>
+
+          <div data-for="stone">
+            <div class="sub-label" data-i18n="set.presets"></div>
+            <div class="swatches" id="stoneSwatches"></div>
+            <div class="sub-label" data-i18n="set.colors"></div>
+            <div class="color-grid">
+              <label class="color-chip"><input type="color" data-key="stone.bg"><span data-i18n="set.boardColor"></span></label>
+              <label class="color-chip"><input type="color" data-key="stone.line"><span data-i18n="set.lineColor"></span></label>
+              <label class="color-chip"><input type="color" data-key="stone.wall"><span data-i18n="set.wallColor"></span></label>
+            </div>
+            <div class="contrast-report" role="status" aria-live="polite"></div>
+            <div class="sub-label" data-i18n="set.stoneStyle"></div>
+            <div class="pick-grid cols-2" id="stonePicks" role="group" data-i18n-attr="aria-label:set.stoneStyle"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h3 data-i18n="set.display"></h3>
+          <div class="sub-label" data-i18n="set.coords"></div>
+          <div class="seg" role="group" data-i18n-attr="aria-label:set.coords">
+            <button data-set="coords:edge" data-i18n="coords.edge"></button>
+            <button data-set="coords:cell" data-i18n="coords.cell"></button>
+          </div>
+          <p class="muted small-text hint" id="coordsHelp"></p>
+          <div class="sub-label" data-i18n="set.marks"></div>
+          <label class="switch-row">
+            <span><span data-i18n="set.moveNumbers"></span><small data-i18n="set.moveNumbersHelp"></small></span>
+            <input type="checkbox" role="switch" class="switch" data-key="showMoveNumbers">
+          </label>
+          <label class="switch-row">
+            <span><span data-i18n="set.lastMove"></span><small data-i18n="set.lastMoveHelp"></small></span>
+            <input type="checkbox" role="switch" class="switch" data-key="showLastMove">
+          </label>
+        </section>
+
+        <section class="card">
+          <h3 data-i18n="set.general"></h3>
+          <div class="sub-label" data-i18n="set.lang"></div>
+          <div class="seg" role="group" data-i18n-attr="aria-label:set.lang">
+            <button data-set="lang:vi" lang="vi">Tiếng Việt</button>
+            <button data-set="lang:en" lang="en">English</button>
+          </div>
+          <div class="sub-label" data-i18n="set.page"></div>
+          <div class="seg" role="group" data-i18n-attr="aria-label:set.page">
+            <button data-set="ui:light" data-i18n="set.ui.light"></button>
+            <button data-set="ui:dark" data-i18n="set.ui.dark"></button>
+            <button data-set="ui:auto" data-i18n="set.ui.auto"></button>
+          </div>
+        </section>
+
+        <button id="resetSettings" class="link-btn" data-i18n="set.reset"></button>
+      </div>
+
+      <!-- Games -->
+      <div class="tab-body" data-panel="games" hidden>
+        <div class="row-between">
+          <button id="exportBtn" class="small" data-i18n="games.export"></button>
+          <label class="btn small"><span data-i18n="games.import"></span><input type="file" id="importInput" accept=".json,application/json" hidden></label>
+        </div>
+        <ul id="gameList" class="game-list"></ul>
+        <p class="muted small-text" data-i18n="games.note"></p>
+      </div>
+    </aside>
+  </main>
+
+  <dialog id="newDialog">
+    <form method="dialog" id="newForm">
+      <h2 data-i18n="new.title"></h2>
+      <p class="muted" data-i18n="new.note"></p>
+      <label class="field"><span data-i18n="new.name"></span> <input id="newName" maxlength="80"></label>
+      <label class="field"><span data-i18n="new.size"></span>
+        <select id="newSize">
+          <option value="15">15 × 15</option>
+          <option value="19">19 × 19</option>
+          <option value="20">20 × 20</option>
+          <option value="custom" data-i18n="new.custom"></option>
+        </select>
+      </label>
+      <label class="field" id="customRow" hidden><span data-i18n="new.customSize"></span>
+        <input id="newCustom" type="number" min="5" max="26" value="17">
+      </label>
+      <label class="switch-row">
+        <span><span data-i18n="new.keepWalls"></span><small id="keepWallsNote"></small></span>
+        <input type="checkbox" role="switch" class="switch" id="newKeepWalls">
+      </label>
+      <menu>
+        <button value="cancel" formnovalidate data-i18n="new.cancel"></button>
+        <button value="ok" class="primary" data-i18n="new.start"></button>
+      </menu>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="js/i18n.js"></script>
+  <script src="js/contrast.js"></script>
+  <script src="js/coords.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/board.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

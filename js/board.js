@@ -1,0 +1,420 @@
+// SVG board renderer. Both themes share one geometry: a size x size grid of positions with
+// pitch P. The paper theme draws cells around each position; the stone theme draws lines
+// through them, so pieces sit in cells or on intersections respectively.
+(function (G) {
+  'use strict';
+
+  const P = 40;
+  const f = (n) => Math.round(n * 10) / 10;
+  const f3 = (n) => Math.round(n * 1000) / 1000;
+
+  function isDark(hex) {
+    const n = parseInt(String(hex).slice(1), 16);
+    if (Number.isNaN(n)) return false;
+    return 0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255) < 128;
+  }
+
+  // Small deterministic PRNG so hand-drawn pieces keep their shape between renders.
+  function rng(seed) {
+    let s = (Math.imul(seed + 1, 2654435761) >>> 0) || 1;
+    return () => {
+      s ^= s << 13; s >>>= 0;
+      s ^= s >>> 17;
+      s ^= s << 5; s >>>= 0;
+      return s / 4294967296;
+    };
+  }
+
+  function defs(s) {
+    return `<defs>
+<radialGradient id="gStoneB" cx="36%" cy="30%" r="72%"><stop offset="0" stop-color="#6e6e6e"/><stop offset=".35" stop-color="#262626"/><stop offset="1" stop-color="#050505"/></radialGradient>
+<radialGradient id="gStoneW" cx="36%" cy="30%" r="75%"><stop offset="0" stop-color="#fff"/><stop offset=".6" stop-color="#ececea"/><stop offset="1" stop-color="#b9b9b4"/></radialGradient>
+<linearGradient id="gSheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".16"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".14"/></linearGradient>
+<pattern id="pHatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="7" height="7" fill="${s.theme === 'paper' ? s.paper.wall : s.stone.wall}"/><rect width="2.5" height="7" fill="#000" fill-opacity=".3"/></pattern>
+</defs>`;
+  }
+
+  // Smooth curve through points (Catmull-Rom converted to cubic Béziers).
+  function smooth(pts) {
+    let d = `M${f(pts[0][0])} ${f(pts[0][1])}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[Math.max(i - 1, 0)];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[Math.min(i + 2, pts.length - 1)];
+      d += `C${f(p1[0] + (p2[0] - p0[0]) / 6)} ${f(p1[1] + (p2[1] - p0[1]) / 6)} ` +
+        `${f(p2[0] - (p3[0] - p1[0]) / 6)} ${f(p2[1] - (p3[1] - p1[1]) / 6)} ${f(p2[0])} ${f(p2[1])}`;
+    }
+    return d;
+  }
+
+  function cross(cx, cy, color, style, seed) {
+    const r = P * 0.28;
+    if (style === 'hand') {
+      const rnd = rng(seed);
+      const j = (a) => (rnd() - 0.5) * a;
+      // Each stroke bows to one side and overshoots a little, like a quick pen mark.
+      const stroke = (x1, y1, x2, y2) => {
+        const bow = (rnd() < 0.5 ? -1 : 1) * (4 + rnd() * 4);
+        const mx = (x1 + x2) / 2 + bow + j(3);
+        const my = (y1 + y2) / 2 - bow + j(3);
+        return `M${f(x1 + j(5))} ${f(y1 + j(5))}Q${f(mx)} ${f(my)} ${f(x2 + j(6))} ${f(y2 + j(6))}`;
+      };
+      return `<path d="${stroke(cx - r, cy - r, cx + r, cy + r)}${stroke(cx + r, cy - r, cx - r, cy + r)}" fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round"/>`;
+    }
+    const w = style === 'bold' ? 6.5 : 3.6;
+    return `<path d="M${f(cx - r)} ${f(cy - r)}L${f(cx + r)} ${f(cy + r)}M${f(cx + r)} ${f(cy - r)}L${f(cx - r)} ${f(cy + r)}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round"/>`;
+  }
+
+  function ring(cx, cy, color, style, seed) {
+    const r = P * 0.29;
+    if (style === 'hand') {
+      // One loop drawn past its start point, with a wobbling radius, so the ends overlap.
+      const rnd = rng(seed);
+      const start = rnd() * Math.PI * 2;
+      const sweep = Math.PI * 2 + 0.5 + rnd() * 0.4;
+      const pts = [];
+      for (let i = 0; i <= 12; i++) {
+        const a = start + (sweep * i) / 12;
+        const rr = r * (1 + (rnd() - 0.5) * 0.14) * (i === 12 ? 0.9 : 1);
+        pts.push([cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * 0.92]);
+      }
+      return `<path d="${smooth(pts)}" fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round"/>`;
+    }
+    const w = style === 'bold' ? 6.2 : 3.6;
+    return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="${w}"/>`;
+  }
+
+  function stone(player, cx, cy, style) {
+    const r = P * 0.46;
+    if (style === 'flat') {
+      return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${player ? '#f7f7f4' : '#151515'}" stroke="#151515" stroke-width="1.6"/>`;
+    }
+    return `<circle cx="${cx + 1}" cy="${cy + 2}" r="${r}" fill="#000" opacity=".28"/>` +
+      `<circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#${player ? 'gStoneW' : 'gStoneB'})"${player ? ' stroke="rgba(0,0,0,.22)" stroke-width="1"' : ''}/>`;
+  }
+
+  function piece(player, cx, cy, s, seed) {
+    if (s.theme === 'stone') return stone(player, cx, cy, s.stone.style);
+    return player === 0
+      ? cross(cx, cy, s.paper.xColor, s.paper.style, seed)
+      : ring(cx, cy, s.paper.oColor, s.paper.style, seed);
+  }
+
+  function wall(x0, y0, theme) {
+    if (theme === 'stone') {
+      const w = P * 0.84;
+      return `<rect x="${f(x0 + (P - w) / 2)}" y="${f(y0 + (P - w) / 2)}" width="${f(w)}" height="${f(w)}" rx="5" fill="url(#pHatch)" stroke="rgba(0,0,0,.45)" stroke-width="1.5"/>`;
+    }
+    return `<rect x="${x0 + 1.5}" y="${y0 + 1.5}" width="${P - 3}" height="${P - 3}" fill="url(#pHatch)"/>`;
+  }
+
+  function starPoints(n) {
+    if (n < 9) return [];
+    const a = n >= 13 ? 3 : 2;
+    const b = n - 1 - a;
+    const pts = [[a, a], [a, b], [b, a], [b, b]];
+    if (n % 2) pts.push([(n - 1) / 2, (n - 1) / 2]);
+    return pts;
+  }
+
+  // A standalone icon of one piece, used for the "to move" indicator.
+  function pieceIcon(player, s) {
+    const c = P / 2;
+    return `<svg viewBox="0 0 ${P} ${P}" aria-hidden="true">${piece(player, c, c, s, 7)}</svg>`;
+  }
+
+  // Small 3×2 board in a theme's current colours, for the board-theme picker.
+  function themePreview(theme, s) {
+    const cells = [[20, 20, 0], [60, 60, 1], [100, 20, 0]];
+    let body;
+    if (theme === 'paper') {
+      const g = s.paper.grid;
+      body = `<rect width="120" height="80" fill="${s.paper.bg}"/>` +
+        `<path d="M40 0V80M80 0V80M0 40H120" stroke="${g}" stroke-width="1.5"/>` +
+        cells.map(([x, y, p]) => p ? ring(x, y, s.paper.oColor, s.paper.style, x) : cross(x, y, s.paper.xColor, s.paper.style, x)).join('');
+    } else {
+      body = `<rect width="120" height="80" fill="${s.stone.bg}"/><rect width="120" height="80" fill="url(#gSheen)"/>` +
+        `<path d="M20 0V80M60 0V80M100 0V80M0 20H120M0 60H120" stroke="${s.stone.line}" stroke-width="1.5"/>` +
+        cells.map(([x, y, p]) => stone(p, x, y, s.stone.style)).join('');
+    }
+    return `<svg viewBox="0 0 120 80" aria-hidden="true">${body}</svg>`;
+  }
+
+  // A black and a white stone on the board colour, for the stone-style picker.
+  function stonePreview(style, s) {
+    return `<svg viewBox="0 0 100 44" aria-hidden="true"><rect width="100" height="44" fill="${s.stone.bg}"/>` +
+      `${stone(0, 28, 21, style)}${stone(1, 72, 21, style)}</svg>`;
+  }
+
+  // Cross and circle side by side in one symbol style, for the style picker.
+  function symbolPreview(style, s) {
+    return `<svg viewBox="0 0 ${2 * P} ${P}" aria-hidden="true"><rect width="${2 * P}" height="${P}" fill="${s.paper.bg}"/>` +
+      `${cross(P / 2, P / 2, s.paper.xColor, style, 3)}${ring(1.5 * P, P / 2, s.paper.oColor, style, 5)}</svg>`;
+  }
+
+  // On phones the panel stacks under the board and the page grows with its content, so the board area has
+  // no fixed height: the board is sized by width alone. With the panel hidden the page is one screen tall
+  // (see css/style.css), so the board fits the full screen height too.
+  function heightFollowsBoard() {
+    return matchMedia('(max-width: 860px)').matches && !document.body.classList.contains('focus');
+  }
+
+  class BoardView {
+    constructor(svg, onCell) {
+      this.svg = svg;
+      this.onCell = onCell;
+      this.state = null;
+      this.hover = null;
+      svg.addEventListener('pointermove', (e) => this.setHover(this.cellAt(e)));
+      svg.addEventListener('pointerleave', () => this.setHover(null));
+      svg.addEventListener('click', (e) => {
+        const c = this.cellAt(e);
+        if (c) this.onCell(c.x, c.y);
+      });
+      // Pixel snapping depends on the rendered size, so redraw when the space available to the board changes.
+      // On phones the board area's height follows the board itself, so only its width counts there;
+      // otherwise resizing the board would retrigger the observer.
+      this.spaceKey = '';
+      new ResizeObserver(() => {
+        const key = this.spaceKeyNow();
+        if (key === this.spaceKey) return;
+        this.spaceKey = key;
+        requestAnimationFrame(() => this.refit());
+      }).observe(svg.parentElement);
+    }
+
+    spaceKeyNow() {
+      const wrap = this.svg.parentElement;
+      return `${wrap.clientWidth}x${heightFollowsBoard() ? '' : wrap.clientHeight}@${window.devicePixelRatio}`;
+    }
+
+    refit() {
+      if (!this.state) return;
+      const { game, s, mode } = this.state;
+      this.render(game, s, mode);
+    }
+
+    // Sizes the SVG so one cell (P units) is a whole number of device pixels. Then every grid line is the
+    // same distance apart on screen and can be snapped to the pixel grid, so no line renders thicker or
+    // blurrier than its neighbours. Returns the scale (device px per unit) and the SVG's device-pixel origin.
+    fit(W) {
+      const wrap = this.svg.parentElement;
+      const cs = getComputedStyle(wrap);
+      const dpr = window.devicePixelRatio || 1;
+      const availW = wrap.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      const availH = heightFollowsBoard()
+        ? availW
+        : wrap.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+      const avail = Math.min(availW, availH);
+      if (avail > 0) {
+        const q = Math.max(8, Math.floor((avail * dpr * P) / W)); // device px per cell
+        const css = (W * q) / P / dpr;
+        this.svg.style.width = `${css}px`;
+        this.svg.style.height = `${css}px`;
+      }
+      const rect = this.svg.getBoundingClientRect();
+      const scale = rect.width > 0 ? (rect.width * dpr) / W : 1;
+      // Page coordinates (not viewport) so scrolling doesn't change the snapping. Browsers paint the SVG at
+      // a whole device pixel, so the origin is rounded the same way.
+      return {
+        scale,
+        dpr,
+        x0: Math.round((rect.left + window.scrollX) * dpr),
+        y0: Math.round((rect.top + window.scrollY) * dpr),
+      };
+    }
+
+    cellAt(e) {
+      if (!this.state) return null;
+      const ctm = this.svg.getScreenCTM();
+      if (!ctm) return null;
+      const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse());
+      const { m, n } = this.state;
+      const x = Math.floor((p.x - m) / P);
+      const y = Math.floor((p.y - m) / P);
+      return x >= 0 && y >= 0 && x < n && y < n ? { x, y } : null;
+    }
+
+    render(game, s, mode) {
+      const n = game.size;
+      const paper = s.theme === 'paper';
+      const edge = s.coords !== 'cell'; // edge labels and cell numbers are mutually exclusive
+      const m = edge ? 34 : 12;
+      const W = 2 * m + n * P;
+      const c = (i) => m + (i + 0.5) * P;
+      const bg = paper ? s.paper.bg : s.stone.bg;
+      // Board text ink: black or white, whichever contrasts more (the same rule the colour audit checks).
+      const ink = G.contrast.ink(bg)[0] ? 'rgba(255,255,255,' : 'rgba(0,0,0,';
+      const A = G.contrast.INK_ALPHA;
+      const out = [defs(s)];
+
+      this.state = { game, s, mode, m, n };
+      this.svg.setAttribute('viewBox', `0 0 ${W} ${W}`);
+      const px = this.fit(W);
+      this.spaceKey = this.spaceKeyNow();
+
+      out.push(`<rect width="${W}" height="${W}" rx="12" fill="${bg}"/>`);
+      if (!paper) out.push(`<rect width="${W}" height="${W}" rx="12" fill="url(#gSheen)"/>`);
+
+      // Grid. Widths are whole device pixels; each line is moved (by under half a pixel) so it covers
+      // whole pixels: odd widths centre on a pixel's middle, even widths on a pixel boundary.
+      const dev = (w) => Math.max(1, Math.round(w * px.dpr)); // css px -> whole device px
+      const thin = dev(paper ? 1 : 1.1);
+      const bold = Math.max(thin + 1, dev(paper ? 2 : 2.2));
+      const snap = (u, origin, w) => {
+        const X = origin + u * px.scale;
+        const target = w % 2 ? Math.floor(X) + 0.5 : Math.round(X);
+        return u + (target - X) / px.scale;
+      };
+      const count = paper ? n + 1 : n;
+      const base = paper ? m : c(0);
+      const widths = [];
+      const xs = [];
+      const ys = [];
+      for (let i = 0; i < count; i++) {
+        const w = i === 0 || i === count - 1 ? bold : thin;
+        widths.push(w);
+        xs.push(snap(base + i * P, px.x0, w));
+        ys.push(snap(base + i * P, px.y0, w));
+      }
+      // Lines run between the outer border lines, extended by half the border so corners close cleanly.
+      const half = bold / px.scale / 2;
+      const x1 = xs[0] - half;
+      const x2 = xs[count - 1] + half;
+      const y1 = ys[0] - half;
+      const y2 = ys[count - 1] + half;
+      const lines = [];
+      for (let i = 0; i < count; i++) {
+        const sw = f3(widths[i] / px.scale);
+        lines.push(`<line x1="${f3(xs[i])}" y1="${f3(y1)}" x2="${f3(xs[i])}" y2="${f3(y2)}" stroke-width="${sw}"/>`);
+        lines.push(`<line x1="${f3(x1)}" y1="${f3(ys[i])}" x2="${f3(x2)}" y2="${f3(ys[i])}" stroke-width="${sw}"/>`);
+      }
+      out.push(`<g stroke="${paper ? s.paper.grid : s.stone.line}" stroke-linecap="butt">${lines.join('')}</g>`);
+      if (!paper) {
+        out.push(`<g fill="${s.stone.line}">${starPoints(n).map(([x, y]) => `<circle cx="${f3(xs[x])}" cy="${f3(ys[y])}" r="3.6"/>`).join('')}</g>`);
+      }
+
+      // Edge coordinates
+      if (edge) {
+        const t = [];
+        for (let i = 0; i < n; i++) {
+          const L = G.coords.LETTERS[i];
+          const num = n - i;
+          t.push(`<text x="${c(i)}" y="${m / 2}">${L}</text><text x="${c(i)}" y="${W - m / 2}">${L}</text>`);
+          t.push(`<text x="${m / 2}" y="${c(i)}">${num}</text><text x="${W - m / 2}" y="${c(i)}">${num}</text>`);
+        }
+        out.push(`<g class="edge" fill="${ink}${A.edge})">${t.join('')}</g>`);
+      }
+
+      // Walls
+      for (const k of game.walls) {
+        out.push(wall(m + (k % n) * P, m + Math.floor(k / n) * P, s.theme));
+      }
+
+      const pos = game.position();
+
+      // Spiral cell numbers on empty cells
+      if (!edge) {
+        const nums = G.coords.spiral(n);
+        const t = [];
+        for (let k = 0; k < n * n; k++) {
+          if (pos.has(k) || game.walls.has(k)) continue;
+          t.push(`<text x="${c(k % n)}" y="${c(Math.floor(k / n))}">${nums[k]}</text>`);
+        }
+        const size = n * n >= 100 ? 12 : 14;
+        // On stone boards the numbers sit on line crossings; a halo in the board colour keeps them readable.
+        const halo = paper ? '' : ` stroke="${bg}" stroke-width="5" paint-order="stroke"`;
+        out.push(`<g class="cellnum" font-size="${size}" fill="${ink}${paper ? A.cellPaper : A.cellStone})"${halo}>${t.join('')}</g>`);
+      }
+
+      // Last move highlight (paper: tinted cell, drawn under the piece)
+      const last = game.cur > 0 ? game.nodes[game.cur] : null;
+      if (last && s.showLastMove && paper) {
+        const color = game.player(game.cur) === 0 ? s.paper.xColor : s.paper.oColor;
+        out.push(`<rect x="${m + last.x * P + 1}" y="${m + last.y * P + 1}" width="${P - 2}" height="${P - 2}" fill="${color}" opacity=".14"/>`);
+      }
+
+      // Pieces
+      for (const [k, id] of pos) {
+        out.push(piece(game.player(id), c(k % n), c(Math.floor(k / n)), s, k));
+      }
+
+      // Move order numbers
+      if (s.showMoveNumbers) {
+        const t = [];
+        for (const [k, id] of pos) {
+          const d = game.nodes[id].depth;
+          const x = k % n;
+          const y = Math.floor(k / n);
+          const isLast = id === game.cur && s.showLastMove;
+          if (paper) {
+            t.push(`<text class="mnum-paper" x="${m + x * P + 3}" y="${m + y * P + 3}" fill="${isLast ? '#e0342f' : `${ink}${A.edge})`}">${d}</text>`);
+          } else {
+            const white = game.player(id) === 1;
+            const fill = isLast ? (white ? '#d0201b' : '#ff7a6e') : white ? '#1a1a1a' : '#f4f4f4';
+            t.push(`<text class="mnum" x="${c(x)}" y="${c(y)}" font-size="${d >= 100 ? 13 : 16}" fill="${fill}">${d}</text>`);
+          }
+        }
+        out.push(`<g>${t.join('')}</g>`);
+      }
+
+      // Last move marker for stones (when numbers don't already mark it)
+      if (last && s.showLastMove && !paper && !s.showMoveNumbers) {
+        out.push(`<circle cx="${c(last.x)}" cy="${c(last.y)}" r="5" fill="#e0342f"/>`);
+      }
+
+      // Branch hints: lettered markers where the current position has 2+ continuations
+      const kids = game.nodes[game.cur].children;
+      if (kids.length > 1) {
+        const t = kids.map((id, i) => {
+          const nd = game.nodes[id];
+          return `<g class="hint"><circle cx="${c(nd.x)}" cy="${c(nd.y)}" r="10"/><text x="${c(nd.x)}" y="${c(nd.y)}">${String.fromCharCode(97 + (i % 26))}</text></g>`;
+        });
+        out.push(t.join(''));
+      }
+
+      out.push('<g class="ghost"></g>');
+      this.svg.innerHTML = out.join('');
+      this.ghost = this.svg.querySelector('.ghost');
+      this.drawGhost();
+    }
+
+    setHover(cell) {
+      const same = cell && this.hover && cell.x === this.hover.x && cell.y === this.hover.y;
+      if (same || (!cell && !this.hover)) return;
+      this.hover = cell;
+      this.drawGhost();
+    }
+
+    drawGhost() {
+      if (!this.ghost) return;
+      const h = this.hover;
+      const st = this.state;
+      if (!h || !st) {
+        this.ghost.innerHTML = '';
+        return;
+      }
+      const { game, s, mode, m } = st;
+      const x0 = m + h.x * P;
+      const y0 = m + h.y * P;
+      const k = game.key(h.x, h.y);
+      let svg = '';
+      if (mode === 'setup') {
+        svg = game.walls.has(k)
+          ? `<rect x="${x0 + 3}" y="${y0 + 3}" width="${P - 6}" height="${P - 6}" fill="none" stroke="#e0342f" stroke-width="3" stroke-dasharray="5 4"/>`
+          : `<g opacity=".45">${wall(x0, y0, s.theme)}</g>`;
+      } else if (game.canPlay(h.x, h.y)) {
+        svg = `<g opacity=".38">${piece(game.toMove(), x0 + P / 2, y0 + P / 2, s, k)}</g>`;
+      }
+      this.ghost.innerHTML = svg;
+    }
+  }
+
+  G.BoardView = BoardView;
+  G.pieceIcon = pieceIcon;
+  G.symbolPreview = symbolPreview;
+  G.themePreview = themePreview;
+  G.stonePreview = stonePreview;
+  G.isDark = isDark;
+})(window.Gomoku = window.Gomoku || {});

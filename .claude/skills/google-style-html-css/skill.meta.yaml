@@ -1,0 +1,12 @@
+name: google-style-html-css
+description: "Google HTML/CSS style guide: formatting, naming, semantics, accessibility"
+domain: frontend-ui-design
+tags: google-style,html,css,style-guide
+apply_when: "writing or reviewing HTML and CSS"
+scope: global
+project: ""
+language: en
+knowledge: fe-html-progressive-enhancement,fe-css-architecture
+conflicts: ""
+source: "https://github.com/testdino-hq/google-styleguides-skills/tree/8674a2a/html-css"
+last_reviewed: 2026-09-26

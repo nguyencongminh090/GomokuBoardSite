@@ -1,0 +1,12 @@
+name: git-commit
+description: "Conventional commits with change analysis, staging and message generation"
+domain: git-vcs
+tags: git,commit,conventional-commits
+apply_when: "creating a commit"
+scope: global
+project: ""
+language: en
+knowledge: 
+conflicts: ""
+source: "P/Python/Personal/MachineLearning/.claude/skills/git-commit"
+last_reviewed: 2026-09-26
