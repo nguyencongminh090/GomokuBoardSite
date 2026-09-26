@@ -8,12 +8,6 @@
   const f = (n) => Math.round(n * 10) / 10;
   const f3 = (n) => Math.round(n * 1000) / 1000;
 
-  function isDark(hex) {
-    const n = parseInt(String(hex).slice(1), 16);
-    if (Number.isNaN(n)) return false;
-    return 0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255) < 128;
-  }
-
   // Small deterministic PRNG so hand-drawn pieces keep their shape between renders.
   function rng(seed) {
     let s = (Math.imul(seed + 1, 2654435761) >>> 0) || 1;
@@ -416,5 +410,4 @@
   G.symbolPreview = symbolPreview;
   G.themePreview = themePreview;
   G.stonePreview = stonePreview;
-  G.isDark = isDark;
 })(window.Gomoku = window.Gomoku || {});

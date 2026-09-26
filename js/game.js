@@ -118,12 +118,6 @@
       return ids;
     }
 
-    mainLineLength() {
-      let len = 0;
-      for (let id = 0; this.nodes[id].children.length; len++) id = this.nextOf(id);
-      return len;
-    }
-
     nextOf(id) {
       const n = this.nodes[id];
       return n.pref >= 0 ? n.pref : n.children[0];
