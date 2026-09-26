@@ -332,6 +332,7 @@
     for (const el of root.querySelectorAll('[data-i18n-html]')) el.innerHTML = t(el.dataset.i18nHtml);
     for (const el of root.querySelectorAll('[data-i18n-attr]')) {
       for (const pair of el.dataset.i18nAttr.split(';')) {
+        if (!pair.trim()) continue;
         const [attr, key] = pair.split(':');
         el.setAttribute(attr.trim(), t(key.trim()));
       }

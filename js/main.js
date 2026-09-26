@@ -163,7 +163,10 @@
       ? (line.length ? t('info.start', { n: line.length }) : t('info.empty'))
       : t('info.after', { d: node.depth, n: line.length, move: moveText(game.cur) });
 
-    for (const b of $$('[data-mode]')) b.classList.toggle('on', b.dataset.mode === mode);
+    for (const b of $$('[data-mode]')) {
+      b.classList.toggle('on', b.dataset.mode === mode);
+      b.setAttribute('aria-pressed', String(b.dataset.mode === mode));
+    }
     $('#setupHelp').hidden = mode !== 'setup';
     $('#wallCount').textContent = t('setup.count', { n: game.walls.size });
     $('#clearWalls').disabled = !game.walls.size;
@@ -449,6 +452,8 @@
   });
   $('#newCustom').addEventListener('input', updateKeepWalls);
 
+  $('#newCancel').addEventListener('click', () => dlg.close('cancel'));
+
   dlg.addEventListener('close', () => {
     if (dlg.returnValue !== 'ok') return;
     const size = chosenSize();
@@ -473,8 +478,9 @@
     if (open) {
       const data = games.get(open.dataset.open);
       try {
+        const next = new G.Game(data);
         dropIfEmpty();
-        openGame(data);
+        openGame(next);
         selectTab('play');
       } catch (err) {
         toast(t('games.damaged'));
@@ -527,6 +533,7 @@
           continue;
         }
         games.set(g.id, g);
+        if (game && g.id === game.id) openGame(g);
         added++;
       } catch (err) {
         skipped++;
@@ -580,7 +587,7 @@
 
   document.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey || dlg.open) return;
-    if (e.target instanceof Element && e.target.closest('input, select, textarea')) return;
+    if (e.target instanceof Element && e.target.closest('input, select, textarea, button, [role="tab"]')) return;
     const actions = {
       ArrowLeft: () => nav(() => game.back()),
       ArrowRight: () => nav(() => game.forward()),
