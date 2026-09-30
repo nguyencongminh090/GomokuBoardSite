@@ -1,5 +1,16 @@
 {
  "format": "gomoku-allowed-keys",
  "version": 1,
- "keys": []
+ "keys": [
+  {
+   "name": "Owner",
+   "fingerprint": "C22C BAE3 2417 809F FA88 8616 9B62 0CE2",
+   "publicKey": {
+    "kty": "EC",
+    "crv": "P-256",
+    "x": "2AtYWf_Z5iQ_xgHzcqt0g3nu6Hvzf1iNwADrYK9vcnw",
+    "y": "43o_4jrmMMQDMjeSUXw1ORd98D4jQ37hm621zmqseZI"
+   }
+  }
+ ]
 }
