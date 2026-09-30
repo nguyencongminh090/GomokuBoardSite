@@ -11,6 +11,16 @@
     "x": "2AtYWf_Z5iQ_xgHzcqt0g3nu6Hvzf1iNwADrYK9vcnw",
     "y": "43o_4jrmMMQDMjeSUXw1ORd98D4jQ37hm621zmqseZI"
    }
+  },
+  {
+   "name": "minh",
+   "fingerprint": "AFC8 1128 C783 6EDC 2DB7 D58A 095E E0B5",
+   "publicKey": {
+    "kty": "EC",
+    "crv": "P-256",
+    "x": "3qk2gGGSNbGPkWin7-QlevcAAtuhF5fH6jNp-1xF1D8",
+    "y": "ivFcKumaxaojgGcgnF2UarufDTWG_ic9VF4xH_rcBfY"
+   }
   }
  ]
 }
