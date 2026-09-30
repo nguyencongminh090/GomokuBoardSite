@@ -14,6 +14,21 @@
 
   const board = new G.BoardView($('#board'), onCell);
 
+  const engine = G.createEnginePanel({
+    game: () => game,
+    settings: () => settings,
+    mode: () => mode,
+    // Plays a stone for the side to move; `byHost` is false for the engine's own moves.
+    play(x, y, byHost) {
+      if (mode === 'play' && game.play(x, y)) update(byHost);
+    },
+    cellText: (x, y) => cellText(x, y),
+    playerName: (p) => playerName(p),
+    toast: (msg) => toast(msg),
+    flush: () => flush(),
+    board,
+  });
+
   // ---------- helpers ----------
 
   function esc(s) {
@@ -34,12 +49,16 @@
     return t('games.defaultName', { date });
   }
 
-  // A move in the active coordinate system: "H8" on edge coordinates, "#37" with cell numbers.
+  // A cell in the active coordinate system: "H8" on edge coordinates, "#37" with cell numbers.
+  function cellText(x, y, g = game) {
+    return settings.coords === 'cell'
+      ? `#${G.coords.spiral(g.size)[g.key(x, y)]}`
+      : G.coords.label(x, y, g.size);
+  }
+
   function moveText(id, g = game) {
     const n = g.nodes[id];
-    return settings.coords === 'cell'
-      ? `#${G.coords.spiral(g.size)[g.key(n.x, n.y)]}`
-      : G.coords.label(n.x, n.y, g.size);
+    return cellText(n.x, n.y, g);
   }
 
   function playerName(p) {
@@ -77,6 +96,7 @@
     store.setCurrent(game.id);
     persist();
     refresh();
+    engine.positionChanged(false);
   }
 
   // ---------- actions ----------
@@ -88,15 +108,17 @@
         toast(t('setup.blocked'));
         return;
       }
-    } else if (!game.play(x, y)) {
+      update();
       return;
     }
-    update();
+    if (game.play(x, y)) update(true);
   }
 
-  function update() {
+  // `played` marks a stone the host just placed, which is the engine's cue when it plays one side.
+  function update(played = false) {
     persist();
     refresh();
+    engine.positionChanged(played);
   }
 
   function nav(fn) {
@@ -106,6 +128,7 @@
   function setMode(m) {
     mode = m;
     refresh();
+    engine.positionChanged(false);
   }
 
   function deleteCurrentMove() {
@@ -135,6 +158,7 @@
     document.body.classList.toggle('setup', mode === 'setup');
     renderPlayPanel();
     renderHeader();
+    engine.render();
     if (!$('[data-panel="games"]').hidden) renderGameList();
   }
 
@@ -378,11 +402,24 @@
     applyLanguage();
     syncSettingsUI();
     refresh();
+    engine.settingsChanged();
+  }
+
+  // A control's value in the type its setting has. Number fields are clamped to their min/max;
+  // an empty or invalid one returns undefined and is reset to the current setting.
+  function controlValue(el) {
+    if (el.type === 'checkbox') return el.checked;
+    if (el.type !== 'number') return el.value;
+    const v = Number(el.value);
+    if (el.value.trim() === '' || !Number.isFinite(v)) return undefined;
+    return Math.min(Number(el.max), Math.max(Number(el.min), v));
   }
 
   for (const el of $$('[data-key]')) {
-    el.addEventListener(el.type === 'checkbox' || el.tagName === 'SELECT' ? 'change' : 'input', () => {
-      setPath(settings, el.dataset.key, el.type === 'checkbox' ? el.checked : el.value);
+    // Number fields commit on change (blur or Enter), so a half-typed value is never applied.
+    el.addEventListener(el.type === 'checkbox' || el.type === 'number' || el.tagName === 'SELECT' ? 'change' : 'input', () => {
+      const v = controlValue(el);
+      if (v !== undefined) setPath(settings, el.dataset.key, v);
       settingsChanged();
     });
   }
@@ -598,6 +635,8 @@
       s: () => setMode(mode === 'setup' ? 'play' : 'setup'),
       n: openNewDialog,
       f: toggleFocus,
+      a: () => engine.toggleAnalysis(),
+      e: () => engine.engineMove(),
     };
     const act = actions[e.key.length === 1 ? e.key.toLowerCase() : e.key];
     if (!act) return;
@@ -608,9 +647,15 @@
   // ---------- start ----------
 
   function start() {
+    $('#appVersion').textContent = t('app.version', { v: G.VERSION || '–' });
     applyPageTheme();
     applyLanguage();
     syncSettingsUI();
+    openInitialGame();
+    engine.start();
+  }
+
+  function openInitialGame() {
     const id = store.getCurrent();
     if (id && games.has(id)) {
       try {

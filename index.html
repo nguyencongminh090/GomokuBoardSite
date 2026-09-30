@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Bàn cờ Caro</title>
+  <!-- Release version. Bump it with `node tools/bump-version.js <version>` before each deploy: it is added to
+       every asset URL (?v=), so returning visitors never mix cached old files with new ones. -->
+  <meta name="app-version" content="1.1.0">
   <meta name="description" content="Bàn cờ caro cho livestream: nhánh nước đi, ô tường, giao diện tuỳ chỉnh và lưu ván trong trình duyệt.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23dcb35c'/%3E%3Ccircle cx='11' cy='11' r='6' fill='%23151515'/%3E%3Ccircle cx='21' cy='21' r='6' fill='%23f7f7f4'/%3E%3C/svg%3E">
   <script>
@@ -14,7 +17,7 @@
       document.documentElement.dataset.ui = dark ? 'dark' : 'light';
     } catch (e) { /* storage unavailable: CSS default applies */ }
   </script>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=1.1.0">
 </head>
 <body>
   <header class="topbar">
@@ -34,6 +37,7 @@
     <aside class="panel" id="panel">
       <nav class="tabs" role="tablist">
         <button role="tab" data-tab="play" aria-selected="true" data-i18n="tab.play"></button>
+        <button role="tab" data-tab="engine" aria-selected="false" data-i18n="tab.engine"></button>
         <button role="tab" data-tab="settings" aria-selected="false" data-i18n="tab.settings"></button>
         <button role="tab" data-tab="games" aria-selected="false" data-i18n="tab.games"></button>
       </nav>
@@ -68,6 +72,57 @@
         </div>
         <button id="newGame" class="wide" data-i18n="nav.new"></button>
 
+        <!-- Engine: who it plays, analysis and distance moves (js/engine-panel.js) -->
+        <section class="block engine-block">
+          <h3><span data-i18n="eng.title"></span> <span class="muted" id="engStatus"></span></h3>
+          <div id="engOff" class="row-between">
+            <span class="muted small-text" id="engOffText"></span>
+            <button id="engLoadPlay" class="small" data-i18n="eng.load"></button>
+          </div>
+          <div id="engOn" class="engine-on" hidden>
+            <div class="seg" role="group" data-i18n-attr="aria-label:eng.side">
+              <button data-set="engine.side:none" data-i18n="eng.side.none"></button>
+              <button data-set="engine.side:0" id="engSide0"></button>
+              <button data-set="engine.side:1" id="engSide1"></button>
+            </div>
+            <p class="muted small-text engine-note" id="engNote" hidden></p>
+            <div class="engine-actions">
+              <button id="engAnalyze" class="primary" data-i18n="eng.analyze" data-i18n-attr="title:eng.analyzeTitle"></button>
+              <button id="engMove" data-i18n="eng.move" data-i18n-attr="title:eng.moveTitle"></button>
+              <button id="engStop" data-i18n="eng.stop" data-i18n-attr="title:eng.stopTitle"></button>
+            </div>
+            <label class="switch-row">
+              <span><span data-i18n="eng.auto"></span><small data-i18n="eng.autoHelp"></small></span>
+              <input type="checkbox" role="switch" class="switch" data-key="engine.auto">
+            </label>
+            <div class="eval" id="engEval" hidden>
+              <div class="eval-sides"><span id="engEvalP0"></span><span id="engEvalP1"></span></div>
+              <div class="eval-bar" aria-hidden="true"><span id="engEvalFill"></span></div>
+              <div class="muted small-text" id="engEvalText"></div>
+            </div>
+            <table class="pv-table" id="engLines" hidden>
+              <thead><tr>
+                <th>#</th><th data-i18n="eng.col.move"></th><th data-i18n="eng.col.eval"></th>
+                <th data-i18n="eng.col.win"></th><th data-i18n="eng.col.depth"></th><th data-i18n="eng.col.line"></th>
+              </tr></thead>
+              <tbody></tbody>
+            </table>
+            <details class="engine-dist">
+              <summary data-i18n="eng.dist"></summary>
+              <div class="dist-row">
+                <button id="engSelfDist" class="small" data-i18n="eng.selfDist"></button>
+                <input type="number" min="1" max="21" data-key="engine.selfDist" data-i18n-attr="aria-label:eng.distN">
+              </div>
+              <p class="muted small-text" id="engSelfDistHelp"></p>
+              <div class="dist-row">
+                <button id="engOppDist" class="small" data-i18n="eng.oppDist"></button>
+                <input type="number" min="1" max="21" data-key="engine.oppDist" data-i18n-attr="aria-label:eng.distN">
+              </div>
+              <p class="muted small-text" id="engOppDistHelp"></p>
+            </details>
+          </div>
+        </section>
+
         <section class="block" id="branchBlock" hidden>
           <h3 data-i18n="branches.here"></h3>
           <div id="branches" class="chips"></div>
@@ -84,6 +139,70 @@
         </section>
 
         <p class="keys muted" data-i18n-html="keys.help"></p>
+      </div>
+
+      <!-- Engine: load and configure (js/engine-panel.js) -->
+      <div class="tab-body" data-panel="engine" hidden>
+        <section class="card">
+          <h3 data-i18n="eng.card.engine"></h3>
+          <p class="engine-state"><span class="status-dot" id="engDot"></span><span id="engStateText"></span></p>
+          <p class="muted small-text" id="engDetail"></p>
+          <div class="engine-actions cols-2">
+            <button id="engLoad" class="primary" data-i18n="eng.load"></button>
+            <button id="engUnload" data-i18n="eng.unload"></button>
+          </div>
+          <label class="switch-row">
+            <span><span data-i18n="eng.autoload"></span><small data-i18n="eng.autoloadHelp"></small></span>
+            <input type="checkbox" role="switch" class="switch" data-key="engine.autoload">
+          </label>
+          <label class="switch-row">
+            <span><span data-i18n="eng.multi"></span><small data-i18n="eng.multiHelp"></small></span>
+            <input type="checkbox" role="switch" class="switch" data-key="engine.multi">
+          </label>
+        </section>
+
+        <section class="card">
+          <h3 data-i18n="eng.card.search"></h3>
+          <div class="sub-label" data-i18n="eng.rule"></div>
+          <div class="seg" role="group" data-i18n-attr="aria-label:eng.rule">
+            <button data-set="engine.rule:0" data-i18n="eng.rule.0"></button>
+            <button data-set="engine.rule:1" data-i18n="eng.rule.1"></button>
+            <button data-set="engine.rule:4" data-i18n="eng.rule.4"></button>
+          </div>
+          <p class="muted small-text hint" data-i18n="eng.ruleHelp"></p>
+          <div class="sub-label" data-i18n="eng.limits"></div>
+          <p class="muted small-text hint" data-i18n="eng.limitsHelp"></p>
+          <label class="field"><span data-i18n="eng.moveTime"></span><input type="number" min="0" max="3600" step="0.1" data-key="engine.moveTime"></label>
+          <label class="field"><span data-i18n="eng.analysisTime"></span><input type="number" min="0" max="3600" step="0.1" data-key="engine.analysisTime"></label>
+          <label class="field"><span data-i18n="eng.nbest"></span><input type="number" min="1" max="10" data-key="engine.nbest"></label>
+          <label class="field"><span data-i18n="eng.depth"></span><input type="number" min="2" max="99" data-key="engine.depth"></label>
+          <label class="field"><span data-i18n="eng.strength"></span><input type="number" min="0" max="100" data-key="engine.strength"></label>
+          <div class="sub-label" data-i18n="eng.resources"></div>
+          <label class="field"><span data-i18n="eng.threads"></span><input type="number" min="0" max="64" id="engThreads" data-key="engine.threads"></label>
+          <label class="field"><span data-i18n="eng.hash"></span>
+            <select data-key="engine.hash">
+              <option value="32">32</option>
+              <option value="64">64</option>
+              <option value="128">128</option>
+              <option value="256">256</option>
+              <option value="512">512</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="card">
+          <h3 data-i18n="eng.card.tools"></h3>
+          <div class="engine-actions cols-2">
+            <button id="engClearHash" class="small" data-i18n="eng.clearHash"></button>
+            <button id="engHashUsage" class="small" data-i18n="eng.hashUsage"></button>
+          </div>
+          <details class="engine-log">
+            <summary data-i18n="eng.log"></summary>
+            <pre id="engLog" tabindex="0"></pre>
+          </details>
+        </section>
+
+        <p class="muted small-text" data-i18n-html="eng.license"></p>
       </div>
 
       <!-- Settings: grouped by how often the host changes them (board, display, general) -->
@@ -158,6 +277,7 @@
         </section>
 
         <button id="resetSettings" class="link-btn" data-i18n="set.reset"></button>
+        <p class="muted small-text app-version" id="appVersion"></p>
       </div>
 
       <!-- Games -->
@@ -201,13 +321,15 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="js/i18n.js"></script>
-  <script src="js/contrast.js"></script>
-  <script src="js/coords.js"></script>
-  <script src="js/settings.js"></script>
-  <script src="js/game.js"></script>
-  <script src="js/storage.js"></script>
-  <script src="js/board.js"></script>
-  <script src="js/main.js"></script>
+  <script src="js/i18n.js?v=1.1.0"></script>
+  <script src="js/contrast.js?v=1.1.0"></script>
+  <script src="js/coords.js?v=1.1.0"></script>
+  <script src="js/settings.js?v=1.1.0"></script>
+  <script src="js/game.js?v=1.1.0"></script>
+  <script src="js/storage.js?v=1.1.0"></script>
+  <script src="js/board.js?v=1.1.0"></script>
+  <script src="js/engine.js?v=1.1.0"></script>
+  <script src="js/engine-panel.js?v=1.1.0"></script>
+  <script src="js/main.js?v=1.1.0"></script>
 </body>
 </html>

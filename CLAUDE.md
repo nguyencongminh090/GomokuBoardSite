@@ -19,14 +19,23 @@ Product decisions (don't change them unless asked):
 - Vietnamese is the default language; English is the second. Every user-visible string goes through `js/i18n.js`.
 - Going back and playing a different move creates a **branch** (variation tree). Nothing is overwritten.
 - Games persist only in the browser's localStorage. Export/Import JSON is the backup path.
+- The engine (Rapfi, WebAssembly) is optional and never changes the game except by playing a move
+  through the normal `game.play()` path, so its moves branch like any other.
 
 ## Commands
 
 ```bash
-node tests/model.test.js        # model, i18n, contrast and preset tests; no dependencies, exit code 1 on failure
+node tests/model.test.js        # model, i18n, contrast, preset and engine protocol tests; exit code 1 on failure
 xdg-open index.html             # run the site: works straight from file:// (classic scripts, not ES modules)
-python3 -m http.server 8000     # or serve it, same as GitHub Pages
+python3 -m http.server 8000     # or serve it, same as GitHub Pages; the engine only runs when served
+engine/build.sh <rapfi repo>    # rebuild the engine WASM (needs `source ~/emsdk/emsdk_env.sh`)
+node tools/bump-version.js X.Y.Z # set the release version (cache busting); do this before every deploy
 ```
+
+**Versioning:** `index.html` is the single source of the release version (`<meta name="app-version">` plus `?v=` on every
+local asset). `G.VERSION` (in `engine.js`) reads the meta tag; the engine worker URL carries it, and the worker appends
+its own query to the engine files. A new script or stylesheet must get the `?v=` query too (the bump script updates
+any `css/*.css` or `js/*.js` reference).
 
 There is no linter, formatter or bundler. For a UI check without a browser window, headless Chrome can screenshot the page:
 `google-chrome --headless=new --user-data-dir=<scratch dir> --window-size=1400,900 --screenshot=<out.png> file://$PWD/index.html`.
@@ -34,10 +43,10 @@ Use a scratch `--user-data-dir` so the test run doesn't share localStorage with 
 
 ## Architecture
 
-The scripts are classic `<script>` tags, loaded in dependency order in `index.html`: `i18n → contrast → coords → settings → game → storage → board → main`.
+The scripts are classic `<script>` tags, loaded in dependency order in `index.html`: `i18n → contrast → coords → settings → game → storage → board → engine → engine-panel → main`.
 Each is an IIFE that attaches to the global namespace `window.Gomoku` (`G`). Keep it that way: ES modules would break
-`file://` use, and `tests/model.test.js` loads `coords.js`/`game.js` by `eval` with a stub `window`, so those two files
-must stay free of DOM access.
+`file://` use, and `tests/model.test.js` loads `coords.js`/`game.js`/`engine.js` by `eval` with a stub `window`, so
+those files must stay free of DOM access at load time (`engine.js` touches `Worker` only when a load is requested).
 
 - **`game.js` (`G.Game`): the only owner of game state.** Walls are a `Set` of cell keys (`y * size + x`, origin top-left).
   Moves form a variation tree stored as a **flat `nodes` array where a parent always has a lower index than its children**.
@@ -83,6 +92,25 @@ must stay free of DOM access.
 - **`storage.js`** wraps every localStorage access in try/catch. `loadSettings` merges only keys that exist in the defaults
   with a matching type, so renaming a setting silently drops the saved value unless `G.migrateSettings` (in `settings.js`)
   maps the old key onto the new one.
+- **Engine** (`js/engine.js`, `js/engine-panel.js`, `engine/`): Rapfi runs in a Web Worker (`engine/engine.worker.js`)
+  that hosts one of two Emscripten builds: `multi` (pthreads, needs `crossOriginIsolated`) or `single`. Protocol
+  facts the client relies on, verified against `command/gomocup.cpp` of the MINT-P engine:
+  - Every search is one job: `YXBOARD` block (walls as colour `3`, stones in move order with the first player as
+    colour `1`) then `YXNBEST n` / `YXPLAYSELF n` / `YXOPPDIST n`. The block is **authoritative for walls** (it
+    replaces the engine's wall set), so no `INFO WALL` is needed; with walls present it also clears the hash.
+    The block text doubles as the job key: a result applies only while `boardBlock(game)` still equals it.
+  - While thinking, the engine ignores every command except `STOP`/`YXSTOP`/`END`, and it answers **every**
+    search with one move line, stopped or not (the protocol doc says otherwise; the code wins). So a new job waits
+    for that line (`EngineClient.run` queues and stops). The single build cannot hear `YXSTOP` mid-search: stopping
+    it restarts the worker.
+  - Init commands (`SHOW_DETAIL 2`, etc.) must reach the engine before the first job; the detail `INFO` feed is
+    what the analysis table parses (`InfoCollector`). Moves from the opening logic come without that feed.
+  - When loaded inside a worker, Emscripten starts pthreads from the worker's own URL, which is why
+    `engine.worker.js` checks `self.name === 'em-pthread'`.
+  - Rapfi's board limit is 22×22 (`G.engineProtocol.MAX_SIZE`); the site allows 26, so the engine disables itself above 22.
+  - Threads need COOP/COEP; `coi-serviceworker.js` adds them and `engine-panel.js` reloads once (guarded per tab by
+    sessionStorage). Engine settings live under `settings.engine`; number fields commit on `change` and are clamped.
+  - The overlay is a separate SVG layer (`BoardView.setAnalysis`), redrawn without re-rendering the board.
 
 The saved-game JSON format is documented in `README.md`. Changing it needs a migration, because users' existing games
 live in their browsers.

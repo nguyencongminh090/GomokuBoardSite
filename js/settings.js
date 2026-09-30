@@ -23,6 +23,22 @@
     coords: 'edge', // 'edge' (A–Z, 1–N around the board) | 'cell' (spiral numbers inside cells)
     showMoveNumbers: false,
     showLastMove: true,
+    engine: {
+      autoload: false, // load the engine when the page opens
+      multi: true, // multi-threaded build when the page can be cross-origin isolated
+      side: 'none', // player the engine plays after each host move: 'none' | '0' | '1'
+      auto: false, // analyse every position
+      rule: '0', // Rapfi rule id: '0' freestyle | '1' standard | '4' renju
+      moveTime: 5, // seconds per engine move, 0 = no limit (until stopped)
+      analysisTime: 10, // seconds per analysis, 0 = no limit (until stopped)
+      nbest: 3, // candidate moves in an analysis
+      depth: 99,
+      strength: 100, // 0..100
+      threads: 0, // 0 = one per logical CPU
+      hash: '128', // transposition table size in MB
+      selfDist: 3, // YXPLAYSELF distance
+      oppDist: 3, // YXOPPDIST distance
+    },
   };
 
   // Maps settings saved by older versions onto the current shape.

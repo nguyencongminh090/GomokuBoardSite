@@ -475,6 +475,7 @@ input:disabled, select:disabled { opacity: .45; }
   text-underline-offset: 3px;
 }
 .link-btn:hover:not(:disabled) { background: none; color: var(--danger); }
+.app-version { margin: 0; text-align: center; }
 
 /* Games tab */
 .game-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }

@@ -1,4 +1,5 @@
-// Checks for the model (coords, game), i18n dictionaries, contrast maths and colour presets. Run: node tests/model.test.js
+// Checks for the model (coords, game), i18n dictionaries, contrast maths, colour presets and the engine protocol.
+// Run: node tests/model.test.js
 // The site uses classic scripts that attach to window.Gomoku, so they are evaluated with a stub window.
 'use strict';
 
@@ -7,7 +8,7 @@ const path = require('path');
 const assert = require('assert');
 
 global.window = {};
-for (const f of ['js/i18n.js', 'js/contrast.js', 'js/coords.js', 'js/settings.js', 'js/game.js']) {
+for (const f of ['js/i18n.js', 'js/contrast.js', 'js/coords.js', 'js/settings.js', 'js/game.js', 'js/engine.js']) {
   eval(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'));
 }
 const G = window.Gomoku;
@@ -156,4 +157,80 @@ test('old shared wall colour migrates to both themes', () => {
   const raw = G.migrateSettings({ wallColor: '#123456', paper: {} });
   assert.equal(raw.paper.wall, '#123456');
   assert.equal(raw.stone.wall, '#123456');
+});
+
+// ---------- engine protocol ----------
+
+const EP = G.engineProtocol;
+
+test('engine board block: walls as colour 3, stones in move order, first player = 1', () => {
+  const g = G.Game.create(15, 't');
+  g.toggleWall(3, 4);
+  g.toggleWall(0, 0);
+  g.play(7, 7);
+  g.play(8, 8);
+  g.play(9, 7);
+  assert.equal(EP.boardBlock(g), 'YXBOARD\n0,0,3\n3,4,3\n7,7,1\n8,8,2\n9,7,1\nDONE');
+});
+
+test('engine board block follows the cursor, not the end of the line', () => {
+  const g = G.Game.create(15, 't');
+  g.play(7, 7);
+  g.play(8, 8);
+  g.back();
+  assert.equal(EP.boardBlock(g), 'YXBOARD\n7,7,1\nDONE');
+  g.toStart();
+  assert.equal(EP.boardBlock(g, 'BOARD'), 'BOARD\nDONE');
+});
+
+test('engine lines: moves, messages, errors, info and about', () => {
+  assert.deepEqual(EP.parseLine('7,8'), { type: 'move', moves: [[7, 8]] });
+  assert.deepEqual(EP.parseLine('7,8 9,10'), { type: 'move', moves: [[7, 8], [9, 10]] });
+  assert.deepEqual(EP.parseLine('-1,-1'), { type: 'move', moves: [[-1, -1]] });
+  assert.deepEqual(EP.parseLine('OK'), { type: 'ok' });
+  assert.deepEqual(EP.parseLine('MESSAGE Load config from /config.toml'), { type: 'message', text: 'Load config from /config.toml' });
+  assert.deepEqual(EP.parseLine('ERROR Board is not empty.'), { type: 'error', text: 'Board is not empty.' });
+  assert.deepEqual(EP.parseLine('INFO BESTLINE 9,9 7,9'), { type: 'info', key: 'BESTLINE', value: '9,9 7,9' });
+  assert.equal(EP.parseLine('name="Rapfi", version="0.43.02"').type, 'about');
+  assert.equal(EP.parseLine('7,8 9,10 11,12').type, 'other');
+});
+
+test('engine values: centipawns and mate scores', () => {
+  assert.equal(EP.parseValue('-47').cp, -47);
+  assert.deepEqual(EP.parseValue('+M5'), { text: '+M5', mate: 1, plies: 5 });
+  assert.deepEqual(EP.parseValue('-M12'), { text: '-M12', mate: -1, plies: 12 });
+  assert.equal(EP.parseValue('+M*').mate, 1);
+});
+
+test('engine INFO feed is collected per principal variation', () => {
+  const c = new EP.InfoCollector();
+  const feed = (pv, depth, line) => {
+    const done = [['PV', String(pv)], ['NUMPV', '2'], ['DEPTH', String(depth)], ['SELDEPTH', '9'], ['EVAL', '-47'],
+      ['WINRATE', '0.41'], ['BESTLINE', line], ['PV', 'DONE']].map(([k, v]) => c.add(k, v));
+    return done[done.length - 1];
+  };
+  assert.equal(feed(0, 2, '9,9 7,9'), true);
+  feed(1, 2, '6,6');
+  feed(0, 3, '5,5 9,9 1,1');
+  assert.equal(c.lines.length, 2);
+  assert.equal(c.lines[0].depth, 3);
+  assert.deepEqual(c.lines[0].line, [[5, 5], [9, 9], [1, 1]]);
+  assert.equal(c.lines[1].depth, 2, 'other PVs keep their last completed depth');
+  assert.equal(c.lines[0].winrate, 0.41);
+});
+
+test('engine config commands use KB for the hash and turn time in ms', () => {
+  const cmds = new Map(EP.configCommands({ rule: 4, threads: 8, hashMB: 128, depth: 99, strength: 100, timeMs: 5000 }));
+  assert.equal(cmds.get('HASH_SIZE'), 131072);
+  assert.equal(cmds.get('TIMEOUT_TURN'), 5000);
+  assert.equal(cmds.get('TIMEOUT_MATCH'), 0);
+  assert.equal(cmds.get('RULE'), 4);
+});
+
+test('engine settings defaults have the types their controls produce', () => {
+  const e = G.DEFAULT_SETTINGS.engine;
+  for (const k of ['moveTime', 'analysisTime', 'nbest', 'depth', 'strength', 'threads', 'selfDist', 'oppDist']) {
+    assert.equal(typeof e[k], 'number', k);
+  }
+  for (const k of ['side', 'rule', 'hash']) assert.equal(typeof e[k], 'string', k);
 });

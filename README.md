@@ -22,18 +22,47 @@ while players call their moves over voice (TikTok live, video calls, ...). No se
 - **Languages**: Vietnamese (default) and English. Switch in Settings or with the VI/EN button in the top bar.
 - **Saved games**: every game is saved in the browser (localStorage) automatically. Starting a new
   game keeps the previous one under *Games*. Export/Import to JSON for backups.
+- **Engine** (Rapfi, WebAssembly, runs in the browser): analyze a position (top moves with eval, win
+  chance, depth and line, marked on the board; hover a line to preview it), auto-analysis on every
+  position change, *Engine move*, *Engine plays X / O* (answers each host move), and distance moves
+  (`YXPLAYSELF` / `YXOPPDIST`). Walls are sent to the engine, which treats them as line blockers.
+  The *Engine* tab loads it and sets rule, time, suggestions, depth, strength, threads and hash.
+  Boards up to 22×22 (Rapfi's limit). The board itself still enforces no rules.
 
 Keyboard: `←` `→` back/forward · `↑` `↓` switch branch · `Home` `End` · `S` setup · `N` new game ·
-`F` hide the side panel (board only, for streaming).
+`F` hide the side panel (board only, for streaming) · `A` analyze / stop · `E` engine move.
 
 ## Run locally
 
-Open `index.html` in a browser. It uses plain scripts (no ES modules), so it also works from `file://`.
+Open `index.html` in a browser. It uses plain scripts (no ES modules), so it also works from `file://`,
+except the engine: browsers do not run Web Workers or WebAssembly files from `file://`. For the engine,
+serve the folder: `python3 -m http.server 8000` and open <http://localhost:8000>.
+
+## Engine threads
+
+The multi-threaded engine needs `SharedArrayBuffer`, which browsers only allow on cross-origin isolated
+pages (COOP/COEP headers). GitHub Pages cannot send those headers, so when multi-threading is on (the
+default), loading the engine registers `coi-serviceworker.js`, which adds them, and reloads the page
+once. Without service workers (or when isolation fails) the single-threaded build is used, and it
+stops a search by restarting the engine. See `engine/README.md` for the engine files, their GPLv3
+licence and how to rebuild them.
 
 ## Deploy to GitHub Pages
 
 1. Push this folder to a GitHub repository.
 2. Go to *Settings → Pages* and set *Source* to "Deploy from a branch", then pick the branch and `/ (root)`.
+
+### Releasing a new version
+
+Browsers cache the site's files (GitHub Pages allows about 10 minutes). Before pushing changes, bump the version:
+
+```bash
+node tools/bump-version.js 1.2.0
+```
+
+It updates `index.html`: the `app-version` meta tag and the `?v=` query on every stylesheet and script. The engine
+worker passes the same query on to the engine's `.js`, `.wasm` and `.data` files, so a returning visitor gets the whole
+new release at once instead of a mix of old and new files. The current version is shown at the bottom of *Settings*.
 
 ## Files
 
@@ -46,8 +75,13 @@ Open `index.html` in a browser. It uses plain scripts (no ES modules), so it als
 | `js/settings.js` | Default settings and colour presets |
 | `js/i18n.js` | UI strings (vi, en) and the `data-i18n` markup translator |
 | `js/contrast.js` | WCAG contrast ratios, fix suggestions and the board colour audit |
+| `js/engine.js` | Engine client: Web Worker lifecycle, search jobs, protocol builder and parser |
+| `js/engine-panel.js` | Engine tab, engine block of the Play tab, board overlay |
 | `js/main.js` | UI wiring, panels, keyboard, import/export |
-| `tests/model.test.js` | Model tests: `node tests/model.test.js` |
+| `engine/` | Rapfi WebAssembly builds, their worker host and build script (GPLv3, see `engine/README.md`) |
+| `tools/bump-version.js` | Sets the release version used for cache busting (see *Releasing a new version*) |
+| `coi-serviceworker.js` | Adds COOP/COEP headers so the multi-threaded engine can run on GitHub Pages |
+| `tests/model.test.js` | Model and engine protocol tests: `node tests/model.test.js` |
 
 ## Saved game format
 
