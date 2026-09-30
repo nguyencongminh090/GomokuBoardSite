@@ -174,7 +174,7 @@
     const finishes = [];
     for (let i = 0; i < line.length; i++) {
       const [x, y] = line[i];
-      if (x < 0 || stones.has(y * board.size + x)) break;
+      if (x < 0 || stones.has(y * board.size + x) || board.walls.has(y * board.size + x)) break;
       stones.set(y * board.size + x, (first + i) % 2);
       const a = analyze(b, x, y);
       kinds.push(a.five ? 'five' : a.fours ? 'four' : a.threes ? 'three' : '');

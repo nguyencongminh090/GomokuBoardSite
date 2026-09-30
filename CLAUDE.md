@@ -128,7 +128,10 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
   - Rapfi's board limit is 22×22 (`G.engineProtocol.MAX_SIZE`); the site allows 26, so the engine disables itself above 22.
   - Threads need COOP/COEP; `coi-serviceworker.js` adds them and `engine-panel.js` reloads once (guarded per tab by
     sessionStorage). Engine settings live under `settings.engine`; number fields commit on `change` and are clamped.
-  - The overlay is a separate SVG layer (`BoardView.setAnalysis`), redrawn without re-rendering the board.
+  - The overlay is a separate SVG layer (`BoardView.setAnalysis`), redrawn without re-rendering the board. A previewed line is
+    drawn at full length; hovering a move in the PV column, or the mouse wheel over the board (`scrollPreview`), sets how many
+    moves show. The preview survives moving the pointer from the table onto the board, and is cleared on leaving both.
+    Attack chain colours: VCF red, VCT purple (`ATTACK` in `board.js`, `.atk` in CSS).
 
 The saved-game JSON format is documented in `README.md`. Changing it needs a migration, because users' existing games
 live in their browsers.

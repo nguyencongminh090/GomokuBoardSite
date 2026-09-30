@@ -13,7 +13,6 @@
   // 'reload' = reloading now, load the engine when the page is back; 'tried' = done for this tab.
   const ISOLATE_KEY = 'gomoku-board.engine.isolate';
   const LOG_LINES = 400;
-  const PREVIEW_MOVES = 12; // moves of a line drawn on the board; long lines bury the position
 
   function session(value) {
     try {
@@ -65,6 +64,7 @@
     let status = ''; // loader progress text
     let result = null; // { key, kind, toMove, lines, done } analysis of the position on the board
     let preview = -1; // index of the result line shown on the board
+    let step = 0; // moves of that line shown (hover on a move, or scroll on the board); 0 = the whole line
     let lastEngine = null; // engine settings at the previous settingsChanged(), to react to changes
     let wasReady = false; // true once loaded; stays true while the single-threaded build restarts after a stop
     let frame = 0;
@@ -358,6 +358,7 @@
       renderEval(lines[0]);
       const table = $('#engLines');
       table.hidden = !lines.length;
+      $('#engLegend').hidden = !lines.length;
       // The rows are rebuilt on every search update: keep keyboard focus on the same row's button.
       const focused = table.contains(document.activeElement) ? document.activeElement.dataset.engplay : undefined;
       table.querySelector('tbody').innerHTML = lines.map((l, i) => {
@@ -366,14 +367,14 @@
         const chain = attackChain(l.line);
         const end = chain ? finishText(chain.finish) : '';
         const tag = chain ? ` <span class="atk ${chain.kind}" title="${esc(t('eng.attackHelp', { kind: chain.kind, n: Math.ceil(chain.moves / 2), end }))}">${chain.kind}${end ? `·${esc(end)}` : ''}</span>` : '';
-        const rest = l.line.slice(0, 8).map(([a, b]) => app.cellText(a, b)).join(' ');
+        const rest = l.line.map(([a, b], k) => `<span class="pvm${i === preview && k + 1 === step ? ' cur' : ''}" data-step="${k + 1}">${esc(app.cellText(a, b))}</span>`).join(' ');
         return `<tr data-line="${i}" class="${i === preview ? 'on' : ''}">` +
           `<td>${i + 1}</td>` +
           `<td><button class="small" data-engplay="${i}" title="${esc(t('eng.playLine', { move }))}"${x >= 0 ? '' : ' disabled'}>${esc(move)}</button></td>` +
           `<td>${esc(valueText(l.value))}</td>` +
           `<td>${l.winrate === undefined ? '–' : pct(l.winrate)}</td>` +
           `<td>${l.depth === undefined ? '–' : `${l.depth}-${l.selDepth}`}</td>` +
-          `<td class="pv">${tag}${esc(rest)}${l.line.length > 8 ? ' …' : ''}</td></tr>`;
+          `<td class="pv">${tag}${rest}</td></tr>`;
       }).join('');
       if (focused !== undefined) {
         const b = table.querySelector(`[data-engplay="${focused}"]`);
@@ -416,8 +417,9 @@
         return;
       }
       if (preview >= 0 && lines[preview]) {
-        const line = lines[preview].line.slice(0, PREVIEW_MOVES);
-        app.board.setAnalysis({ line, first: result.toMove, chain: attackChain(line) });
+        const full = lines[preview].line;
+        const n = step > 0 && step < full.length ? step : full.length;
+        app.board.setAnalysis({ line: full.slice(0, n), first: result.toMove, chain: attackChain(full), mark: n < full.length ? n - 1 : -1 });
         return;
       }
       const cands = [];
@@ -433,11 +435,31 @@
       app.board.setAnalysis({ cands, busy: busy() });
     }
 
-    function setPreview(i) {
-      if (i === preview) return;
+    // Shows line i on the board up to `n` moves (0 = all); i = -1 goes back to the candidate markers.
+    function setPreview(i, n = 0) {
+      if (i === preview && n === step) return;
       preview = i;
+      step = i < 0 ? 0 : n;
       for (const tr of $$('#engLines tbody tr')) tr.classList.toggle('on', Number(tr.dataset.line) === i);
+      for (const m of $$('#engLines .pvm')) {
+        m.classList.toggle('cur', step > 0 && Number(m.closest('tr').dataset.line) === i && Number(m.dataset.step) === step);
+      }
       renderOverlay();
+    }
+
+    // Mouse wheel over the board walks the previewed line one move per notch (down = forward); it starts at the
+    // best line and leaves the line again when scrolled back past its first move.
+    function scrollPreview(dir) {
+      const lines = result ? shownLines(result.lines) : [];
+      if (!lines.length) return false;
+      const i = preview >= 0 ? preview : 0;
+      const len = lines[i].line.length;
+      const cur = preview >= 0 ? step || len : 0;
+      const next = Math.max(0, Math.min(len, cur + dir));
+      if (next === cur && preview >= 0) return true;
+      if (next === 0) setPreview(-1);
+      else setPreview(i, next);
+      return true;
     }
 
     // ---------- controls ----------
@@ -455,11 +477,23 @@
     $('#engLog').closest('details').addEventListener('toggle', renderEngineTab);
 
     const table = $('#engLines');
+    const boardWrap = app.board.svg.parentElement;
     table.addEventListener('pointerover', (e) => {
       const tr = e.target.closest('tr[data-line]');
-      if (tr) setPreview(Number(tr.dataset.line));
+      const m = e.target.closest('.pvm');
+      if (tr) setPreview(Number(tr.dataset.line), m ? Number(m.dataset.step) : 0);
     });
-    table.addEventListener('pointerleave', () => setPreview(-1));
+    // Going from the table onto the board keeps the line, so the wheel can walk it there.
+    table.addEventListener('pointerleave', (e) => {
+      if (!(e.relatedTarget && boardWrap.contains(e.relatedTarget))) setPreview(-1);
+    });
+    app.board.svg.addEventListener('pointerleave', (e) => {
+      if (!(e.relatedTarget && table.contains(e.relatedTarget))) setPreview(-1);
+    });
+    app.board.svg.addEventListener('wheel', (e) => {
+      if (e.ctrlKey || !e.deltaY || app.mode() === 'setup') return; // ctrl + wheel is the browser's zoom
+      if (scrollPreview(e.deltaY > 0 ? 1 : -1)) e.preventDefault();
+    }, { passive: false });
     table.addEventListener('focusin', (e) => {
       const tr = e.target.closest('tr[data-line]');
       if (tr) setPreview(Number(tr.dataset.line));

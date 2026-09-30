@@ -6,6 +6,7 @@
 
   const P = 40;
   const f = (n) => Math.round(n * 10) / 10;
+  const ATTACK = { VCF: '#b91c1c', VCT: '#7c3aed' }; // attack chain colours: fours only / fours and open threes
   const f3 = (n) => Math.round(n * 1000) / 1000;
 
   // Small deterministic PRNG so hand-drawn pieces keep their shape between renders.
@@ -424,7 +425,7 @@
     }
 
     // Engine overlay, drawn in its own layer (like the hover ghost) so search updates don't re-render the board.
-    // overlay: { cands: [{ x, y, rank, label, tier, tag }], busy, line: [[x, y], ...] | null, first: player of line[0], chain: G.threats.chain result | null } or null.
+    // overlay: { cands: [{ x, y, rank, label, tier, tag }], busy, line: [[x, y], ...] | null, first: player of line[0], chain: G.threats.chain result | null, mark: index of the move to stress | -1 } or null.
     // tier (1 best, 2 close, 3 weaker, 0 unknown) sets the marker colour and size; busy pulses the best marker.
     // A line (a previewed variation) replaces the candidate markers while it is shown.
     setAnalysis(overlay) {
@@ -450,18 +451,17 @@
       const out = [];
       if (a.line && a.line.length) {
         // Moves of the continuous attack (a.chain) are solid and ringed by threat; the rest of the line is faint.
-        const RING = { five: '#b91c1c', four: '#b91c1c', three: '#a16207' };
         const n = a.chain ? a.chain.moves : 0;
         a.line.forEach(([x, y], i) => {
           const player = (a.first + i) % 2;
           const attack = i < n && i % 2 === 0;
           out.push(`<g opacity="${i < n ? (attack ? 0.9 : 0.55) : 0.3}">${piece(player, c(x), c(y), s, game.key(x, y))}</g>`);
           if (attack) {
-            out.push(`<circle class="threat ${a.chain.kinds[i]}" cx="${c(x)}" cy="${c(y)}" r="${f(P * 0.46)}" stroke="${RING[a.chain.kinds[i]]}"/>`);
+            out.push(`<circle class="threat ${a.chain.kinds[i]}" cx="${c(x)}" cy="${c(y)}" r="${f(P * 0.46)}" stroke="${ATTACK[a.chain.kind]}"/>`);
           }
           const fill = paper ? ink : player ? '#1a1a1a' : '#f4f4f4';
           const halo = paper ? ` stroke="${bg}" stroke-width="4" paint-order="stroke"` : '';
-          out.push(`<text class="pvnum" x="${c(x)}" y="${c(y)}" dy=".36em" fill="${fill}"${halo}>${i + 1}</text>`);
+          out.push(`<text class="pvnum${i === a.mark ? ' cur' : ''}" x="${c(x)}" y="${c(y)}" dy=".36em" fill="${fill}"${halo}>${i + 1}</text>`);
         });
       } else {
         const RADIUS = [10.5, 12, 11, 9.5];
@@ -474,7 +474,7 @@
           out.push(`<g class="cand t${tier}${best ? ' best' : ''}">${pulse}<circle cx="${c(x)}" cy="${c(y)}" r="${r}"/>` +
             `<text x="${c(x)}" y="${c(y)}" dy=".36em">${rank}</text></g>`);
           if (tag) {
-            out.push(`<text class="cand-tag" x="${c(x)}" y="${f(c(y) - r - 4)}" fill="${ink}" stroke="${bg}" stroke-width="3" paint-order="stroke">${tag}</text>`);
+            out.push(`<text class="cand-tag" x="${c(x)}" y="${f(c(y) - r - 4)}" fill="${ATTACK[tag]}" stroke="${bg}" stroke-width="3" paint-order="stroke">${tag}</text>`);
           }
           if (label) {
             out.push(`<text class="cand-label" x="${c(x)}" y="${f(c(y) + r + 10)}" fill="${ink}" stroke="${bg}" stroke-width="3" paint-order="stroke">${label}</text>`);

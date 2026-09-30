@@ -178,6 +178,7 @@ select, input[type="number"], .field input:not([type]) {
 #board .cand-tag { dominant-baseline: alphabetic; font-size: 8px; font-weight: 700; letter-spacing: .02em; }
 @keyframes cand-pulse { from { transform: scale(1); opacity: .9; } to { transform: scale(2); opacity: 0; } }
 #board .cand-label { dominant-baseline: alphabetic; font-size: 9px; font-weight: 700; }
+#board .pvnum.cur { font-size: 19px; }
 #board .pvnum { dominant-baseline: alphabetic; font-size: 15px; font-weight: 700; }
 .setup #board { cursor: crosshair; }
 
@@ -313,9 +314,12 @@ kbd {
 .pv-table td { padding: 3px 4px; border-top: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pv-table td button { width: 100%; padding: 2px 4px; }
 .pv-table tr.on td { background: var(--accent-soft); }
-.pv-table .atk { display: inline-block; padding: 0 4px; margin-right: 4px; border-radius: 3px; background: #b91c1c; color: #fff; font-size: 10px; font-weight: 700; }
-.pv-table .atk.VCT { background: #a16207; }
-.pv-table .pv { color: var(--muted); font-size: 12px; }
+.atk { display: inline-block; padding: 0 4px; margin-right: 4px; border-radius: 3px; background: #b91c1c; color: #fff; font-size: 10px; font-weight: 700; }
+.atk.VCT { background: #7c3aed; }
+.pv-legend { margin: 6px 0 0; }
+.pvm { cursor: default; border-radius: 3px; }
+.pvm:hover, .pvm.cur { background: var(--accent-soft); color: var(--text); }
+.pv-table .pv { color: var(--muted); font-size: 12px; white-space: normal; overflow-wrap: anywhere; }
 .engine-dist summary, .engine-log summary { cursor: pointer; color: var(--muted); font-size: 13px; padding: 4px 0; }
 .engine-dist p { margin: 2px 0 8px; }
 .dist-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; }

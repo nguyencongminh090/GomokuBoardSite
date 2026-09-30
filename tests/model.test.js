@@ -359,3 +359,24 @@ test('threat defences: the forced block of a four and of an open three', () => {
   b = threatBoard(15, [[4, 7, 0], [5, 7, 0], [6, 7, 0], [7, 7, 0], [4, 8, 1], [5, 8, 1], [6, 8, 1], [7, 8, 1]]);
   assert.equal(T.defences(b, 1), null);
 });
+
+test('threats treat walls like the board edge', () => {
+  const T = G.threats;
+  const at = (x, y) => y * 15 + x;
+  // four with a wall on one end is still a four (one completing cell); walls on both ends make it dead
+  let b = threatBoard(15, [[4, 7, 0], [5, 7, 0], [6, 7, 0], [7, 7, 0]], [at(3, 7)]);
+  assert.equal(T.classify(b, 7, 7), 'four');
+  assert.deepEqual(T.defences(threatBoard(15, [[4, 7, 0], [5, 7, 0], [6, 7, 0], [7, 7, 0]], [at(3, 7)]), 1), [at(8, 7)]);
+  b = threatBoard(15, [[4, 7, 0], [5, 7, 0], [6, 7, 0], [7, 7, 0]], [at(3, 7), at(8, 7)]);
+  assert.equal(T.classify(b, 7, 7), '');
+  // stones on the far side of a wall do not join the line
+  b = threatBoard(15, [[4, 7, 0], [5, 7, 0], [7, 7, 0], [8, 7, 0], [9, 7, 0]], [at(6, 7)]);
+  assert.equal(T.classify(b, 9, 7), '');
+  // a wall next to the stone makes an open three half-open: no three, and no map entry for the cell behind it
+  b = threatBoard(15, [[5, 7, 0], [6, 7, 0], [7, 7, 0]], [at(4, 7)]);
+  assert.equal(T.classify(b, 7, 7), '');
+  // a line that steps onto a wall ends the chain there
+  b = threatBoard(15, [[5, 7, 0], [6, 7, 0], [7, 7, 0], [7, 5, 0], [7, 6, 0]], [at(9, 7)]);
+  assert(T.chain(b, [[8, 7], [1, 1], [7, 8]], 0) === null || T.chain(b, [[9, 7], [1, 1], [7, 8]], 0) === null);
+  assert(T.chain(b, [[9, 7], [1, 1], [7, 8]], 0) === null);
+});
