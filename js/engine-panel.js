@@ -406,12 +406,15 @@
         return;
       }
       const cands = [];
+      const top = lines[0].winrate;
       lines.forEach((l, i) => {
         const first = l.line[0];
         if (!first || first[0] < 0) return;
-        cands.push({ x: first[0], y: first[1], rank: i + 1, label: l.winrate === undefined ? '' : pct(l.winrate) });
+        const gap = l.winrate === undefined || top === undefined ? -1 : top - l.winrate;
+        const tier = gap < 0 ? 0 : gap <= 0.03 ? 1 : gap <= 0.1 ? 2 : 3;
+        cands.push({ x: first[0], y: first[1], rank: i + 1, tier, label: l.winrate === undefined ? '' : pct(l.winrate) });
       });
-      app.board.setAnalysis({ cands });
+      app.board.setAnalysis({ cands, busy: busy() });
     }
 
     function setPreview(i) {

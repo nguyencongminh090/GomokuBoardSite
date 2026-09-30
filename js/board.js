@@ -384,13 +384,15 @@
       out.push('<g class="analysis"></g><g class="ghost"></g>');
       this.svg.innerHTML = out.join('');
       this.analysisLayer = this.svg.querySelector('.analysis');
+      this.analysisHtml = '';
       this.ghost = this.svg.querySelector('.ghost');
       this.drawAnalysis();
       this.drawGhost();
     }
 
     // Engine overlay, drawn in its own layer (like the hover ghost) so search updates don't re-render the board.
-    // overlay: { cands: [{ x, y, rank, label }], line: [[x, y], ...] | null, first: player of line[0] } or null.
+    // overlay: { cands: [{ x, y, rank, label, tier }], busy, line: [[x, y], ...] | null, first: player of line[0] } or null.
+    // tier (1 best, 2 close, 3 weaker, 0 unknown) sets the marker colour and size; busy pulses the best marker.
     // A line (a previewed variation) replaces the candidate markers while it is shown.
     setAnalysis(overlay) {
       this.analysis = overlay;
@@ -404,6 +406,7 @@
       const a = this.analysis;
       if (!a) {
         layer.innerHTML = '';
+        this.analysisHtml = '';
         return;
       }
       const { game, s, m } = st;
@@ -413,23 +416,37 @@
       const ink = G.contrast.ink(bg)[0] ? '#fff' : '#1a1a1a'; // same rule as the board's other text
       const out = [];
       if (a.line && a.line.length) {
+        if (a.line.length > 1) {
+          const pts = a.line.map(([x, y]) => `${c(x)},${c(y)}`).join(' ');
+          out.push(`<polyline class="pvpath" points="${pts}" stroke="${ink}"/>`);
+        }
         a.line.forEach(([x, y], i) => {
           const player = (a.first + i) % 2;
           out.push(`<g opacity=".6">${piece(player, c(x), c(y), s, game.key(x, y))}</g>`);
           const fill = paper ? ink : player ? '#1a1a1a' : '#f4f4f4';
           const halo = paper ? ` stroke="${bg}" stroke-width="4" paint-order="stroke"` : '';
-          out.push(`<text class="pvnum" x="${c(x)}" y="${c(y)}" fill="${fill}"${halo}>${i + 1}</text>`);
+          out.push(`<text class="pvnum" x="${c(x)}" y="${c(y)}" dy=".36em" fill="${fill}"${halo}>${i + 1}</text>`);
         });
       } else {
-        for (const { x, y, rank, label } of a.cands || []) {
-          out.push(`<g class="cand${rank === 1 ? ' best' : ''}"><circle cx="${c(x)}" cy="${c(y)}" r="${rank === 1 ? 12 : 10.5}"/>` +
-            `<text x="${c(x)}" y="${c(y)}">${rank}</text></g>`);
+        const RADIUS = [10.5, 12, 11, 9.5];
+        // Draw the best marker last so a weaker neighbour never covers it.
+        const cands = (a.cands || []).slice().sort((p, q) => q.rank - p.rank);
+        for (const { x, y, rank, label, tier = 0 } of cands) {
+          const best = rank === 1;
+          const r = best ? 13 : RADIUS[tier];
+          const pulse = best && a.busy ? `<circle class="pulse" cx="${c(x)}" cy="${c(y)}" r="${r}"/>` : '';
+          out.push(`<g class="cand t${tier}${best ? ' best' : ''}">${pulse}<circle cx="${c(x)}" cy="${c(y)}" r="${r}"/>` +
+            `<text x="${c(x)}" y="${c(y)}" dy=".36em">${rank}</text></g>`);
           if (label) {
-            out.push(`<text class="cand-label" x="${c(x)}" y="${f(c(y) + P * 0.42)}" fill="${ink}" stroke="${bg}" stroke-width="3" paint-order="stroke">${label}</text>`);
+            out.push(`<text class="cand-label" x="${c(x)}" y="${f(c(y) + r + 10)}" fill="${ink}" stroke="${bg}" stroke-width="3" paint-order="stroke">${label}</text>`);
           }
         }
       }
-      layer.innerHTML = out.join('');
+      // Skip identical markup so a running pulse animation is not restarted by every search update.
+      const html = out.join('');
+      if (html === this.analysisHtml) return;
+      this.analysisHtml = html;
+      layer.innerHTML = html;
     }
 
     setHover(cell) {
