@@ -43,9 +43,9 @@ Use a scratch `--user-data-dir` so the test run doesn't share localStorage with 
 
 ## Architecture
 
-The scripts are classic `<script>` tags, loaded in dependency order in `index.html`: `i18n → contrast → coords → settings → game → security → storage → board → engine → engine-panel → security-panel → main`.
+The scripts are classic `<script>` tags, loaded in dependency order in `index.html`: `i18n → contrast → coords → settings → game → security → storage → threats → board → engine → engine-panel → security-panel → main`.
 Each is an IIFE that attaches to the global namespace `window.Gomoku` (`G`). Keep it that way: ES modules would break
-`file://` use, and `tests/model.test.js` loads `coords.js`/`game.js`/`security.js`/`engine.js` by `eval` with a stub `window`, so
+`file://` use, and `tests/model.test.js` loads `coords.js`/`game.js`/`security.js`/`threats.js`/`engine.js` by `eval` with a stub `window`, so
 those files must stay free of DOM access at load time (`engine.js` touches `Worker` only when a load is requested).
 
 - **`game.js` (`G.Game`): the only owner of game state.** Walls are a `Set` of cell keys (`y * size + x`, origin top-left).
@@ -64,6 +64,12 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
     and each line is nudged onto the pixel grid, with its width in whole device pixels. Don't size `#board` from CSS,
     don't draw grid lines at raw `m + i * P` coordinates, and don't add `shape-rendering="crispEdges"`: any of these
     brings back lines that render at uneven thickness. A `ResizeObserver` redraws when the available space changes.
+- **`threats.js` (`G.threats`)** is pure freestyle threat analysis (no DOM; walls, edges and enemy stones block), modelled on
+  Rapfi's pattern classes (`core/types.h` `Pattern4`). `analyze`/`finish` classify a placed stone (five, open four, 4-4, 4-3,
+  3-3); `map` lists those cells for a player; `defences` gives the cells the side to move must choose from (fives, open fours,
+  double fours; counter-threats are ignored); `chain` replays an engine PV and returns the continuous attack (VCF: only fours,
+  VCT: fours and open threes, at least 2 attacking moves) with its winning `finish`. The engine never reports this, so it is
+  recomputed client-side. `settings.threatMap` draws `map` tags and `defences` rings (`BoardView.threatMap`, play mode only).
 - **`main.js`** holds app state (`game`, `mode: 'play' | 'setup'`, `settings`). The flow is always: mutate `game` → `persist()`
   (debounced localStorage write, flushed on `pagehide`) → `refresh()` (board + panels re-rendered from state).
   Settings controls are bound generically: inputs use `data-key="path.in.settings"` (checkbox/colour/select) and option

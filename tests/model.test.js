@@ -8,7 +8,7 @@ const path = require('path');
 const assert = require('assert');
 
 global.window = {};
-for (const f of ['js/i18n.js', 'js/contrast.js', 'js/coords.js', 'js/settings.js', 'js/game.js', 'js/security.js', 'js/engine.js']) {
+for (const f of ['js/i18n.js', 'js/contrast.js', 'js/coords.js', 'js/settings.js', 'js/game.js', 'js/security.js', 'js/threats.js', 'js/engine.js']) {
   eval(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'));
 }
 const G = window.Gomoku;
@@ -301,3 +301,61 @@ test('engine settings defaults have the types their controls produce', () => {
     assert.equal(c.next, null);
   });
 })();
+
+function threatBoard(size, stones, walls = []) {
+  return { size, walls: new Set(walls), stones: new Map(stones.map(([x, y, p]) => [y * size + x, p])) };
+}
+
+test('threat classifier: five, four, open three, blocked three', () => {
+  const T = G.threats;
+  let b = threatBoard(15, [[3, 7, 0], [4, 7, 0], [5, 7, 0], [6, 7, 0], [7, 7, 0]]);
+  assert.equal(T.classify(b, 7, 7), 'five');
+  b = threatBoard(15, [[4, 7, 0], [5, 7, 0], [6, 7, 0], [7, 7, 0]]);
+  assert.equal(T.classify(b, 7, 7), 'four');
+  b = threatBoard(15, [[5, 7, 0], [6, 7, 0], [7, 7, 0]]);
+  assert.equal(T.classify(b, 7, 7), 'three');
+  b = threatBoard(15, [[5, 7, 0], [6, 7, 0], [7, 7, 0], [4, 7, 1], [8, 7, 1]]);
+  assert.equal(T.classify(b, 7, 7), '');
+  b = threatBoard(15, [[5, 7, 0], [6, 7, 0], [7, 7, 0]], [7 * 15 + 4, 7 * 15 + 8]);
+  assert.equal(T.classify(b, 7, 7), '');
+});
+
+test('threat chain: VCF of two fours, VCT with a three, no chain for one threat', () => {
+  const T = G.threats;
+  // cross has 3 in a row (5..7, 7) and another three in a column (7, 5..6 + 7); cross plays four then four
+  const b = threatBoard(15, [[5, 7, 0], [6, 7, 0], [7, 7, 0], [7, 5, 0], [7, 6, 0], [1, 1, 1], [2, 1, 1]]);
+  const c = T.chain(b, [[8, 7], [9, 7], [7, 8], [1, 2], [7, 9]], 0);
+  assert(c, 'chain expected');
+  assert.equal(c.kind, 'VCF');
+  assert(T.chain(b, [[8, 7], [9, 7]], 0) === null, 'single attack is not a chain');
+});
+
+test('threat finish: open four, 4-3 and 3-3 combinations', () => {
+  const T = G.threats;
+  let b = threatBoard(15, [[5, 7, 0], [6, 7, 0], [7, 7, 0]]);
+  assert.equal(T.finish(b, 7, 7), ''); // a lone three is not a finish
+  b = threatBoard(15, [[5, 7, 0], [6, 7, 0], [7, 7, 0], [8, 7, 0]]);
+  assert.equal(T.finish(b, 8, 7), 'open4');
+  // 4-3 through (7,7): four along the row (4..7 blocked left by X at 3) and open three down the column
+  b = threatBoard(15, [[4, 7, 0], [5, 7, 0], [6, 7, 0], [7, 7, 0], [3, 7, 1], [7, 5, 0], [7, 6, 0]]);
+  assert.equal(T.finish(b, 7, 7), '4-3');
+  // 3-3: open three along the row and along the column
+  b = threatBoard(15, [[5, 7, 0], [6, 7, 0], [7, 7, 0], [7, 5, 0], [7, 6, 0]]);
+  assert.equal(T.finish(b, 7, 7), '3-3');
+});
+
+test('threat defences: the forced block of a four and of an open three', () => {
+  const T = G.threats;
+  // cross (0) has a four, white (1) to move must block the one completing cell
+  let b = threatBoard(15, [[4, 7, 0], [5, 7, 0], [6, 7, 0], [7, 7, 0], [3, 7, 1]]);
+  assert.deepEqual(T.defences(b, 1), [7 * 15 + 8]);
+  // open three: blocking cells are the extension cells; a far-away cell is not a defence
+  b = threatBoard(15, [[5, 7, 0], [6, 7, 0], [7, 7, 0]]);
+  const d = T.defences(b, 1);
+  assert(d.includes(7 * 15 + 4) && d.includes(7 * 15 + 8));
+  assert(!d.includes(0));
+  assert.equal(T.defences(threatBoard(15, [[7, 7, 0]]), 1), null);
+  // side to move wins at once: nothing to defend
+  b = threatBoard(15, [[4, 7, 0], [5, 7, 0], [6, 7, 0], [7, 7, 0], [4, 8, 1], [5, 8, 1], [6, 8, 1], [7, 8, 1]]);
+  assert.equal(T.defences(b, 1), null);
+});

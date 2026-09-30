@@ -363,6 +363,9 @@
       table.querySelector('tbody').innerHTML = lines.map((l, i) => {
         const [x, y] = l.line[0] || [-1, -1];
         const move = x >= 0 ? app.cellText(x, y) : '–';
+        const chain = attackChain(l.line);
+        const end = chain ? finishText(chain.finish) : '';
+        const tag = chain ? ` <span class="atk ${chain.kind}" title="${esc(t('eng.attackHelp', { kind: chain.kind, n: Math.ceil(chain.moves / 2), end }))}">${chain.kind}${end ? `·${esc(end)}` : ''}</span>` : '';
         const rest = l.line.slice(0, 8).map(([a, b]) => app.cellText(a, b)).join(' ');
         return `<tr data-line="${i}" class="${i === preview ? 'on' : ''}">` +
           `<td>${i + 1}</td>` +
@@ -370,7 +373,7 @@
           `<td>${esc(valueText(l.value))}</td>` +
           `<td>${l.winrate === undefined ? '–' : pct(l.winrate)}</td>` +
           `<td>${l.depth === undefined ? '–' : `${l.depth}-${l.selDepth}`}</td>` +
-          `<td class="pv">${esc(rest)}${l.line.length > 8 ? ' …' : ''}</td></tr>`;
+          `<td class="pv">${tag}${esc(rest)}${l.line.length > 8 ? ' …' : ''}</td></tr>`;
       }).join('');
       if (focused !== undefined) {
         const b = table.querySelector(`[data-engplay="${focused}"]`);
@@ -395,6 +398,17 @@
       });
     }
 
+    // Short text of a winning combination: 'open4' -> localised, '4-3' stays as is, five and '' give nothing.
+    const finishText = (f) => (f === 'open4' ? t('eng.openFour') : f === 'five' ? '' : f);
+
+    // Continuous attack (VCF / VCT) in a line, found by replaying it on the position the search ran on.
+    function attackChain(line) {
+      const game = app.game();
+      const stones = new Map();
+      for (const [k, id] of game.position()) stones.set(k, game.player(id));
+      return G.threats.chain({ size: game.size, walls: game.walls, stones }, line, result.toMove);
+    }
+
     function renderOverlay() {
       const lines = result ? shownLines(result.lines) : [];
       if (!lines.length) {
@@ -402,7 +416,8 @@
         return;
       }
       if (preview >= 0 && lines[preview]) {
-        app.board.setAnalysis({ line: lines[preview].line.slice(0, PREVIEW_MOVES), first: result.toMove });
+        const line = lines[preview].line.slice(0, PREVIEW_MOVES);
+        app.board.setAnalysis({ line, first: result.toMove, chain: attackChain(line) });
         return;
       }
       const cands = [];
@@ -412,7 +427,8 @@
         if (!first || first[0] < 0) return;
         const gap = l.winrate === undefined || top === undefined ? -1 : top - l.winrate;
         const tier = gap < 0 ? 0 : gap <= 0.03 ? 1 : gap <= 0.1 ? 2 : 3;
-        cands.push({ x: first[0], y: first[1], rank: i + 1, tier, label: l.winrate === undefined ? '' : pct(l.winrate) });
+        const chain = attackChain(l.line);
+        cands.push({ x: first[0], y: first[1], rank: i + 1, tier, tag: chain ? chain.kind : '', label: l.winrate === undefined ? '' : pct(l.winrate) });
       });
       app.board.setAnalysis({ cands, busy: busy() });
     }

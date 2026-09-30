@@ -381,6 +381,7 @@
         out.push(t.join(''));
       }
 
+      if (s.threatMap && mode === 'play') out.push(this.threatMap(game, m));
       out.push('<g class="analysis"></g><g class="ghost"></g>');
       this.svg.innerHTML = out.join('');
       this.analysisLayer = this.svg.querySelector('.analysis');
@@ -390,8 +391,40 @@
       this.drawGhost();
     }
 
+    // Threat map: tags on empty cells that would give a winning combination (green: side to move, red: the opponent),
+    // and dashed rings on the cells the side to move must choose from to survive.
+    threatMap(game, m) {
+      const T = G.threats;
+      const size = game.size;
+      const stones = new Map();
+      for (const [k, id] of game.position()) stones.set(k, game.player(id));
+      const board = { size, walls: game.walls, stones };
+      const me = game.toMove();
+      const cells = new Map();
+      for (const [who, player] of [['opp', 1 - me], ['me', me]]) { // 'me' last so it wins ties
+        for (const [k, fin] of T.map(board, player)) {
+          const old = cells.get(k);
+          if (!old || T.RANK[fin] >= T.RANK[old.fin]) cells.set(k, { fin, who });
+        }
+      }
+      const out = ['<g class="tmap">'];
+      const pos = (k) => [m + ((k % size) + 0.5) * P, m + (Math.floor(k / size) + 0.5) * P];
+      for (const k of T.defences(board, me) || []) {
+        const [cx, cy] = pos(k);
+        out.push(`<circle class="must" cx="${cx}" cy="${cy}" r="17"/>`);
+      }
+      for (const [k, { fin, who }] of cells) {
+        const [cx, cy] = pos(k);
+        const text = fin === 'five' ? '5' : fin === 'open4' ? '4+' : fin;
+        out.push(`<g class="tag ${who}"><rect x="${f(cx - 15)}" y="${f(cy - 8)}" width="30" height="16" rx="3"/>` +
+          `<text x="${cx}" y="${cy}">${text}</text></g>`);
+      }
+      out.push('</g>');
+      return out.join('');
+    }
+
     // Engine overlay, drawn in its own layer (like the hover ghost) so search updates don't re-render the board.
-    // overlay: { cands: [{ x, y, rank, label, tier }], busy, line: [[x, y], ...] | null, first: player of line[0] } or null.
+    // overlay: { cands: [{ x, y, rank, label, tier, tag }], busy, line: [[x, y], ...] | null, first: player of line[0], chain: G.threats.chain result | null } or null.
     // tier (1 best, 2 close, 3 weaker, 0 unknown) sets the marker colour and size; busy pulses the best marker.
     // A line (a previewed variation) replaces the candidate markers while it is shown.
     setAnalysis(overlay) {
@@ -416,13 +449,16 @@
       const ink = G.contrast.ink(bg)[0] ? '#fff' : '#1a1a1a'; // same rule as the board's other text
       const out = [];
       if (a.line && a.line.length) {
-        if (a.line.length > 1) {
-          const pts = a.line.map(([x, y]) => `${c(x)},${c(y)}`).join(' ');
-          out.push(`<polyline class="pvpath" points="${pts}" stroke="${ink}"/>`);
-        }
+        // Moves of the continuous attack (a.chain) are solid and ringed by threat; the rest of the line is faint.
+        const RING = { five: '#b91c1c', four: '#b91c1c', three: '#a16207' };
+        const n = a.chain ? a.chain.moves : 0;
         a.line.forEach(([x, y], i) => {
           const player = (a.first + i) % 2;
-          out.push(`<g opacity=".6">${piece(player, c(x), c(y), s, game.key(x, y))}</g>`);
+          const attack = i < n && i % 2 === 0;
+          out.push(`<g opacity="${i < n ? (attack ? 0.9 : 0.55) : 0.3}">${piece(player, c(x), c(y), s, game.key(x, y))}</g>`);
+          if (attack) {
+            out.push(`<circle class="threat ${a.chain.kinds[i]}" cx="${c(x)}" cy="${c(y)}" r="${f(P * 0.46)}" stroke="${RING[a.chain.kinds[i]]}"/>`);
+          }
           const fill = paper ? ink : player ? '#1a1a1a' : '#f4f4f4';
           const halo = paper ? ` stroke="${bg}" stroke-width="4" paint-order="stroke"` : '';
           out.push(`<text class="pvnum" x="${c(x)}" y="${c(y)}" dy=".36em" fill="${fill}"${halo}>${i + 1}</text>`);
@@ -431,12 +467,15 @@
         const RADIUS = [10.5, 12, 11, 9.5];
         // Draw the best marker last so a weaker neighbour never covers it.
         const cands = (a.cands || []).slice().sort((p, q) => q.rank - p.rank);
-        for (const { x, y, rank, label, tier = 0 } of cands) {
+        for (const { x, y, rank, label, tier = 0, tag } of cands) {
           const best = rank === 1;
           const r = best ? 13 : RADIUS[tier];
           const pulse = best && a.busy ? `<circle class="pulse" cx="${c(x)}" cy="${c(y)}" r="${r}"/>` : '';
           out.push(`<g class="cand t${tier}${best ? ' best' : ''}">${pulse}<circle cx="${c(x)}" cy="${c(y)}" r="${r}"/>` +
             `<text x="${c(x)}" y="${c(y)}" dy=".36em">${rank}</text></g>`);
+          if (tag) {
+            out.push(`<text class="cand-tag" x="${c(x)}" y="${f(c(y) - r - 4)}" fill="${ink}" stroke="${bg}" stroke-width="3" paint-order="stroke">${tag}</text>`);
+          }
           if (label) {
             out.push(`<text class="cand-label" x="${c(x)}" y="${f(c(y) + r + 10)}" fill="${ink}" stroke="${bg}" stroke-width="3" paint-order="stroke">${label}</text>`);
           }
