@@ -154,6 +154,11 @@
     return matchMedia('(max-width: 860px)').matches && !document.body.classList.contains('focus');
   }
 
+  // Phones: the board runs edge to edge and labels only the left and bottom sides.
+  function compactScreen() {
+    return matchMedia('(max-width: 860px)').matches;
+  }
+
   class BoardView {
     constructor(svg, onCell) {
       this.svg = svg;
@@ -192,7 +197,7 @@
     // Sizes the SVG so one cell (P units) is a whole number of device pixels. Then every grid line is the
     // same distance apart on screen and can be snapped to the pixel grid, so no line renders thicker or
     // blurrier than its neighbours. Returns the scale (device px per unit) and the SVG's device-pixel origin.
-    fit(W) {
+    fit(VW, VH) {
       const wrap = this.svg.parentElement;
       const cs = getComputedStyle(wrap);
       const dpr = window.devicePixelRatio || 1;
@@ -200,15 +205,13 @@
       const availH = heightFollowsBoard()
         ? availW
         : wrap.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
-      const avail = Math.min(availW, availH);
-      if (avail > 0) {
-        const q = Math.max(8, Math.floor((avail * dpr * P) / W)); // device px per cell
-        const css = (W * q) / P / dpr;
-        this.svg.style.width = `${css}px`;
-        this.svg.style.height = `${css}px`;
+      if (availW > 0 && availH > 0) {
+        const q = Math.max(8, Math.floor(Math.min((availW * dpr * P) / VW, (availH * dpr * P) / VH))); // device px per cell
+        this.svg.style.width = `${(VW * q) / P / dpr}px`;
+        this.svg.style.height = `${(VH * q) / P / dpr}px`;
       }
       const rect = this.svg.getBoundingClientRect();
-      const scale = rect.width > 0 ? (rect.width * dpr) / W : 1;
+      const scale = rect.width > 0 ? (rect.width * dpr) / VW : 1;
       // Page coordinates (not viewport) so scrolling doesn't change the snapping. Browsers paint the SVG at
       // a whole device pixel, so the origin is rounded the same way.
       return {
@@ -234,8 +237,14 @@
       const n = game.size;
       const paper = s.theme === 'paper';
       const edge = s.coords !== 'cell'; // edge labels and cell numbers are mutually exclusive
-      const m = edge ? 34 : 12;
+      const compact = compactScreen();
+      const m = compact ? (edge ? 26 : 2) : edge ? 34 : 12;
       const W = 2 * m + n * P;
+      // Phones crop the unlabelled top and right margins down to a hairline; the geometry stays m-based.
+      const cut = compact && edge ? m - 2 : 0;
+      const VW = W - cut;
+      const VH = W - cut;
+      const vy = cut;
       const c = (i) => m + (i + 0.5) * P;
       const bg = paper ? s.paper.bg : s.stone.bg;
       // Board text ink: black or white, whichever contrasts more (the same rule the colour audit checks).
@@ -244,12 +253,13 @@
       const out = [defs(s)];
 
       this.state = { game, s, mode, m, n };
-      this.svg.setAttribute('viewBox', `0 0 ${W} ${W}`);
-      const px = this.fit(W);
+      this.svg.setAttribute('viewBox', `0 ${vy} ${VW} ${VH}`);
+      const px = this.fit(VW, VH);
       this.spaceKey = this.spaceKeyNow();
 
-      out.push(`<rect width="${W}" height="${W}" rx="12" fill="${bg}"/>`);
-      if (!paper) out.push(`<rect width="${W}" height="${W}" rx="12" fill="url(#gSheen)"/>`);
+      const rx = compact ? 0 : 12;
+      out.push(`<rect width="${W}" height="${W}" rx="${rx}" fill="${bg}"/>`);
+      if (!paper) out.push(`<rect width="${W}" height="${W}" rx="${rx}" fill="url(#gSheen)"/>`);
 
       // Grid. Widths are whole device pixels; each line is moved (by under half a pixel) so it covers
       // whole pixels: odd widths centre on a pixel's middle, even widths on a pixel boundary.
@@ -270,7 +280,7 @@
         const w = i === 0 || i === count - 1 ? bold : thin;
         widths.push(w);
         xs.push(snap(base + i * P, px.x0, w));
-        ys.push(snap(base + i * P, px.y0, w));
+        ys.push(snap(base + i * P - vy, px.y0, w) + vy);
       }
       // Lines run between the outer border lines, extended by half the border so corners close cleanly.
       const half = bold / px.scale / 2;
@@ -295,8 +305,11 @@
         for (let i = 0; i < n; i++) {
           const L = G.coords.LETTERS[i];
           const num = n - i;
-          t.push(`<text x="${c(i)}" y="${m / 2}">${L}</text><text x="${c(i)}" y="${W - m / 2}">${L}</text>`);
-          t.push(`<text x="${m / 2}" y="${c(i)}">${num}</text><text x="${W - m / 2}" y="${c(i)}">${num}</text>`);
+          t.push(`<text x="${c(i)}" y="${W - m / 2}">${L}</text>`);
+          t.push(`<text x="${m / 2}" y="${c(i)}">${num}</text>`);
+          if (!compact) {
+            t.push(`<text x="${c(i)}" y="${m / 2}">${L}</text><text x="${W - m / 2}" y="${c(i)}">${num}</text>`);
+          }
         }
         out.push(`<g class="edge" fill="${ink}${A.edge})">${t.join('')}</g>`);
       }
@@ -368,10 +381,55 @@
         out.push(t.join(''));
       }
 
-      out.push('<g class="ghost"></g>');
+      out.push('<g class="analysis"></g><g class="ghost"></g>');
       this.svg.innerHTML = out.join('');
+      this.analysisLayer = this.svg.querySelector('.analysis');
       this.ghost = this.svg.querySelector('.ghost');
+      this.drawAnalysis();
       this.drawGhost();
+    }
+
+    // Engine overlay, drawn in its own layer (like the hover ghost) so search updates don't re-render the board.
+    // overlay: { cands: [{ x, y, rank, label }], line: [[x, y], ...] | null, first: player of line[0] } or null.
+    // A line (a previewed variation) replaces the candidate markers while it is shown.
+    setAnalysis(overlay) {
+      this.analysis = overlay;
+      this.drawAnalysis();
+    }
+
+    drawAnalysis() {
+      const layer = this.analysisLayer;
+      const st = this.state;
+      if (!layer || !st) return;
+      const a = this.analysis;
+      if (!a) {
+        layer.innerHTML = '';
+        return;
+      }
+      const { game, s, m } = st;
+      const c = (i) => m + (i + 0.5) * P;
+      const paper = s.theme === 'paper';
+      const bg = paper ? s.paper.bg : s.stone.bg;
+      const ink = G.contrast.ink(bg)[0] ? '#fff' : '#1a1a1a'; // same rule as the board's other text
+      const out = [];
+      if (a.line && a.line.length) {
+        a.line.forEach(([x, y], i) => {
+          const player = (a.first + i) % 2;
+          out.push(`<g opacity=".6">${piece(player, c(x), c(y), s, game.key(x, y))}</g>`);
+          const fill = paper ? ink : player ? '#1a1a1a' : '#f4f4f4';
+          const halo = paper ? ` stroke="${bg}" stroke-width="4" paint-order="stroke"` : '';
+          out.push(`<text class="pvnum" x="${c(x)}" y="${c(y)}" fill="${fill}"${halo}>${i + 1}</text>`);
+        });
+      } else {
+        for (const { x, y, rank, label } of a.cands || []) {
+          out.push(`<g class="cand${rank === 1 ? ' best' : ''}"><circle cx="${c(x)}" cy="${c(y)}" r="${rank === 1 ? 12 : 10.5}"/>` +
+            `<text x="${c(x)}" y="${c(y)}">${rank}</text></g>`);
+          if (label) {
+            out.push(`<text class="cand-label" x="${c(x)}" y="${f(c(y) + P * 0.42)}" fill="${ink}" stroke="${bg}" stroke-width="3" paint-order="stroke">${label}</text>`);
+          }
+        }
+      }
+      layer.innerHTML = out.join('');
     }
 
     setHover(cell) {

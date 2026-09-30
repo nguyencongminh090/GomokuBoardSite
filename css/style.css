@@ -158,6 +158,13 @@ select, input[type="number"], .field input:not([type]) {
 #board .hint circle { fill: var(--accent); stroke: #fff; stroke-width: 1.5; }
 #board .hint text { fill: #1d1305; font-size: 13px; font-weight: 700; }
 #board .ghost { pointer-events: none; }
+#board .analysis { pointer-events: none; }
+#board .cand circle { fill: #fff; stroke: #1a1a1a; stroke-width: 1.5; }
+#board .cand text { fill: #1a1a1a; font-size: 12px; font-weight: 700; }
+#board .cand.best circle { fill: #15803d; stroke: #fff; stroke-width: 2; }
+#board .cand.best text { fill: #fff; font-size: 13px; }
+#board .cand-label { font-size: 9px; font-weight: 700; }
+#board .pvnum { font-size: 15px; font-weight: 700; }
 .setup #board { cursor: crosshair; }
 
 .panel {
@@ -272,6 +279,52 @@ kbd {
   background: var(--surface-2);
   font: 11px/16px ui-monospace, monospace;
   text-align: center;
+}
+
+/* Engine (Play tab block and Engine tab) */
+.engine-on { display: flex; flex-direction: column; gap: 8px; }
+.engine-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.engine-actions.cols-2 { grid-template-columns: repeat(2, 1fr); margin-top: 8px; }
+.engine-actions button.on { box-shadow: 0 0 0 2px var(--accent-text); }
+.engine-note { margin: 0; }
+.eval-sides { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.eval-bar { height: 10px; margin: 4px 0; border-radius: 999px; overflow: hidden; background: var(--p1); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .25); }
+.eval-bar span { display: block; height: 100%; background: var(--p0); transition: width .3s; }
+.pv-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; table-layout: fixed; }
+.pv-table th { font-size: 11px; font-weight: 600; color: var(--muted); text-align: left; padding: 2px 4px; }
+.pv-table th:nth-child(1) { width: 20px; }
+.pv-table th:nth-child(2) { width: 56px; }
+.pv-table th:nth-child(3), .pv-table th:nth-child(4) { width: 48px; }
+.pv-table th:nth-child(5) { width: 44px; }
+.pv-table td { padding: 3px 4px; border-top: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pv-table td button { width: 100%; padding: 2px 4px; }
+.pv-table tr.on td { background: var(--accent-soft); }
+.pv-table .pv { color: var(--muted); font-size: 12px; }
+.engine-dist summary, .engine-log summary { cursor: pointer; color: var(--muted); font-size: 13px; padding: 4px 0; }
+.engine-dist p { margin: 2px 0 8px; }
+.dist-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+.dist-row button { flex: 1; }
+.dist-row input { width: 64px; }
+input[type="number"], select { padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
+input:disabled, select:disabled { opacity: .45; }
+.card .field input[type="number"], .card .field select { width: 84px; flex: none; }
+.card .field span { font-size: 13px; }
+.engine-state { display: flex; align-items: center; gap: 8px; margin: 6px 0 2px; font-weight: 600; }
+.engine-state + p { margin: 0; }
+.status-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; }
+.status-dot[data-state="idle"] { background: var(--ok); }
+.status-dot[data-state="busy"], .status-dot[data-state="loading"] { background: var(--accent); }
+.status-dot[data-state="error"] { background: var(--danger); }
+#engLog {
+  max-height: 260px;
+  overflow: auto;
+  margin: 6px 0 0;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  font: 11px/1.4 ui-monospace, monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 /* Settings tab */
@@ -477,14 +530,14 @@ dialog .field input:not([type="checkbox"]) { width: 180px; }
 @media (max-width: 860px) {
   body { height: auto; }
   .layout { grid-template-columns: minmax(0, 1fr); }
-  .board-wrap { padding: 8px; }
-  #board { height: auto; aspect-ratio: 1; }
+  .board-wrap { padding: 0; }
+  #board { height: auto; }
   .panel { border-left: 0; border-top: 1px solid var(--border); overflow: visible; }
   .brand { display: none; }
   .game-name { width: auto; flex: 1; }
   /* Panel hidden: exactly one screen tall, with the board centred in the space under the top bar. */
   body.focus { height: 100vh; height: 100dvh; }
-  body.focus .board-wrap { padding: 12px; }
+  body.focus .board-wrap { padding: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
