@@ -97,8 +97,9 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
   and from game exports); unlocking imports it as a non-extractable key held in memory until Lock. The public key is shared
   as a `gomoku-public-key` file. Export adds `signature` (over the compact JSON of the body without it); Import rejects a
   signature that does not verify and reports own / trusted / unknown signer. Unsigned files still import. The password gates
-  signing, backup, password change and deleting keys, not playing: the site is static, so it is not access control. With a key pair and `keys.lockEngine` (on by default for a new key, changed only with the password),
-  `engine-panel.js` `requestLoad()` asks `app.authorize()` first, so the engine only loads after unlocking; Lock unloads it.
+  signing, backup, password change and deleting keys, not playing: the site is static, so it is not access control. The engine is for key holders only: `engine-panel.js` `requestLoad()` asks `app.authorize()`, which needs an unlocked
+  private key whose public key is listed in `allowed-keys.json` (repo root, add keys by copying a `gomoku-public-key` file's
+  `publicKey`), proved by signing a fresh challenge. Lock unloads the engine. Client-side only: it stops casual use, not edits to the JS.
 - **Engine** (`js/engine.js`, `js/engine-panel.js`, `engine/`): Rapfi runs in a Web Worker (`engine/engine.worker.js`)
   that hosts one of two Emscripten builds: `multi` (pthreads, needs `crossOriginIsolated`) or `single`. Protocol
   facts the client relies on, verified against `command/gomocup.cpp` of the MINT-P engine:

@@ -109,6 +109,23 @@
       }
     }
 
+    // allowed-keys.json lists the public keys that may use the engine; fingerprints are recomputed, never trusted.
+    async function loadAllowed() {
+      try {
+        const res = await fetch(`allowed-keys.json?v=${encodeURIComponent(G.VERSION || '')}`, { cache: 'no-store' });
+        const raw = await res.json();
+        if (!res.ok || !raw || raw.format !== 'gomoku-allowed-keys' || !Array.isArray(raw.keys)) return null;
+        const out = [];
+        for (const k of raw.keys) {
+          const parsed = await sec.parsePublicKeyFile({ format: 'gomoku-public-key', publicKey: k && k.publicKey });
+          if (parsed) out.push(parsed);
+        }
+        return out;
+      } catch (e) {
+        return null;
+      }
+    }
+
     // ---------- actions ----------
 
     async function createKeys() {
@@ -124,7 +141,6 @@
       });
       if (pw === null) return;
       keys.own = record;
-      keys.lockEngine = true; // a new key holder gets the engine gate by default
       unlocked = await sec.unlock(record, pw);
       persistKeys();
       render();
@@ -141,15 +157,6 @@
         unlocked = r.key;
       }
       render();
-    }
-
-    async function toggleEngineLock() {
-      if (!(await askCurrent())) return;
-      keys.lockEngine = !keys.lockEngine;
-      if (keys.lockEngine && !unlocked) onLock();
-      persistKeys();
-      render();
-      toast(t(keys.lockEngine ? 'sec.engineLocked' : 'sec.engineOpen'));
     }
 
     async function copyPublic() {
@@ -195,7 +202,6 @@
       if (!confirm(t('sec.deleteConfirm'))) return;
       if (!(await askCurrent())) return;
       keys.own = null;
-      keys.lockEngine = false;
       unlocked = null;
       persistKeys();
       render();
@@ -286,13 +292,12 @@
           ${btn('changePassword', 'sec.changePw')}
           ${btn('deleteKeys', 'sec.delete')}
         </div>
-        <p class="muted small-text">${esc(t(keys.lockEngine ? 'sec.engineStateLocked' : 'sec.engineStateOpen'))}</p>
-        <div class="btn-row">${btn('toggleEngineLock', keys.lockEngine ? 'sec.engineUnlockAll' : 'sec.engineLockAll')}</div>
+        <p class="muted small-text">${esc(t('sec.engineRule'))}</p>
         ${trustedHtml}`;
     }
 
     // Clicks and file choices are delegated so buttons rendered later work too.
-    const ACTIONS = { create: createKeys, toggleLock, copyPublic, savePublic, backup, changePassword, deleteKeys, toggleEngineLock };
+    const ACTIONS = { create: createKeys, toggleLock, copyPublic, savePublic, backup, changePassword, deleteKeys };
     $('#securityBody').addEventListener('click', (e) => {
       const b = e.target.closest('[data-sec]');
       if (b) ACTIONS[b.dataset.sec]();
@@ -341,16 +346,33 @@
         return { ok: true, note: t('sec.signedUnknown', { fp: fp.slice(0, 9) }) };
       },
 
-      // True when this session may use the engine: no gate, or the key holder has unlocked the private key.
+      // The engine is for key holders only: the private key must be unlocked and its public key must be in
+      // allowed-keys.json (published with the site). A fresh challenge is signed, so a copied public key is not enough.
       async authorizeEngine() {
-        if (!keys.own || !keys.lockEngine) return true;
-        if (unlocked) return true;
-        toast(t('sec.engineNeedsKey'));
-        const r = await askCurrent();
-        if (!r) return false;
-        unlocked = r.key;
-        render();
-        return true;
+        if (!sec.supported() || !keys.own) {
+          toast(t('sec.engineNoKey'));
+          return false;
+        }
+        const list = await loadAllowed();
+        if (!list) {
+          toast(t('sec.engineListFailed'));
+          return false;
+        }
+        const fp = await sec.fingerprint(keys.own.publicKey);
+        const entry = list.find((k) => k.fingerprint === fp);
+        if (!entry) {
+          toast(t('sec.engineNotAllowed', { fp: fp.slice(0, 9) }));
+          return false;
+        }
+        if (!unlocked) {
+          const r = await askCurrent();
+          if (!r) return false;
+          unlocked = r.key;
+          render();
+        }
+        if (await sec.proves(unlocked, entry.publicKey)) return true;
+        toast(t('sec.engineNotAllowed', { fp: fp.slice(0, 9) }));
+        return false;
       },
 
       render,

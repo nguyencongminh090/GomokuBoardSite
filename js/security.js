@@ -126,6 +126,17 @@
         && typeof p.data === 'string' && Number.isInteger(p.iter) && p.iter > 0 && p.iter <= 10000000;
     },
 
+    // Proof of possession: signs a fresh random challenge with the unlocked private key and checks it against
+    // `publicJwk` (an entry of the allow-list), so only the holder of the matching private key passes.
+    async proves(privateKey, publicJwk) {
+      try {
+        const challenge = toB64(crypto.getRandomValues(new Uint8Array(32)));
+        return await verify(publicJwk, await sign(privateKey, challenge), challenge);
+      } catch (e) {
+        return false;
+      }
+    },
+
     async signExport(record, privateKey, body) {
       const value = await sign(privateKey, canonical(body));
       return { ...body, signature: { alg: SIG_ALG, publicKey: record.publicKey, value } };

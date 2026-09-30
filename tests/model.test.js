@@ -279,6 +279,12 @@ test('engine settings defaults have the types their controls produce', () => {
     assert(await S.unlock(next, 'new password!'));
     assert.deepEqual(next.publicKey, record.publicKey);
   });
+  await run('engine challenge passes only for the matching public key', async () => {
+    const key = await S.unlock(record, 'correct horse');
+    const other = await S.createRecord('another pass');
+    assert(await S.proves(key, record.publicKey));
+    assert(!(await S.proves(key, other.publicKey)));
+  });
   await run('public key file round trips and rejects junk', async () => {
     const file = await S.publicKeyFile(record.publicKey);
     const parsed = await S.parsePublicKeyFile(JSON.parse(JSON.stringify(file)));
