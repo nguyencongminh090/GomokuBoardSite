@@ -21,6 +21,16 @@
     "x": "3qk2gGGSNbGPkWin7-QlevcAAtuhF5fH6jNp-1xF1D8",
     "y": "ivFcKumaxaojgGcgnF2UarufDTWG_ic9VF4xH_rcBfY"
    }
+  },
+  {
+   "name": "nigm",
+   "fingerprint": "F06B A646 FCD6 FF4B 410C FFCF CA5F 2301",
+   "publicKey": {
+    "kty": "EC",
+    "crv": "P-256",
+    "x": "HpeScwPguA1oQUfnwe-SDj08eXwfO0hM7YApdIP3gzE",
+    "y": "F6mL2AVbTDncPBLCnsiFUp4BVxhiL6C8UzaopnPqNqs"
+   }
   }
  ]
 }
