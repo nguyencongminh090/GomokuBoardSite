@@ -10,6 +10,28 @@
     keys: 'gomoku-board.keys.v1',
   };
 
+  // One IndexedDB request per call; resolves with its result once the transaction has committed.
+  function idb(mode, fn) {
+    return new Promise((resolve, reject) => {
+      const open = indexedDB.open('gomoku-board', 1);
+      open.onupgradeneeded = () => open.result.createObjectStore('keys');
+      open.onerror = () => reject(open.error);
+      open.onsuccess = () => {
+        const db = open.result;
+        const tx = db.transaction('keys', mode);
+        const req = fn(tx.objectStore('keys'));
+        tx.oncomplete = () => {
+          db.close();
+          resolve(req.result);
+        };
+        tx.onerror = tx.onabort = () => {
+          db.close();
+          reject(tx.error);
+        };
+      };
+    });
+  }
+
   function read(key, fallback) {
     try {
       const raw = localStorage.getItem(key);
@@ -60,17 +82,35 @@
     saveSettings(settings) {
       return write(KEYS.settings, settings);
     },
-    // { own: encrypted key record or null, trusted: [{ publicKey, fingerprint }] }. Never part of settings or exports.
+    // Public keys of other people: [{ publicKey, fingerprint }]. Never part of settings or exports.
     loadKeys() {
       const raw = read(KEYS.keys, null);
-      const own = raw && G.security.isRecord(raw.own) ? raw.own : null;
       const trusted = raw && Array.isArray(raw.trusted)
         ? raw.trusted.filter((k) => k && G.security.isPublicJwk(k.publicKey) && typeof k.fingerprint === 'string')
         : [];
-      return { own, trusted };
+      return { trusted };
     },
     saveKeys(keys) {
-      return write(KEYS.keys, keys);
+      return write(KEYS.keys, { trusted: keys.trusted });
+    },
+    // The own key pair lives in IndexedDB because only it can store a non-extractable CryptoKey.
+    async loadOwnKey() {
+      try {
+        const pair = await idb('readonly', (store) => store.get('own'));
+        return G.security.isKeyPair(pair) ? pair : null;
+      } catch (e) {
+        return null;
+      }
+    },
+    async saveOwnKey(pair) {
+      try {
+        await idb('readwrite', (store) => (pair ? store.put(pair, 'own') : store.delete('own')));
+        if (pair && navigator.storage && navigator.storage.persist) navigator.storage.persist(); // ask not to be evicted
+        return true;
+      } catch (e) {
+        console.warn('Could not save the key pair', e);
+        return false;
+      }
     },
     getCurrent() {
       return read(KEYS.current, null);

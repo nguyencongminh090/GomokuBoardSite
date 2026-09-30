@@ -188,6 +188,10 @@
     }
 
     load(variant) {
+      if (!(G.engineGuard && G.engineGuard())) { // the engine is for key holders only (see security-panel.js)
+        this.fail('locked');
+        return;
+      }
       this.shutdown();
       this.variant = variant;
       this.setState('loading');
@@ -262,6 +266,7 @@
     // Starts a search, or queues it behind the running one (which is stopped) or until the engine has loaded.
     // job: { kind, block, size, config, go }
     run(job) {
+      if (!(G.engineGuard && G.engineGuard())) return;
       this.next = job;
       if (this.state === 'idle') this.startNext();
       else if (this.state === 'busy') {

@@ -30,7 +30,7 @@
     authorize: () => security.authorizeEngine(),
   });
 
-  const security = G.createSecurityPanel({ esc, toast, settings: () => settings, onLock: () => engine.unload() });
+  const security = G.createSecurityPanel({ esc, toast, settings: () => settings, engineStop: () => engine.unload() });
 
   // ---------- helpers ----------
 
@@ -664,6 +664,8 @@
     syncSettingsUI();
     openInitialGame();
     engine.start();
+    // Harden against console tampering: the security API and engine client can no longer be patched in place.
+    for (const o of [G.security, G.EngineClient, G.EngineClient.prototype, G]) Object.freeze(o);
   }
 
   function openInitialGame() {

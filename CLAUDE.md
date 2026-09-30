@@ -93,14 +93,17 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
   with a matching type, so renaming a setting silently drops the saved value unless `G.migrateSettings` (in `settings.js`)
   maps the old key onto the new one.
 - **Security** (`js/security.js` model, `js/security-panel.js` UI): an ECDSA P-256 key pair made with Web Crypto. The
-  private key exists only as PBKDF2 (600k) → AES-GCM ciphertext in localStorage (`storage.loadKeys`, separate from settings
-  and from game exports); unlocking imports it as a non-extractable key held in memory until Lock. The public key is shared
-  as a `gomoku-public-key` file. Export adds `signature` (over the compact JSON of the body without it); Import rejects a
-  signature that does not verify and reports own / trusted / unknown signer. Unsigned files still import. The password gates
-  signing, backup, password change and deleting keys, not playing: the site is static, so it is not access control. The engine is for key holders only: `engine-panel.js` `requestLoad()` asks `app.authorize()`, which needs an unlocked
-  private key whose public key is listed in `allowed-keys.json` (repo root, add keys by copying a `gomoku-public-key` file's
-  `publicKey`), proved by signing a fresh challenge. Lock unloads the engine. People send a 44-character **key code** (compressed P-256 point, `G.security.keyCode`), and
-  `node tools/add-key.js <code> [name]` adds it to the list. Client-side only: it stops casual use, not edits to the JS.
+  private key is a **non-extractable** `CryptoKey` stored in IndexedDB (`storage.loadOwnKey`/`saveOwnKey`); there is no
+  password, backup or restore, so it cannot be copied to another person and a lost key means generating a new one. The
+  public key is shared as a 44-character **key code** (compressed point, `G.security.keyCode`) or a `gomoku-public-key`
+  file. Export adds `signature` (over the compact JSON of the body without it); Import rejects a signature that does not
+  verify and reports own / trusted / unknown signer. Unsigned files still import. The engine is for key holders only:
+  `engine-panel.js` `requestLoad()` asks `app.authorize()`, which needs a private key whose public key is listed in
+  `allowed-keys.json` (repo root), proved by signing a fresh challenge. `node tools/add-key.js <code> [name]` adds a key.
+  Defence in depth against console tampering: `G.engineGuard` (a locked, non-writable property) is re-checked inside
+  `EngineClient.load` and `run`, and `main.js` freezes `G`, `G.security` and `EngineClient` after start. This is
+  client-side only: the engine files in `engine/` are public (and in git history), so a determined user can still run them.
+  Real enforcement needs the host to hide them (e.g. Cloudflare Access), not code.
 - **Engine** (`js/engine.js`, `js/engine-panel.js`, `engine/`): Rapfi runs in a Web Worker (`engine/engine.worker.js`)
   that hosts one of two Emscripten builds: `multi` (pthreads, needs `crossOriginIsolated`) or `single`. Protocol
   facts the client relies on, verified against `command/gomocup.cpp` of the MINT-P engine:

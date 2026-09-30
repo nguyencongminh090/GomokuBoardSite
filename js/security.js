@@ -1,13 +1,11 @@
-// Key pair and signatures (Web Crypto). The private key is created on this device and only ever stored
-// encrypted with a password (PBKDF2 -> AES-GCM); the public key is the part that gets shared.
-// No DOM access, so tests can load this file with a stub window.
+// Key pair and signatures (Web Crypto). The private key is created on this device as a non-extractable
+// CryptoKey: the browser will sign with it but never reveal it, so it cannot be copied to another person.
+// The public key is the part that gets shared. No DOM access, so tests can load this file with a stub window.
 (function (G) {
   'use strict';
 
   const CURVE = { name: 'ECDSA', namedCurve: 'P-256' };
   const SIGN = { name: 'ECDSA', hash: 'SHA-256' };
-  const KDF_ITERATIONS = 600000; // OWASP guidance for PBKDF2-HMAC-SHA256
-  const MIN_PASSWORD = 8;
   const SIG_ALG = 'ECDSA-P256-SHA256';
 
   const text = new TextEncoder();
@@ -15,32 +13,6 @@
 
   const toB64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
   const fromB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
-
-  async function deriveKey(password, salt, iterations) {
-    const base = await subtle().importKey('raw', text.encode(password), 'PBKDF2', false, ['deriveKey']);
-    return subtle().deriveKey(
-      { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
-      base,
-      { name: 'AES-GCM', length: 256 },
-      false,
-      ['encrypt', 'decrypt'],
-    );
-  }
-
-  // Encrypts key bytes; the box holds everything needed to decrypt them again with the same password.
-  async function seal(bytes, password) {
-    const salt = crypto.getRandomValues(new Uint8Array(16));
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const key = await deriveKey(password, salt, KDF_ITERATIONS);
-    const data = await subtle().encrypt({ name: 'AES-GCM', iv }, key, bytes);
-    return { kdf: 'PBKDF2-SHA256', iter: KDF_ITERATIONS, salt: toB64(salt), iv: toB64(iv), data: toB64(data) };
-  }
-
-  // Throws when the password is wrong (AES-GCM fails its authentication check).
-  async function open(box, password) {
-    const key = await deriveKey(password, fromB64(box.salt), box.iter);
-    return new Uint8Array(await subtle().decrypt({ name: 'AES-GCM', iv: fromB64(box.iv) }, key, fromB64(box.data)));
-  }
 
   const toB64u = (buf) => toB64(buf).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   const fromB64u = (s) => fromB64(s.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(s.length / 4) * 4, '='));
@@ -71,10 +43,6 @@
 
   function importPublic(jwk) {
     return subtle().importKey('jwk', cleanJwk(jwk), CURVE, false, ['verify']);
-  }
-
-  async function importPrivate(pkcs8) {
-    return subtle().importKey('pkcs8', pkcs8, CURVE, false, ['sign']); // non-extractable once unlocked
   }
 
   async function sign(privateKey, message) {
@@ -116,58 +84,29 @@
   G.security = {
     keyCode,
     parseKeyCode,
-    MIN_PASSWORD,
     supported: () => !!subtle(),
     fingerprint,
     isPublicJwk,
     cleanJwk,
 
-    // New key pair, returned as a storable record. The private half exists only encrypted.
-    async createRecord(password) {
-      const pair = await subtle().generateKey(CURVE, true, ['sign', 'verify']);
-      const pkcs8 = new Uint8Array(await subtle().exportKey('pkcs8', pair.privateKey));
-      const record = {
-        version: 1,
+    // New key pair. The private key is non-extractable (the public half of a pair is always exportable).
+    async createKeyPair() {
+      const pair = await subtle().generateKey(CURVE, false, ['sign', 'verify']);
+      return {
+        version: 2,
         createdAt: Date.now(),
         publicKey: cleanJwk(await subtle().exportKey('jwk', pair.publicKey)),
-        private: await seal(pkcs8, password),
+        privateKey: pair.privateKey,
       };
-      pkcs8.fill(0);
-      return record;
     },
 
-    // Decrypts the private key for signing. Throws on a wrong password or on a record whose halves
-    // do not belong together.
-    async unlock(record, password) {
-      const pkcs8 = await open(record.private, password);
-      let key;
-      try {
-        key = await importPrivate(pkcs8);
-      } finally {
-        pkcs8.fill(0);
-      }
-      const probe = await sign(key, 'gomoku-board');
-      if (!(await verify(record.publicKey, probe, 'gomoku-board'))) throw new Error('key mismatch');
-      return key;
+    // Shape check for a pair read back from IndexedDB.
+    isKeyPair(r) {
+      return !!r && isPublicJwk(r.publicKey) && !!r.privateKey && r.privateKey.type === 'private'
+        && r.privateKey.extractable === false && Number.isFinite(r.createdAt);
     },
 
-    async rewrap(record, oldPassword, newPassword) {
-      const pkcs8 = await open(record.private, oldPassword);
-      try {
-        return { ...record, private: await seal(pkcs8, newPassword) };
-      } finally {
-        pkcs8.fill(0);
-      }
-    },
-
-    // Shape check for a record read from storage or a backup file.
-    isRecord(r) {
-      const p = r && r.private;
-      return !!r && isPublicJwk(r.publicKey) && !!p && typeof p.salt === 'string' && typeof p.iv === 'string'
-        && typeof p.data === 'string' && Number.isInteger(p.iter) && p.iter > 0 && p.iter <= 10000000;
-    },
-
-    // Proof of possession: signs a fresh random challenge with the unlocked private key and checks it against
+    // Proof of possession: signs a fresh random challenge with the private key and checks it against
     // `publicJwk` (an entry of the allow-list), so only the holder of the matching private key passes.
     async proves(privateKey, publicJwk) {
       try {
@@ -178,9 +117,9 @@
       }
     },
 
-    async signExport(record, privateKey, body) {
-      const value = await sign(privateKey, canonical(body));
-      return { ...body, signature: { alg: SIG_ALG, publicKey: record.publicKey, value } };
+    async signExport(pair, body) {
+      const value = await sign(pair.privateKey, canonical(body));
+      return { ...body, signature: { alg: SIG_ALG, publicKey: pair.publicKey, value } };
     },
 
     // status: 'none' (unsigned) | 'valid' | 'invalid'. A valid result carries the signer's key.

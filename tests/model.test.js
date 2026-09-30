@@ -246,26 +246,25 @@ test('engine settings defaults have the types their controls produce', () => {
       console.log(`FAIL ${name}\n     ${e.message}`);
     }
   };
-  const record = await S.createRecord('correct horse');
+  const pair = await S.createKeyPair();
   const body = { format: 'gomoku-board', version: 1, exportedAt: 'x', games: [{ id: 'a', nodes: [[0, 1, 2]] }] };
 
-  await run('private key opens only with the right password', async () => {
-    assert(await S.unlock(record, 'correct horse'));
-    await assert.rejects(S.unlock(record, 'wrong password'));
-    assert(!JSON.stringify(record).includes('"d"'), 'record must not hold a plain private key');
+  await run('private key is non-extractable and never appears in the record data', async () => {
+    assert(S.isKeyPair(pair));
+    assert.equal(pair.privateKey.extractable, false);
+    await assert.rejects(crypto.subtle.exportKey('pkcs8', pair.privateKey));
+    assert(!JSON.stringify(pair).includes('"d"'));
   });
   await run('signed export verifies after a JSON round trip', async () => {
-    const key = await S.unlock(record, 'correct horse');
-    const signed = JSON.parse(JSON.stringify(await S.signExport(record, key, body), null, 1));
+    const signed = JSON.parse(JSON.stringify(await S.signExport(pair, body), null, 1));
     assert.equal((await S.verifyExport(signed)).status, 'valid');
   });
   await run('edited or re-signed export is rejected', async () => {
-    const key = await S.unlock(record, 'correct horse');
-    const signed = JSON.parse(JSON.stringify(await S.signExport(record, key, body)));
+    const signed = JSON.parse(JSON.stringify(await S.signExport(pair, body)));
     signed.games[0].nodes[0][1] = 9;
     assert.equal((await S.verifyExport(signed)).status, 'invalid');
-    const other = await S.createRecord('another pass');
-    const forged = JSON.parse(JSON.stringify(await S.signExport(record, key, body)));
+    const other = await S.createKeyPair();
+    const forged = JSON.parse(JSON.stringify(await S.signExport(pair, body)));
     forged.signature.publicKey = other.publicKey;
     assert.equal((await S.verifyExport(forged)).status, 'invalid');
   });
@@ -273,21 +272,14 @@ test('engine settings defaults have the types their controls produce', () => {
     assert.equal((await S.verifyExport(body)).status, 'none');
     assert.equal((await S.verifyExport([body])).status, 'none');
   });
-  await run('password change keeps the same key pair', async () => {
-    const next = await S.rewrap(record, 'correct horse', 'new password!');
-    await assert.rejects(S.unlock(next, 'correct horse'));
-    assert(await S.unlock(next, 'new password!'));
-    assert.deepEqual(next.publicKey, record.publicKey);
-  });
   await run('engine challenge passes only for the matching public key', async () => {
-    const key = await S.unlock(record, 'correct horse');
-    const other = await S.createRecord('another pass');
-    assert(await S.proves(key, record.publicKey));
-    assert(!(await S.proves(key, other.publicKey)));
+    const other = await S.createKeyPair();
+    assert(await S.proves(pair.privateKey, pair.publicKey));
+    assert(!(await S.proves(pair.privateKey, other.publicKey)));
   });
   await run('key code is 44 characters and round trips to the same key', async () => {
     for (let i = 0; i < 20; i++) {
-      const r = await S.createRecord('pass word ' + i);
+      const r = await S.createKeyPair();
       const code = S.keyCode(r.publicKey);
       assert.equal(code.length, 44);
       assert.deepEqual((await S.parseKeyCode(code)).publicKey, r.publicKey);
@@ -296,9 +288,16 @@ test('engine settings defaults have the types their controls produce', () => {
     assert.equal(await S.parseKeyCode('A'.repeat(44)), null);
   });
   await run('public key file round trips and rejects junk', async () => {
-    const file = await S.publicKeyFile(record.publicKey);
+    const file = await S.publicKeyFile(pair.publicKey);
     const parsed = await S.parsePublicKeyFile(JSON.parse(JSON.stringify(file)));
     assert.equal(parsed.fingerprint, file.fingerprint);
     assert.equal(await S.parsePublicKeyFile({ format: 'gomoku-public-key', publicKey: { kty: 'EC' } }), null);
+  });
+  await run('engine client refuses to load or search without the guard', () => {
+    const c = new G.EngineClient(() => {});
+    c.load('single');
+    assert.equal(c.state, 'error');
+    c.run({ kind: 'move', block: '', size: 15, config: {}, go: 'YXNBEST 1' });
+    assert.equal(c.next, null);
   });
 })();
