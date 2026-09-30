@@ -73,6 +73,7 @@ new release at once instead of a mix of old and new files. The current version i
 | `js/coords.js` | Edge labels and spiral cell numbering |
 | `js/security.js` | Key pair, password-encrypted private key, export signing and verification (Web Crypto) |
 | `js/security-panel.js` | Security card in Settings and the password dialog |
+| `tools/add-key.js` | Adds a public key code to `allowed-keys.json` (the engine allow-list) |
 | `js/storage.js` | localStorage access, guarded against full or disabled storage |
 | `js/settings.js` | Default settings and colour presets |
 | `js/i18n.js` | UI strings (vi, en) and the `data-i18n` markup translator |

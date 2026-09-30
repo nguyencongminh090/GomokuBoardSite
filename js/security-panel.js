@@ -117,7 +117,9 @@
         if (!res.ok || !raw || raw.format !== 'gomoku-allowed-keys' || !Array.isArray(raw.keys)) return null;
         const out = [];
         for (const k of raw.keys) {
-          const parsed = await sec.parsePublicKeyFile({ format: 'gomoku-public-key', publicKey: k && k.publicKey });
+          const parsed = k && k.code
+            ? await sec.parseKeyCode(k.code)
+            : await sec.parsePublicKeyFile({ format: 'gomoku-public-key', publicKey: k && k.publicKey });
           if (parsed) out.push(parsed);
         }
         return out;
@@ -164,6 +166,15 @@
       try {
         await navigator.clipboard.writeText(text);
         toast(t('sec.copied'));
+      } catch (e) {
+        toast(t('sec.copyFailed'));
+      }
+    }
+
+    async function copyCode() {
+      try {
+        await navigator.clipboard.writeText(sec.keyCode(keys.own.publicKey));
+        toast(t('sec.codeCopied'));
       } catch (e) {
         toast(t('sec.copyFailed'));
       }
@@ -224,8 +235,16 @@
       toast(t('sec.restored'));
     }
 
-    async function addTrusted(file) {
-      const parsed = await sec.parsePublicKeyFile(await readJson(file));
+    async function addTrustedCode() {
+      const code = prompt(t('sec.enterCode'));
+      if (code) addTrusted(await sec.parseKeyCode(code));
+    }
+
+    async function addTrustedFile(file) {
+      addTrusted(await sec.parsePublicKeyFile(await readJson(file)));
+    }
+
+    function addTrusted(parsed) {
       if (!parsed) {
         toast(t('sec.badKeyFile'));
         return;
@@ -263,7 +282,10 @@
         <div class="sub-label">${esc(t('sec.trusted'))}</div>
         <p class="muted small-text">${esc(t('sec.trustedHelp'))}</p>
         ${trusted ? `<ul class="key-list">${trusted}</ul>` : `<p class="muted small-text">${esc(t('sec.trustedNone'))}</p>`}
-        <label class="btn small"><span>${esc(t('sec.addTrusted'))}</span><input type="file" data-sec-file="trusted" accept=".json,application/json" hidden></label>`;
+        <div class="btn-row">
+          ${btn('addTrustedCode', 'sec.addTrustedCode')}
+          <label class="btn small"><span>${esc(t('sec.addTrusted'))}</span><input type="file" data-sec-file="trusted" accept=".json,application/json" hidden></label>
+        </div>`;
 
       if (!keys.own) {
         el.innerHTML = `
@@ -281,9 +303,12 @@
         <p class="muted small-text">${esc(t('sec.intro'))}</p>
         <div class="sub-label">${esc(t('sec.fingerprint'))}</div>
         <code class="fingerprint">${esc(fp)}</code>
+        <div class="sub-label">${esc(t('sec.code'))}</div>
+        <code class="fingerprint">${esc(sec.keyCode(keys.own.publicKey))}</code>
         <p class="muted small-text">${esc(t('sec.created', { date }))} · ${esc(t(unlocked ? 'sec.unlocked' : 'sec.locked'))}</p>
         <div class="btn-row">
           ${btn('toggleLock', unlocked ? 'sec.lock' : 'sec.unlock')}
+          ${btn('copyCode', 'sec.copyCode')}
           ${btn('copyPublic', 'sec.copyPublic')}
           ${btn('savePublic', 'sec.savePublic')}
         </div>
@@ -297,7 +322,7 @@
     }
 
     // Clicks and file choices are delegated so buttons rendered later work too.
-    const ACTIONS = { create: createKeys, toggleLock, copyPublic, savePublic, backup, changePassword, deleteKeys };
+    const ACTIONS = { create: createKeys, toggleLock, copyPublic, copyCode, addTrustedCode, savePublic, backup, changePassword, deleteKeys };
     $('#securityBody').addEventListener('click', (e) => {
       const b = e.target.closest('[data-sec]');
       if (b) ACTIONS[b.dataset.sec]();
@@ -309,7 +334,7 @@
       if (!f) return;
       const file = f.files[0];
       f.value = '';
-      if (file) (f.dataset.secFile === 'restore' ? restore : addTrusted)(file);
+      if (file) (f.dataset.secFile === 'restore' ? restore : addTrustedFile)(file);
     });
 
     // ---------- export / import hooks ----------

@@ -285,6 +285,16 @@ test('engine settings defaults have the types their controls produce', () => {
     assert(await S.proves(key, record.publicKey));
     assert(!(await S.proves(key, other.publicKey)));
   });
+  await run('key code is 44 characters and round trips to the same key', async () => {
+    for (let i = 0; i < 20; i++) {
+      const r = await S.createRecord('pass word ' + i);
+      const code = S.keyCode(r.publicKey);
+      assert.equal(code.length, 44);
+      assert.deepEqual((await S.parseKeyCode(code)).publicKey, r.publicKey);
+    }
+    assert.equal(await S.parseKeyCode('nonsense'), null);
+    assert.equal(await S.parseKeyCode('A'.repeat(44)), null);
+  });
   await run('public key file round trips and rejects junk', async () => {
     const file = await S.publicKeyFile(record.publicKey);
     const parsed = await S.parsePublicKeyFile(JSON.parse(JSON.stringify(file)));

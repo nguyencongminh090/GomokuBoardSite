@@ -99,7 +99,8 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
   signature that does not verify and reports own / trusted / unknown signer. Unsigned files still import. The password gates
   signing, backup, password change and deleting keys, not playing: the site is static, so it is not access control. The engine is for key holders only: `engine-panel.js` `requestLoad()` asks `app.authorize()`, which needs an unlocked
   private key whose public key is listed in `allowed-keys.json` (repo root, add keys by copying a `gomoku-public-key` file's
-  `publicKey`), proved by signing a fresh challenge. Lock unloads the engine. Client-side only: it stops casual use, not edits to the JS.
+  `publicKey`), proved by signing a fresh challenge. Lock unloads the engine. People send a 44-character **key code** (compressed P-256 point, `G.security.keyCode`), and
+  `node tools/add-key.js <code> [name]` adds it to the list. Client-side only: it stops casual use, not edits to the JS.
 - **Engine** (`js/engine.js`, `js/engine-panel.js`, `engine/`): Rapfi runs in a Web Worker (`engine/engine.worker.js`)
   that hosts one of two Emscripten builds: `multi` (pthreads, needs `crossOriginIsolated`) or `single`. Protocol
   facts the client relies on, verified against `command/gomocup.cpp` of the MINT-P engine:
