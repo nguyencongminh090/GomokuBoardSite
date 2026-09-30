@@ -7,6 +7,7 @@
     games: 'gomoku-board.games.v1',
     settings: 'gomoku-board.settings.v1',
     current: 'gomoku-board.current.v1',
+    keys: 'gomoku-board.keys.v1',
   };
 
   function read(key, fallback) {
@@ -58,6 +59,18 @@
     },
     saveSettings(settings) {
       return write(KEYS.settings, settings);
+    },
+    // { own: encrypted key record or null, trusted: [{ publicKey, fingerprint }], lockEngine: bool }. Never part of settings or exports.
+    loadKeys() {
+      const raw = read(KEYS.keys, null);
+      const own = raw && G.security.isRecord(raw.own) ? raw.own : null;
+      const trusted = raw && Array.isArray(raw.trusted)
+        ? raw.trusted.filter((k) => k && G.security.isPublicJwk(k.publicKey) && typeof k.fingerprint === 'string')
+        : [];
+      return { own, trusted, lockEngine: !!(raw && raw.lockEngine) };
+    },
+    saveKeys(keys) {
+      return write(KEYS.keys, keys);
     },
     getCurrent() {
       return read(KEYS.current, null);

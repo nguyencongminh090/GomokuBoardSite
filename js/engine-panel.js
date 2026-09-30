@@ -59,7 +59,7 @@
   const pct = (w) => `${Math.round(w * 100)}%`;
 
   G.createEnginePanel = function (app) {
-    // app: { game(), settings(), mode(), play(x, y), cellText(x, y), playerName(p), toast(msg), flush(), board }
+    // app: { game(), settings(), mode(), play(x, y), cellText(x, y), playerName(p), toast(msg), flush(), board, authorize() }
     const client = new G.EngineClient(onEvent);
     const log = [];
     let status = ''; // loader progress text
@@ -103,6 +103,11 @@
       return true;
     }
 
+    // Loading is the only way in to the engine, so this is where the key gate applies.
+    async function requestLoad() {
+      if (await app.authorize()) load();
+    }
+
     function unload() {
       client.unload();
       result = null;
@@ -114,9 +119,9 @@
       lastEngine = { ...engineSettings() };
       if (session() === 'reload') {
         session('tried');
-        load();
+        requestLoad();
       } else if (engineSettings().autoload) {
-        load();
+        requestLoad();
       }
       positionChanged(false); // queues auto-analysis of the opening position
     }
@@ -418,8 +423,8 @@
 
     // ---------- controls ----------
 
-    $('#engLoad').addEventListener('click', load);
-    $('#engLoadPlay').addEventListener('click', load);
+    $('#engLoad').addEventListener('click', requestLoad);
+    $('#engLoadPlay').addEventListener('click', requestLoad);
     $('#engUnload').addEventListener('click', unload);
     $('#engAnalyze').addEventListener('click', analyze);
     $('#engMove').addEventListener('click', engineMove);
@@ -452,6 +457,6 @@
       app.play(l.line[0][0], l.line[0][1], true);
     });
 
-    return { start, render, positionChanged, settingsChanged, analyze, toggleAnalysis, engineMove, stop };
+    return { start, render, positionChanged, settingsChanged, analyze, toggleAnalysis, engineMove, stop, unload };
   };
 })(window.Gomoku = window.Gomoku || {});

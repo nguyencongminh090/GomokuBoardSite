@@ -509,6 +509,13 @@ dialog p { margin: 0 0 12px; }
 dialog menu { display: flex; justify-content: flex-end; gap: 8px; margin: 18px 0 0; padding: 0; }
 dialog .field input:not([type="checkbox"]) { width: 180px; }
 
+/* Security card and password dialog */
+.btn-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.fingerprint, .key-list code { font: 12px/1.4 ui-monospace, monospace; word-break: break-all; }
+.key-list { list-style: none; margin: 4px 0 8px; padding: 0; }
+.key-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0; }
+.pw-error { min-height: 1.4em; margin: 4px 0 0; color: var(--danger); font-size: 13px; }
+
 /* Toast */
 .toast {
   position: fixed;

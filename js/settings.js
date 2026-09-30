@@ -23,6 +23,7 @@
     coords: 'edge', // 'edge' (A–Z, 1–N around the board) | 'cell' (spiral numbers inside cells)
     showMoveNumbers: false,
     showLastMove: true,
+    signExports: true, // sign Export files when a key pair exists
     engine: {
       autoload: false, // load the engine when the page opens
       multi: true, // multi-threaded build when the page can be cross-origin isolated

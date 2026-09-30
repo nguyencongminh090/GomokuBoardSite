@@ -8,7 +8,7 @@ const path = require('path');
 const assert = require('assert');
 
 global.window = {};
-for (const f of ['js/i18n.js', 'js/contrast.js', 'js/coords.js', 'js/settings.js', 'js/game.js', 'js/engine.js']) {
+for (const f of ['js/i18n.js', 'js/contrast.js', 'js/coords.js', 'js/settings.js', 'js/game.js', 'js/security.js', 'js/engine.js']) {
   eval(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'));
 }
 const G = window.Gomoku;
@@ -234,3 +234,55 @@ test('engine settings defaults have the types their controls produce', () => {
   }
   for (const k of ['side', 'rule', 'hash']) assert.equal(typeof e[k], 'string', k);
 });
+
+(async () => {
+  const S = G.security;
+  const run = async (name, fn) => {
+    try {
+      await fn();
+      console.log(`ok   ${name}`);
+    } catch (e) {
+      process.exitCode = 1;
+      console.log(`FAIL ${name}\n     ${e.message}`);
+    }
+  };
+  const record = await S.createRecord('correct horse');
+  const body = { format: 'gomoku-board', version: 1, exportedAt: 'x', games: [{ id: 'a', nodes: [[0, 1, 2]] }] };
+
+  await run('private key opens only with the right password', async () => {
+    assert(await S.unlock(record, 'correct horse'));
+    await assert.rejects(S.unlock(record, 'wrong password'));
+    assert(!JSON.stringify(record).includes('"d"'), 'record must not hold a plain private key');
+  });
+  await run('signed export verifies after a JSON round trip', async () => {
+    const key = await S.unlock(record, 'correct horse');
+    const signed = JSON.parse(JSON.stringify(await S.signExport(record, key, body), null, 1));
+    assert.equal((await S.verifyExport(signed)).status, 'valid');
+  });
+  await run('edited or re-signed export is rejected', async () => {
+    const key = await S.unlock(record, 'correct horse');
+    const signed = JSON.parse(JSON.stringify(await S.signExport(record, key, body)));
+    signed.games[0].nodes[0][1] = 9;
+    assert.equal((await S.verifyExport(signed)).status, 'invalid');
+    const other = await S.createRecord('another pass');
+    const forged = JSON.parse(JSON.stringify(await S.signExport(record, key, body)));
+    forged.signature.publicKey = other.publicKey;
+    assert.equal((await S.verifyExport(forged)).status, 'invalid');
+  });
+  await run('unsigned export and legacy arrays report none', async () => {
+    assert.equal((await S.verifyExport(body)).status, 'none');
+    assert.equal((await S.verifyExport([body])).status, 'none');
+  });
+  await run('password change keeps the same key pair', async () => {
+    const next = await S.rewrap(record, 'correct horse', 'new password!');
+    await assert.rejects(S.unlock(next, 'correct horse'));
+    assert(await S.unlock(next, 'new password!'));
+    assert.deepEqual(next.publicKey, record.publicKey);
+  });
+  await run('public key file round trips and rejects junk', async () => {
+    const file = await S.publicKeyFile(record.publicKey);
+    const parsed = await S.parsePublicKeyFile(JSON.parse(JSON.stringify(file)));
+    assert.equal(parsed.fingerprint, file.fingerprint);
+    assert.equal(await S.parsePublicKeyFile({ format: 'gomoku-public-key', publicKey: { kty: 'EC' } }), null);
+  });
+})();

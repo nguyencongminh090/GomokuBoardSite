@@ -71,6 +71,8 @@ new release at once instead of a mix of old and new files. The current version i
 | `js/game.js` | Game model: walls and the variation tree (flat node array, parents before children) |
 | `js/board.js` | SVG renderer for both themes, hover preview, click-to-cell mapping |
 | `js/coords.js` | Edge labels and spiral cell numbering |
+| `js/security.js` | Key pair, password-encrypted private key, export signing and verification (Web Crypto) |
+| `js/security-panel.js` | Security card in Settings and the password dialog |
 | `js/storage.js` | localStorage access, guarded against full or disabled storage |
 | `js/settings.js` | Default settings and colour presets |
 | `js/i18n.js` | UI strings (vi, en) and the `data-i18n` markup translator |

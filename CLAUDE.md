@@ -43,9 +43,9 @@ Use a scratch `--user-data-dir` so the test run doesn't share localStorage with 
 
 ## Architecture
 
-The scripts are classic `<script>` tags, loaded in dependency order in `index.html`: `i18n → contrast → coords → settings → game → storage → board → engine → engine-panel → main`.
+The scripts are classic `<script>` tags, loaded in dependency order in `index.html`: `i18n → contrast → coords → settings → game → security → storage → board → engine → engine-panel → security-panel → main`.
 Each is an IIFE that attaches to the global namespace `window.Gomoku` (`G`). Keep it that way: ES modules would break
-`file://` use, and `tests/model.test.js` loads `coords.js`/`game.js`/`engine.js` by `eval` with a stub `window`, so
+`file://` use, and `tests/model.test.js` loads `coords.js`/`game.js`/`security.js`/`engine.js` by `eval` with a stub `window`, so
 those files must stay free of DOM access at load time (`engine.js` touches `Worker` only when a load is requested).
 
 - **`game.js` (`G.Game`): the only owner of game state.** Walls are a `Set` of cell keys (`y * size + x`, origin top-left).
@@ -71,7 +71,7 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
   needs a default in `settings.js` plus a control with one of those attributes. No per-control JS is needed.
   Visual option cards (board theme, symbol style, stone style) are `data-set` buttons rendered by `renderPicks()` in
   `main.js` from preview functions in `board.js` (`themePreview`, `symbolPreview`, `stonePreview`), so they always show
-  the current colours. The Settings tab is grouped into three cards, most-used first: Board → Display → General.
+  the current colours. The Settings tab is grouped into three cards, most-used first: Board → Display → General → Security.
 - **Page theme**: `<html data-ui="light|dark">` selects the CSS token set in `css/style.css`. An inline script in
   `index.html` sets it before first paint; `applyPageTheme()` in `main.js` keeps it in sync, including `auto` following
   the system. Use `--accent-text` (not `--accent`) for accent-coloured text and thin lines, because it is tuned for contrast per theme.
@@ -92,6 +92,13 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
 - **`storage.js`** wraps every localStorage access in try/catch. `loadSettings` merges only keys that exist in the defaults
   with a matching type, so renaming a setting silently drops the saved value unless `G.migrateSettings` (in `settings.js`)
   maps the old key onto the new one.
+- **Security** (`js/security.js` model, `js/security-panel.js` UI): an ECDSA P-256 key pair made with Web Crypto. The
+  private key exists only as PBKDF2 (600k) → AES-GCM ciphertext in localStorage (`storage.loadKeys`, separate from settings
+  and from game exports); unlocking imports it as a non-extractable key held in memory until Lock. The public key is shared
+  as a `gomoku-public-key` file. Export adds `signature` (over the compact JSON of the body without it); Import rejects a
+  signature that does not verify and reports own / trusted / unknown signer. Unsigned files still import. The password gates
+  signing, backup, password change and deleting keys, not playing: the site is static, so it is not access control. With a key pair and `keys.lockEngine` (on by default for a new key, changed only with the password),
+  `engine-panel.js` `requestLoad()` asks `app.authorize()` first, so the engine only loads after unlocking; Lock unloads it.
 - **Engine** (`js/engine.js`, `js/engine-panel.js`, `engine/`): Rapfi runs in a Web Worker (`engine/engine.worker.js`)
   that hosts one of two Emscripten builds: `multi` (pthreads, needs `crossOriginIsolated`) or `single`. Protocol
   facts the client relies on, verified against `command/gomocup.cpp` of the MINT-P engine:

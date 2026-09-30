@@ -27,7 +27,10 @@
     toast: (msg) => toast(msg),
     flush: () => flush(),
     board,
+    authorize: () => security.authorizeEngine(),
   });
+
+  const security = G.createSecurityPanel({ esc, toast, settings: () => settings, onLock: () => engine.unload() });
 
   // ---------- helpers ----------
 
@@ -291,6 +294,7 @@
     renderSwatches();
     renderAllPicks();
     renderContrast();
+    security.render();
   }
 
   // ---------- colour contrast (WCAG 2.2 AA) ----------
@@ -536,9 +540,11 @@
     }
   });
 
-  $('#exportBtn').addEventListener('click', () => {
+  $('#exportBtn').addEventListener('click', async () => {
     flush();
-    const data = { format: 'gomoku-board', version: 1, exportedAt: new Date().toISOString(), games: [...games.values()] };
+    const body = { format: 'gomoku-board', version: 1, exportedAt: new Date().toISOString(), games: [...games.values()] };
+    const data = await security.signExport(body);
+    if (!data) return;
     const blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -556,6 +562,11 @@
       parsed = JSON.parse(await file.text());
     } catch (err) {
       toast(t('import.badJson'));
+      return;
+    }
+    const check = await security.verifyImport(parsed);
+    if (!check.ok) {
+      toast(check.note);
       return;
     }
     const list = Array.isArray(parsed) ? parsed : Array.isArray(parsed.games) ? parsed.games : [parsed];
@@ -578,7 +589,7 @@
     }
     flush();
     renderGameList();
-    toast(t('import.done', { added, skipped }));
+    toast(`${t('import.done', { added, skipped })} ${check.note}`.trim());
   });
 
   // ---------- tabs, buttons, keyboard ----------
