@@ -41,6 +41,7 @@
         <button role="tab" data-tab="explain" aria-selected="false" data-i18n="tab.explain"></button>
         <button role="tab" data-tab="settings" aria-selected="false" data-i18n="tab.settings"></button>
         <button role="tab" data-tab="games" aria-selected="false" data-i18n="tab.games"></button>
+        <button role="tab" data-tab="about" aria-selected="false" data-i18n="tab.about"></button>
       </nav>
 
       <!-- Play -->
@@ -177,13 +178,24 @@
             <button data-set="engine.rule:4" data-i18n="eng.rule.4"></button>
           </div>
           <p class="muted small-text hint" data-i18n="eng.ruleHelp"></p>
+          <div class="sub-label" data-i18n="eng.level"></div>
+          <div class="seg" role="group" data-i18n-attr="aria-label:eng.level">
+            <button data-set="engine.strength:20" data-i18n="eng.level.easy"></button>
+            <button data-set="engine.strength:50" data-i18n="eng.level.medium"></button>
+            <button data-set="engine.strength:80" data-i18n="eng.level.hard"></button>
+            <button data-set="engine.strength:100" data-i18n="eng.level.max"></button>
+          </div>
+          <p class="muted small-text hint" data-i18n="eng.levelHelp"></p>
+          <details class="engine-dist">
+            <summary data-i18n="eng.levelCustom"></summary>
+            <label class="field"><span data-i18n="eng.strength"></span><input type="number" min="0" max="100" data-key="engine.strength"></label>
+          </details>
           <div class="sub-label" data-i18n="eng.limits"></div>
           <p class="muted small-text hint" data-i18n="eng.limitsHelp"></p>
           <label class="field"><span data-i18n="eng.moveTime"></span><input type="number" min="0" max="3600" step="0.1" data-key="engine.moveTime"></label>
           <label class="field"><span data-i18n="eng.analysisTime"></span><input type="number" min="0" max="3600" step="0.1" data-key="engine.analysisTime"></label>
           <label class="field"><span data-i18n="eng.nbest"></span><input type="number" min="1" max="10" data-key="engine.nbest"></label>
           <label class="field"><span data-i18n="eng.depth"></span><input type="number" min="2" max="99" data-key="engine.depth"></label>
-          <label class="field"><span data-i18n="eng.strength"></span><input type="number" min="0" max="100" data-key="engine.strength"></label>
           <div class="sub-label" data-i18n="eng.resources"></div>
           <label class="field"><span data-i18n="eng.threads"></span><input type="number" min="0" max="64" id="engThreads" data-key="engine.threads"></label>
           <label class="field"><span data-i18n="eng.hash"></span>
@@ -327,6 +339,23 @@
 
         <button id="resetSettings" class="link-btn" data-i18n="set.reset"></button>
         <p class="muted small-text app-version" id="appVersion"></p>
+      </div>
+
+      <!-- About: what this is, version, credits -->
+      <div class="tab-body" data-panel="about" hidden>
+        <section class="card">
+          <h3 data-i18n="about.title"></h3>
+          <p data-i18n="about.what"></p>
+          <p class="muted small-text"><span data-i18n="about.version"></span> <b id="aboutVersion"></b></p>
+        </section>
+        <section class="card">
+          <h3 data-i18n="about.data.title"></h3>
+          <p class="small-text" data-i18n="about.data"></p>
+        </section>
+        <section class="card">
+          <h3 data-i18n="about.credits.title"></h3>
+          <p class="small-text" data-i18n-html="about.credits"></p>
+        </section>
       </div>
 
       <!-- Games -->

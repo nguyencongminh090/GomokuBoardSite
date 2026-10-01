@@ -298,7 +298,7 @@
     }
     for (const b of $$('[data-set]')) {
       const [key, value] = b.dataset.set.split(':');
-      const on = getPath(settings, key) === value;
+      const on = String(getPath(settings, key)) === value;
       b.classList.toggle('on', on);
       b.setAttribute('aria-pressed', String(on));
     }
@@ -446,7 +446,7 @@
     const b = e.target.closest('[data-set]');
     if (!b) return;
     const [key, value] = b.dataset.set.split(':');
-    setPath(settings, key, value);
+    setPath(settings, key, typeof getPath(settings, key) === 'number' ? Number(value) : value);
     settingsChanged();
   });
 
@@ -609,9 +609,13 @@
 
   function selectTab(name) {
     tab = name;
-    for (const t of $$('[data-tab]')) t.setAttribute('aria-selected', String(t.dataset.tab === name));
+    for (const t of $$('[data-tab]')) {
+      t.setAttribute('aria-selected', String(t.dataset.tab === name));
+      if (t.dataset.tab === name) t.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
     for (const p of $$('[data-panel]')) p.hidden = p.dataset.panel !== name;
     if (name === 'games') renderGameList();
+    if (name === 'about') $('#aboutVersion').textContent = G.VERSION;
     explain.render();
   }
 

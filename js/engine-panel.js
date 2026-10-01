@@ -138,7 +138,7 @@
         threads,
         hashMB: Number(e.hash),
         depth: e.depth,
-        strength: e.strength,
+        strength: kind === 'analyze' ? 100 : e.strength, // the handicap applies to moves only
         timeMs: Math.round(secs * 1000),
       };
     }

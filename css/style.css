@@ -73,7 +73,7 @@ button, .btn {
   transition: background .12s, border-color .12s;
 }
 button:hover:not(:disabled), .btn:hover { background: var(--surface-3); }
-button:disabled { opacity: .4; cursor: default; }
+button:disabled { opacity: .55; cursor: default; }
 button:focus-visible, .btn:focus-within, input:focus-visible, select:focus-visible {
   outline: 2px solid var(--accent-text);
   outline-offset: 2px;
@@ -202,6 +202,8 @@ body.focus .panel { display: none; }
   display: flex;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 .tabs button {
   flex: 1;
@@ -210,7 +212,7 @@ body.focus .panel { display: none; }
   border-bottom: 2px solid transparent;
   background: transparent;
   color: var(--muted);
-  padding: 11px 4px;
+  padding: 11px 8px;
   white-space: nowrap;
 }
 .tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
@@ -587,3 +589,5 @@ dialog .field input:not([type="checkbox"]) { width: 180px; }
 .exp-steps .why { color: var(--muted); }
 .exp-steps li.counter .why { color: #0f766e; }
 .exp-legend { line-height: 1.9; margin: 0; }
+
+.card p a { color: var(--accent-text); }
