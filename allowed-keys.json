@@ -31,6 +31,16 @@
     "x": "HpeScwPguA1oQUfnwe-SDj08eXwfO0hM7YApdIP3gzE",
     "y": "F6mL2AVbTDncPBLCnsiFUp4BVxhiL6C8UzaopnPqNqs"
    }
+  },
+  {
+   "name": "minta60",
+   "fingerprint": "E240 06D1 3DBD 3E5C C787 31D7 3C15 A690",
+   "publicKey": {
+    "kty": "EC",
+    "crv": "P-256",
+    "x": "w74kR5Ke36V_glzLjwXef1yWI7uKexfWtjNgfwPnLtc",
+    "y": "Y41_NtWDGB5LhE-XdjNhdJ_sqXEzXPcN42aMgb-asKk"
+   }
   }
  ]
 }
