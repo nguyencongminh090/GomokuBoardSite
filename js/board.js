@@ -105,18 +105,30 @@
     return `<rect x="${x0 + 1.5}" y="${y0 + 1.5}" width="${P - 3}" height="${P - 3}" fill="url(#pHatch)"/>`;
   }
 
-  // One end of a portal pair: a ring in the board's ink colour, tinted by pair, with the pair number inside
-  // (the number, not the tint, tells pairs apart).
-  const PORTAL_HUES = [200, 28, 150, 285, 340, 55, 230, 100];
+  // Pair colours, as in the desktop Portal UI: blue, pink, green, orange, purple, teal, gold, red.
+  const PORTAL_COLORS = [[51, 179, 242], [230, 102, 153], [77, 204, 102], [242, 153, 51], [166, 89, 217], [51, 191, 179], [217, 191, 51], [217, 64, 64]];
+  const portalRgb = (index, a = 1) => `rgba(${PORTAL_COLORS[index % PORTAL_COLORS.length].join(',')},${a})`;
+
+  // One end of a portal pair: a coloured ring with a soft glow and a dark centre dot. The ring sits on a thin ink
+  // outline so it keeps its contrast on any board colour, and the pair number sits in the corner (colour alone
+  // must not tell pairs apart).
   function portal(x0, y0, index, s) {
     const cx = x0 + P / 2;
     const cy = y0 + P / 2;
     const bg = s.theme === 'paper' ? s.paper.bg : s.stone.bg;
     const ink = G.contrast.ink(bg)[0] ? '#fff' : '#000';
-    const hue = PORTAL_HUES[index % PORTAL_HUES.length];
-    return `<g class="portal"><circle cx="${f(cx)}" cy="${f(cy)}" r="${f(P * 0.4)}" fill="hsl(${hue} 70% 55% / .35)" stroke="${ink}" stroke-width="2"/>` +
-      `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(P * 0.27)}" fill="none" stroke="${ink}" stroke-width="1.2" stroke-dasharray="3 3"/>` +
-      `<text x="${f(cx)}" y="${f(cy)}" dy=".36em" text-anchor="middle" font-size="${P < 30 ? 11 : 13}" font-weight="700" fill="${ink}">${index + 1}</text></g>`;
+    const r = P * 0.32;
+    const w = P * 0.08;
+    return `<g class="portal"><circle cx="${f(cx)}" cy="${f(cy)}" r="${f(r + w)}" fill="${portalRgb(index, 0.25)}"/>` +
+      `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(r)}" fill="none" stroke="${ink}" stroke-opacity=".6" stroke-width="${f(w + 2)}"/>` +
+      `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(r)}" fill="none" stroke="${portalRgb(index)}" stroke-width="${f(w)}"/>` +
+      `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(P * 0.08)}" fill="#262626"/>` +
+      `<text x="${f(x0 + 3)}" y="${f(y0 + 3)}" dy=".8em" font-size="${P < 30 ? 9 : 11}" font-weight="700" fill="${ink}" stroke="${bg}" stroke-width="2.5" paint-order="stroke">${index + 1}</text></g>`;
+  }
+
+  // Dashed link between two cell centres, in a pair's colour.
+  function portalLink(ax, ay, bx, by, index) {
+    return `<line x1="${f(ax)}" y1="${f(ay)}" x2="${f(bx)}" y2="${f(by)}" stroke="${portalRgb(index, 0.55)}" stroke-width="2" stroke-dasharray="5 5"/>`;
   }
 
   function starPoints(n) {
@@ -345,7 +357,7 @@
       // First end of a pair the host has clicked but not completed
       if (mode === 'setup' && this.pending !== null && this.pending !== undefined) {
         const k = this.pending;
-        out.push(`<rect x="${m + (k % n) * P + 3}" y="${m + Math.floor(k / n) * P + 3}" width="${P - 6}" height="${P - 6}" fill="none" stroke="#2f7de0" stroke-width="3" stroke-dasharray="5 4"/>`);
+        out.push(portal(m + (k % n) * P, m + Math.floor(k / n) * P, game.portals.length, s));
       }
 
       const pos = game.position();
@@ -581,9 +593,17 @@
       const k = game.key(h.x, h.y);
       let svg = '';
       const mark = (kk, color) => `<rect x="${m + (kk % game.size) * P + 3}" y="${m + Math.floor(kk / game.size) * P + 3}" width="${P - 6}" height="${P - 6}" fill="none" stroke="${color}" stroke-width="3" stroke-dasharray="5 4"/>`;
+      const center = (kk) => [m + ((kk % game.size) + 0.5) * P, m + (Math.floor(kk / game.size) + 0.5) * P];
+      const pend = this.pending;
+      const pendingNew = mode === 'setup' && this.tool === 'portal' && pend !== null && pend !== undefined;
       if (mode === 'setup' && this.tool === 'portal') {
-        if (game.isPortal(k)) svg = mark(k, '#e0342f') + mark(game.portalPartner(k), '#e0342f'); // clicking removes the pair
-        else svg = `<g opacity=".5">${portal(x0, y0, game.portals.length, s)}</g>`;
+        if (game.isPortal(k)) {
+          svg = mark(k, '#e0342f') + mark(game.portalPartner(k), '#e0342f'); // clicking removes the pair
+        } else if (!game.walls.has(k)) {
+          svg = `<rect x="${x0}" y="${y0}" width="${P}" height="${P}" fill="#fff" opacity=".4"/>`;
+          if (pendingNew && pend !== k) svg += portalLink(...center(pend), ...center(k), game.portals.length);
+          svg += `<g opacity=".6">${portal(x0, y0, game.portals.length, s)}</g>`;
+        }
       } else if (mode === 'setup') {
         svg = game.walls.has(k)
           ? `<rect x="${x0 + 3}" y="${y0 + 3}" width="${P - 6}" height="${P - 6}" fill="none" stroke="#e0342f" stroke-width="3" stroke-dasharray="5 4"/>`
@@ -591,7 +611,8 @@
       } else if (game.canPlay(h.x, h.y)) {
         svg = `<g opacity=".38">${piece(game.toMove(), x0 + P / 2, y0 + P / 2, s, k)}</g>`;
       } else if (game.isPortal(k)) {
-        svg = mark(game.portalPartner(k), '#2f7de0'); // where a line entering this cell leaves
+        const i = game.portalIndex(k); // where a line entering this cell leaves: link to the other end
+        svg = portalLink(...center(k), ...center(game.portalPartner(k)), i);
       }
       this.ghost.innerHTML = svg;
     }
