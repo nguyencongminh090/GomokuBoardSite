@@ -118,7 +118,11 @@
     const ink = G.contrast.ink(bg)[0] ? '#fff' : '#000';
     const r = P * 0.32;
     const w = P * 0.08;
-    return `<g class="portal"><circle cx="${f(cx)}" cy="${f(cy)}" r="${f(r + w)}" fill="${portalRgb(index, 0.25)}"/>` +
+    // On paper the whole cell is tinted in the pair's colour, so a portal never reads as a circle symbol.
+    const cell = s.theme === 'paper'
+      ? `<rect x="${f(x0 + 1)}" y="${f(y0 + 1)}" width="${f(P - 2)}" height="${f(P - 2)}" fill="${portalRgb(index, 0.3)}"/>`
+      : '';
+    return `<g class="portal">${cell}<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(r + w)}" fill="${portalRgb(index, 0.25)}"/>` +
       `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(r)}" fill="none" stroke="${ink}" stroke-opacity=".6" stroke-width="${f(w + 2)}"/>` +
       `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(r)}" fill="none" stroke="${portalRgb(index)}" stroke-width="${f(w)}"/>` +
       `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(P * 0.08)}" fill="#262626"/></g>`;
