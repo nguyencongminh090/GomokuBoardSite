@@ -262,6 +262,12 @@
       'games.defaultName': ({ date }) => `Ván ${date}`,
       'import.badJson': 'Tệp này không phải JSON hợp lệ.',
       'import.done': ({ added, skipped }) => `Đã nhập ${added} ván${skipped ? `, bỏ qua ${skipped}` : ''}.`,
+      'app.updating': 'Có bản mới, đang cập nhật…',
+      'install.title': 'Cài MCaro lên điện thoại',
+      'install.android': 'Mở như một ứng dụng, toàn màn hình và dùng được khi mất mạng.',
+      'install.ios': 'Bấm nút Chia sẻ trong Safari, rồi chọn "Thêm vào Màn hình chính".',
+      'install.button': 'Cài đặt',
+      'install.close': 'Đóng',
       'storage.failed': 'Không lưu được vào trình duyệt. Hãy Xuất ván cờ để giữ lại.',
 
       'sec.title': 'Bảo mật',
@@ -577,6 +583,12 @@
       'import.badJson': 'That file is not valid JSON.',
       'import.done': ({ added, skipped }) =>
         `Imported ${plural(added, 'game', 'games')}${skipped ? `, skipped ${skipped}` : ''}.`,
+      'app.updating': 'New version found, updating…',
+      'install.title': 'Install MCaro on your phone',
+      'install.android': 'Opens like an app, full screen, and works offline.',
+      'install.ios': 'Tap the Share button in Safari, then choose "Add to Home Screen".',
+      'install.button': 'Install',
+      'install.close': 'Close',
       'storage.failed': 'Could not save to browser storage. Export your games to keep them.',
 
       'sec.title': 'Security',

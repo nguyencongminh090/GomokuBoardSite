@@ -32,6 +32,8 @@
     authorize: () => security.authorizeEngine(),
   });
 
+  const install = G.createInstallPrompt({ t, store });
+
   const explain = G.createExplainPanel({
     game: () => game,
     mode: () => mode,
@@ -396,6 +398,7 @@
     G.i18n.apply();
     $('#langBtn').textContent = settings.lang === 'vi' ? 'VI' : 'EN';
     $('#focusBtn').textContent = t(document.body.classList.contains('focus') ? 'header.showPanel' : 'header.hidePanel');
+    install.refresh();
   }
 
   // Preset buttons preview the preset itself (background, grid or lines, symbols or stones, in its own colours).
@@ -700,6 +703,7 @@
     openInitialGame();
     engine.start();
     registerServiceWorker();
+    install.start();
     // Harden against console tampering: the security API and engine client can no longer be patched in place.
     for (const o of [G.security, G.EngineClient, G.EngineClient.prototype, G]) Object.freeze(o);
   }
@@ -709,6 +713,20 @@
   function registerServiceWorker() {
     if (!('serviceWorker' in navigator) || !window.isSecureContext) return;
     navigator.serviceWorker.register(G.serviceWorkerUrl).catch((err) => console.warn('Service worker unavailable', err));
+    // The worker's URL carries the release version, so only a reload can pick up a new release. An installed app is
+    // rarely reloaded by hand: when it comes back to the front, compare with the published page and reload if newer.
+    document.addEventListener('visibilitychange', async () => {
+      if (document.visibilityState !== 'visible' || !G.VERSION) return;
+      try {
+        const res = await fetch(location.pathname, { cache: 'no-cache' });
+        const live = /<meta name="app-version" content="([^"]*)"/.exec(await res.text());
+        if (live && live[1] !== G.VERSION) {
+          toast(t('app.updating'));
+          flush();
+          setTimeout(() => location.reload(), 1200);
+        }
+      } catch (err) { /* offline: keep the current version */ }
+    });
   }
 
   function openInitialGame() {

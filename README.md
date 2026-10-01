@@ -84,6 +84,7 @@ new release at once instead of a mix of old and new files. The current version i
 | `engine/` | Rapfi WebAssembly builds, their worker host and build script (GPLv3, see `engine/README.md`) |
 | `tools/bump-version.js` | Sets the release version used for cache busting (see *Releasing a new version*) |
 | `coi-serviceworker.js` | Service worker: adds COOP/COEP headers (engine threads on GitHub Pages) and caches the app shell for offline use |
+| `js/install.js` | Phone-only banner that offers to install the app |
 | `manifest.webmanifest`, `icons/` | PWA manifest and icons: the site can be installed on a phone (Chrome: Install app; iOS Safari: Share → Add to Home Screen). The engine is never cached offline |
 | `tests/model.test.js` | Model and engine protocol tests: `node tests/model.test.js` |
 

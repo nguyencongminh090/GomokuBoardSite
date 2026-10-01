@@ -111,6 +111,12 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
   faint. `board.js` draws board text with `G.contrast.ink()` and `INK_ALPHA`, the same values the audit checks, so
   change them together. The Settings colour chips show each ratio, and `renderContrast()` lists failures with a
   suggested fix (same hue, lightness shifted, aiming `SUGGEST_MARGIN` above the minimum) and toasts newly failing colours.
+- **PWA** (`manifest.webmanifest`, `icons/`, `coi-serviceworker.js`, `js/install.js`): the site is installable (name MCaro). The one
+  service worker adds COOP/COEP to every response and caches the app shell under the release version (its URL carries `?v=`,
+  `G.serviceWorkerUrl`); it never caches `engine/`, `allowed-keys.json` or cross-origin requests. `install.js` shows a phone-only banner
+  (Android: replays `beforeinstallprompt`; iOS: Share → Add to Home Screen hint), hidden for 14 days once dismissed and never in the
+  installed app. `main.js` reloads when the app returns to the front and `index.html` carries a newer `app-version`. A new asset in the
+  shell needs adding to `SHELL` in the worker; the manifest screenshots (`icons/shot-*.png`) feed Android's rich install dialog.
 - **Presets** (`G.PRESETS` in `settings.js`) set every colour of their theme, including symbols and walls (walls are
   per theme: `paper.wall` / `stone.wall`). A test audits every preset in both coordinate modes, so a new or edited
   preset must pass WCAG AA. The default paper colours equal the Cream preset.

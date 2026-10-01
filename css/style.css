@@ -566,6 +566,28 @@ dialog .field input:not([type="checkbox"]) { width: 180px; }
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
+/* Install banner (phones only, see js/install.js) */
+.install-banner {
+  position: fixed;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .3);
+}
+.install-banner[hidden] { display: none; }
+.install-banner img { border-radius: 9px; flex: none; }
+.install-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.install-text small { color: var(--muted, inherit); line-height: 1.3; }
+
 /* Narrow screens: stack the panel under the board */
 @media (max-width: 860px) {
   body { height: auto; }

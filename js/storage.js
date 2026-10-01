@@ -8,6 +8,7 @@
     settings: 'gomoku-board.settings.v1',
     current: 'gomoku-board.current.v1',
     keys: 'gomoku-board.keys.v1',
+    installDismissed: 'gomoku-board.install-dismissed.v1',
   };
 
   // One IndexedDB request per call; resolves with its result once the transaction has committed.
@@ -89,6 +90,14 @@
         ? raw.trusted.filter((k) => k && G.security.isPublicJwk(k.publicKey) && typeof k.fingerprint === 'string')
         : [];
       return { trusted };
+    },
+    // When the install banner was last dismissed (ms since epoch, 0 = never).
+    installDismissedAt() {
+      const at = read(KEYS.installDismissed, 0);
+      return typeof at === 'number' ? at : 0;
+    },
+    dismissInstall() {
+      return write(KEYS.installDismissed, Date.now());
     },
     saveKeys(keys) {
       return write(KEYS.keys, { trusted: keys.trusted });
