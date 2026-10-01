@@ -341,12 +341,21 @@
         <p class="muted small-text app-version" id="appVersion"></p>
       </div>
 
-      <!-- About: what this is, version, credits -->
+      <!-- About: author, project, usage guide, data, credits -->
       <div class="tab-body" data-panel="about" hidden>
+        <section class="card">
+          <h3 data-i18n="about.author.title"></h3>
+          <p><b>Nguyễn Minh</b><br><a href="mailto:nguyenminhfptu@gmail.com">nguyenminhfptu@gmail.com</a></p>
+        </section>
         <section class="card">
           <h3 data-i18n="about.title"></h3>
           <p data-i18n="about.what"></p>
+          <ul class="small-text about-list" data-i18n-html="about.features"></ul>
           <p class="muted small-text"><span data-i18n="about.version"></span> <b id="aboutVersion"></b></p>
+        </section>
+        <section class="card">
+          <h3 data-i18n="about.guide.title"></h3>
+          <ol class="small-text about-list" data-i18n-html="about.guide"></ol>
         </section>
         <section class="card">
           <h3 data-i18n="about.data.title"></h3>

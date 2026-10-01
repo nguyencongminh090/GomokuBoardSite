@@ -591,3 +591,4 @@ dialog .field input:not([type="checkbox"]) { width: 180px; }
 .exp-legend { line-height: 1.9; margin: 0; }
 
 .card p a { color: var(--accent-text); }
+.about-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
