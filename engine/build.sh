@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Rebuilds the Rapfi WebAssembly engine into this folder (see engine/README.md).
+# Rebuilds the Rapfi WebAssembly engine into $GOMOKU_ENGINE_DIR (default ../GomokuEngineFiles next to the repository;
+# the engine files are not in git, see engine/README.md). Deploy them with gate/deploy.sh.
 #
 #   engine/build.sh <path to the rapfi repository> [path to a folder with config.toml and the model]
 #
@@ -9,7 +10,8 @@ set -euo pipefail
 
 RAPFI=$(cd "${1:?usage: engine/build.sh <rapfi repo> [model dir]}" && pwd)
 MODELS=$(cd "${2:-$RAPFI/gomoku-portal-ui-distribute}" && pwd)
-OUT=$(cd "$(dirname "$0")" && pwd)
+OUT=${GOMOKU_ENGINE_DIR:-$(cd "$(dirname "$0")/../.." && pwd)/GomokuEngineFiles}
+mkdir -p "$OUT"
 MODEL=Model20260727-V0-FreshValue.bin
 
 command -v emcmake >/dev/null || { echo "emcmake not found: source ~/emsdk/emsdk_env.sh first" >&2; exit 1; }

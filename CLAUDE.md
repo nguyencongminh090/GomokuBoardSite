@@ -28,7 +28,8 @@ Product decisions (don't change them unless asked):
 node tests/model.test.js        # model, i18n, contrast, preset and engine protocol tests; exit code 1 on failure
 xdg-open index.html             # run the site: works straight from file:// (classic scripts, not ES modules)
 python3 -m http.server 8000     # or serve it, same as GitHub Pages; the engine only runs when served
-engine/build.sh <rapfi repo>    # rebuild the engine WASM (needs `source ~/emsdk/emsdk_env.sh`)
+engine/build.sh <rapfi repo>    # rebuild the engine WASM into ../GomokuEngineFiles (needs `source ~/emsdk/emsdk_env.sh`)
+gate/deploy.sh                  # upload ../GomokuEngineFiles to the engine gate (Cloudflare Worker)
 node tools/bump-version.js X.Y.Z # set the release version (cache busting); do this before every deploy
 ```
 
@@ -133,8 +134,9 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
   Pages) and returns an HMAC token; `/engine/*?t=` checks it. It is switched on by `<meta name="engine-gate" content="URL">`
   in `index.html` (empty = engine files served locally, old behaviour). Then `G.engineGuard()` returns `{ gate, token }`,
   and `engine.worker.js` loads the files from the gate (the `gate`/`t` query also reaches the pthread workers).
-  `gate/deploy.sh` copies the engine into `gate/public` (git-ignored) and deploys; the engine files must then be removed
-  from `engine/` and from git history, or the gate protects nothing. Revocation lags by `TOKEN_TTL`.
+  `gate/deploy.sh` copies the engine from `../GomokuEngineFiles` (outside the repo; `engine/rapfi-*` is git-ignored) into
+  `gate/public` (git-ignored) and deploys. The engine files are no longer in the tree, but they are still in git history
+  until it is rewritten, so the gate protects nothing until then. Revocation lags by `TOKEN_TTL`.
 - **Engine** (`js/engine.js`, `js/engine-panel.js`, `engine/`): Rapfi runs in a Web Worker (`engine/engine.worker.js`)
   that hosts one of two Emscripten builds: `multi` (pthreads, needs `crossOriginIsolated`) or `single`. Protocol
   facts the client relies on, verified against `command/gomocup.cpp` of the MINT-P engine:
