@@ -178,6 +178,7 @@ select, input[type="number"], .field input:not([type]) {
 #board .cand-tag { dominant-baseline: alphabetic; font-size: 9.5px; font-weight: 700; letter-spacing: .02em; }
 @keyframes cand-pulse { from { transform: scale(1); opacity: .9; } to { transform: scale(2); opacity: 0; } }
 #board .cand-label { dominant-baseline: alphabetic; font-size: 9px; font-weight: 700; }
+#board .pvnum.solver { font-style: italic; }
 #board .pvnum.cur { font-size: 19px; }
 #board .pvnum { dominant-baseline: alphabetic; font-size: 15px; font-weight: 700; }
 .setup #board { cursor: crosshair; }
@@ -317,6 +318,7 @@ kbd {
 .atk { display: inline-block; padding: 0 4px; margin-right: 4px; border-radius: 3px; background: #b91c1c; color: #fff; font-size: 10px; font-weight: 700; }
 .atk.VCT { background: #7c3aed; }
 .pv-legend { margin: 6px 0 0; }
+.pvm.pvx { font-style: italic; }
 .pvm { cursor: default; border-radius: 3px; }
 .pvm:hover, .pvm.cur { background: var(--accent-soft); color: var(--text); }
 .pv-table .pv { color: var(--muted); font-size: 12px; white-space: normal; overflow-wrap: anywhere; }

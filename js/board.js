@@ -467,7 +467,7 @@
           }
           const fill = paper ? ink : player ? '#1a1a1a' : '#f4f4f4';
           const halo = paper ? ` stroke="${bg}" stroke-width="4" paint-order="stroke"` : '';
-          out.push(`<text class="pvnum${i === a.mark ? ' cur' : ''}" x="${c(x)}" y="${c(y)}" dy=".36em" fill="${fill}"${halo}>${i + 1}</text>`);
+          out.push(`<text class="pvnum${i === a.mark ? ' cur' : ''}${ch && i >= ch.added ? ' solver' : ''}" x="${c(x)}" y="${c(y)}" dy=".36em" fill="${fill}"${halo}>${i + 1}</text>`);
         });
       } else {
         const RADIUS = [10.5, 12, 11, 9.5];
@@ -499,6 +499,7 @@
       if (same || (!cell && !this.hover)) return;
       this.hover = cell;
       this.drawGhost();
+      if (this.onHoverCell) this.onHoverCell(cell);
     }
 
     drawGhost() {

@@ -328,11 +328,19 @@ test('attack chain must end in a victory and traces back from it', () => {
   assert(c, 'chain expected');
   assert.equal(c.kind, 'VCF');
   assert.equal(c.start, 0);
-  assert.equal(c.end, 2);
-  assert.equal(c.finish, 'open4');
+  assert.equal(c.end, 4); // the solver plays the rest: block, then the five
+  assert.equal(c.finish, 'five');
+  assert.equal(c.added, 4); // the PV's own moves are kept
+  assert.equal(c.line.length, 5);
   // a quiet first move is not part of the chain: the chain starts at the first threat of the winning run
   const q = T.chain(b, [[12, 12], [1, 2], [8, 7], [9, 7], [7, 8]], 0);
-  assert(q && q.start === 2 && q.end === 4, 'quiet move excluded');
+  assert(q && q.start === 2 && q.end === 6, 'quiet move excluded');
+  // an engine PV that stops early: the solver finishes the whole VCF (four, forced block, open four, block, five)
+  const early = T.chain(b, [[8, 7]], 0);
+  assert(early && early.kind === 'VCF' && early.added === 1 && early.finish === 'five', 'solver completes the win');
+  // a PV that ends with the defender's block: the attacker's win is found from there
+  const blocked = T.chain(b, [[8, 7], [9, 7]], 0);
+  assert(blocked && blocked.start === 0 && blocked.finish === 'five', 'win found after the last block');
   // an open three that leads nowhere is not a victory, so nothing is highlighted
   const t = threatBoard(15, [[6, 7, 0], [7, 7, 0], [1, 1, 1]]);
   assert(T.chain(t, [[8, 7], [5, 7]], 0) === null, 'three then block is no victory');
@@ -394,4 +402,34 @@ test('threats treat walls like the board edge', () => {
   b = threatBoard(15, [[5, 7, 0], [6, 7, 0], [7, 7, 0], [7, 5, 0], [7, 6, 0]], [at(9, 7)]);
   assert(T.chain(b, [[8, 7], [1, 1], [7, 8]], 0) === null || T.chain(b, [[9, 7], [1, 1], [7, 8]], 0) === null);
   assert(T.chain(b, [[9, 7], [1, 1], [7, 8]], 0) === null);
+});
+
+test('threat bitboards: every direction on the largest board, edges and corners', () => {
+  const T = G.threats;
+  const n = 26;
+  // anti-diagonal five reaching the corner area, diagonal four against the edge, column and row at the far side
+  let b = threatBoard(n, [[25, 0, 0], [24, 1, 0], [23, 2, 0], [22, 3, 0], [21, 4, 0]]);
+  assert.equal(T.classify(b, 21, 4), 'five');
+  b = threatBoard(n, [[22, 22, 0], [23, 23, 0], [24, 24, 0], [25, 25, 0]]);
+  assert.equal(T.classify(b, 25, 25), 'four'); // the edge closes one end: one completing cell
+  assert.deepEqual(T.defences(threatBoard(n, [[22, 22, 0], [23, 23, 0], [24, 24, 0], [25, 25, 0]]), 1), [21 * n + 21]);
+  b = threatBoard(n, [[0, 10, 0], [1, 10, 0], [2, 10, 0]]);
+  assert.equal(T.classify(b, 2, 10), ''); // a three that starts at the edge is not open
+  b = threatBoard(n, [[10, 25, 0], [11, 25, 0], [12, 25, 0]]);
+  assert.equal(T.classify(b, 12, 25), 'three'); // a row along the edge is a normal line
+  b = threatBoard(n, [[25, 10, 0], [25, 11, 0], [25, 12, 0]]);
+  assert.equal(T.classify(b, 25, 12), 'three');
+});
+
+test('solver returns one winning line ending in a five', () => {
+  const T = G.threats;
+  const b = threatBoard(15, [[5, 7, 0], [6, 7, 0], [7, 7, 0], [7, 5, 0], [7, 6, 0], [4, 7, 1], [1, 1, 1]]);
+  const line = T.solve(b, 0, 'VCF', true);
+  assert(line && line.length % 2 === 1, 'attacker moves first and last');
+  const last = line[line.length - 1];
+  // replay it: the last move must be a five
+  const stones = new Map(b.stones);
+  line.forEach(([x, y], i) => stones.set(y * 15 + x, i % 2));
+  assert.equal(T.classify({ size: 15, walls: b.walls, stones }, last[0], last[1]), 'five');
+  assert.equal(T.solve(threatBoard(15, [[7, 7, 0]]), 0, 'VCT', true), null);
 });

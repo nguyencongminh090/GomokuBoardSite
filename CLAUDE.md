@@ -65,15 +65,19 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
     don't draw grid lines at raw `m + i * P` coordinates, and don't add `shape-rendering="crispEdges"`: any of these
     brings back lines that render at uneven thickness. A `ResizeObserver` redraws when the available space changes.
 - **`threats.js` (`G.threats`)** is pure freestyle threat analysis (no DOM; walls, edges and enemy stones block), modelled on
-  Rapfi's pattern classes (`core/types.h` `Pattern4`). `analyze`/`finish` classify a placed stone (five, open four, 4-4, 4-3,
-  3-3); `map` lists those cells for a player; `defences` gives the cells the side to move must choose from (fives, open fours,
-  double fours; counter-threats are ignored); `proves` is a small VCF/VCT search (VCF: only fours, the
-  defender must block; VCT: fours and open threes, the defender may answer a three with any cell that stops an open four;
-  defender counter-fours are not modelled; node budget and depth are capped). `chain` replays an engine PV and traces a
-  victory back from its end: the last attacking move must win (five, open four, 4-4, or `proves`), then the chain extends
-  backwards over the attacker's earlier threat moves. A run of threats that does not end in a win is not highlighted.
-  Result `{ kind: 'VCF' | 'VCT', start, end, kinds, finish }`. The engine never reports this, so it is
-  recomputed client-side. `settings.threatMap` draws `map` tags and `defences` rings (`BoardView.threatMap`, play mode only).
+  Rapfi's pattern classes (`core/types.h` `Pattern4`). The board is held as **bitboards per line** (`Grid`: one 32-bit mask per
+  player for every row, column and both diagonals; a cell is one bit of four lines), so window tests are mask operations. The
+  public API takes plain `{ size, walls, stones }` boards: `classify`/`finish` (five, open four, 4-4, 4-3, 3-3), `map` (cells
+  that would give such a finish), `defences` (cells the side to move must choose from: fives, open fours, double fours;
+  counter-threats ignored), `solve` and `chain`. `solve` is a small VCF/VCT search returning one winning line (VCF: only
+  fours, the defender must block; VCT: fours and open threes, the defender may answer a three with any cell that stops an
+  open four; defender counter-fours are not modelled; node budget and depth are capped). `chain` replays an engine PV, lets
+  the solver **play the rest of the win** (engines stop a PV early) and traces the victory back from its end over the
+  attacker's earlier threat moves; a run of threats that does not end in a win is not highlighted. Result
+  `{ kind: 'VCF' | 'VCT', line, start, end, added, kinds, finish }` (`line` = PV + solver moves, from `added` on). The engine
+  never reports this, so it is recomputed client-side. `settings.threatMap` draws `map` tags and `defences` rings
+  (`BoardView.threatMap`, play mode only). Keep the bitboard code equal to the plain definitions: compare against an oracle
+  (the pre-bitboard version in git, commit 0859097) after any change to `analyzeCell`/`windowCells`.
 - **`main.js`** holds app state (`game`, `mode: 'play' | 'setup'`, `settings`). The flow is always: mutate `game` → `persist()`
   (debounced localStorage write, flushed on `pagehide`) → `refresh()` (board + panels re-rendered from state).
   Settings controls are bound generically: inputs use `data-key="path.in.settings"` (checkbox/colour/select) and option
@@ -133,7 +137,7 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
   - Threads need COOP/COEP; `coi-serviceworker.js` adds them and `engine-panel.js` reloads once (guarded per tab by
     sessionStorage). Engine settings live under `settings.engine`; number fields commit on `change` and are clamped.
   - The overlay is a separate SVG layer (`BoardView.setAnalysis`), redrawn without re-rendering the board. A previewed line is
-    drawn at full length; hovering a move in the PV column, or the mouse wheel over the board (`scrollPreview`), sets how many
+    drawn at full length (with the solver's added moves in italics) and any candidate's line shows when its marker is hovered; hovering a move in the PV column, or the mouse wheel over the board (`scrollPreview`), sets how many
     moves show. The preview survives moving the pointer from the table onto the board, and is cleared on leaving both.
     Attack chain colours: VCF red, VCT purple (`ATTACK` in `board.js`, `.atk` in CSS).
 

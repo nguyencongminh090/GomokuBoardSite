@@ -1,71 +1,151 @@
-// Threat analysis of an engine line: finds the continuous attack (VCF = only fours, VCT = fours and open threes).
+// Threat analysis for engine lines: classifies moves (five, four, open three, 4-3, 3-3...), maps threats and forced
+// blocks, and finds a victory by continuous threats (VCF = only fours, VCT = fours and open threes).
 // Pure model code (no DOM). Freestyle gomoku: five or more in a row wins; walls, edges and enemy stones block.
+//
+// The board is held as bitboards per line (every row, column and both diagonals is one 32-bit mask per player), as
+// in Rapfi's line patterns. A cell sits at bit `pos` of four lines, so "is there a five in this window?" or "which
+// cell completes it?" is a few mask operations instead of reading cells one by one.
 (function (G) {
   'use strict';
 
-  const DIRS = [[1, 0], [0, 1], [1, 1], [1, -1]];
-  const REACH = 5; // cells looked at on each side of the new stone
-  const OWN = 1;
-  const EMPTY = 0;
-  const BLOCK = 2;
-  const CENTRE = REACH;
+  // Line directions: horizontal, vertical, diagonal (x - y constant), anti-diagonal (x + y constant).
+  // Along each line a cell's bit is its x, except for columns where it is its y, so neighbours on a line are neighbouring bits.
+  const lineOf = [
+    (x, y, n) => y,
+    (x, y, n) => x,
+    (x, y, n) => x - y + n - 1,
+    (x, y, n) => x + y,
+  ];
+  const posOf = [(x, y) => x, (x, y) => y, (x, y) => x, (x, y) => x];
 
-  // Does a run of 5+ own cells contain index `at`?
-  function makesFive(cells, at) {
-    let a = at;
-    let b = at;
-    while (a > 0 && cells[a - 1] === OWN) a--;
-    while (b < cells.length - 1 && cells[b + 1] === OWN) b++;
-    return b - a + 1 >= 5;
+  // Population count of a 5-bit window, and the position of the lowest clear bit of a window with four stones.
+  const POP5 = [];
+  const HOLE5 = [];
+  for (let w = 0; w < 32; w++) {
+    POP5.push((w & 1) + ((w >> 1) & 1) + ((w >> 2) & 1) + ((w >> 3) & 1) + ((w >> 4) & 1));
+    let hole = -1;
+    for (let i = 4; i >= 0; i--) if (!((w >> i) & 1)) hole = i;
+    HOLE5.push(hole);
+  }
+  const popcount = (v) => {
+    v -= (v >>> 1) & 0x55555555;
+    v = (v & 0x33333333) + ((v >>> 2) & 0x33333333);
+    return (((v + (v >>> 4)) & 0x0f0f0f0f) * 0x01010101) >>> 24;
+  };
+
+  const gridCache = new Map(); // size -> geometry shared by every Grid of that size
+
+  // Per-size geometry: the cell of every (direction, line, bit) and the valid-bit mask of every line.
+  function geometry(size) {
+    let g = gridCache.get(size);
+    if (g) return g;
+    const lines = [size, size, 2 * size - 1, 2 * size - 1];
+    const valid = lines.map((c) => new Int32Array(c));
+    const cellAt = lines.map((c) => new Int16Array(c * 32).fill(-1));
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        for (let d = 0; d < 4; d++) {
+          const L = lineOf[d](x, y, size);
+          const p = posOf[d](x, y);
+          valid[d][L] |= 1 << p;
+          cellAt[d][L * 32 + p] = y * size + x;
+        }
+      }
+    }
+    g = { size, lines, valid, cellAt };
+    gridCache.set(size, g);
+    return g;
   }
 
-  // Empty cells of the line where an own stone makes a five through the centre stone.
-  function completions(cells) {
-    const out = [];
-    for (let i = 0; i < cells.length; i++) {
-      if (cells[i] !== EMPTY) continue;
-      cells[i] = OWN;
-      if (makesFive(cells, i) && makesFive(cells, CENTRE)) out.push(i);
-      cells[i] = EMPTY;
+  class Grid {
+    // board: { size, walls: Set of keys, stones: Map key -> player }
+    constructor(board) {
+      const size = board.size;
+      this.size = size;
+      this.geo = geometry(size);
+      const lines = this.geo.lines;
+      this.own = [0, 1].map(() => lines.map((c) => new Int32Array(c)));
+      this.block = lines.map((c) => new Int32Array(c)); // walls
+      this.cell = new Int8Array(size * size).fill(-1); // -1 empty, 0 / 1 stone of that player, 2 wall
+      this.stamp = new Int32Array(size * size);
+      this.gen = 0;
+      for (const k of board.walls) this.set(k, 2);
+      for (const [k, p] of board.stones) this.set(k, p);
+    }
+
+    set(k, p) {
+      const size = this.size;
+      const x = k % size;
+      const y = (k - x) / size;
+      this.cell[k] = p;
+      for (let d = 0; d < 4; d++) {
+        const L = lineOf[d](x, y, size);
+        const bit = 1 << posOf[d](x, y);
+        if (p === 2) this.block[d][L] |= bit;
+        else this.own[p][d][L] |= bit;
+      }
+    }
+
+    clear(k) {
+      const size = this.size;
+      const x = k % size;
+      const y = (k - x) / size;
+      const p = this.cell[k];
+      this.cell[k] = -1;
+      for (let d = 0; d < 4; d++) {
+        const L = lineOf[d](x, y, size);
+        const bit = ~(1 << posOf[d](x, y));
+        if (p === 2) this.block[d][L] &= bit;
+        else this.own[p][d][L] &= bit;
+      }
+    }
+
+    // Bits of line (d, L) that player p cannot use: off the board, walls and enemy stones.
+    blocked(p, d, L) {
+      return ~this.geo.valid[d][L] | this.block[d][L] | this.own[1 - p][d][L];
+    }
+  }
+
+  // Completing cells (as a bit mask on the line) of every five-window through bit `pos` that holds four stones.
+  function fourCells(O, B, pos) {
+    let out = 0;
+    for (let s = Math.max(0, pos - 4); s <= pos; s++) {
+      const w = O >>> s & 31;
+      if (POP5[w] !== 4 || ((B >>> s) & 31) !== 0) continue;
+      out |= 1 << (s + HOLE5[w]);
     }
     return out;
   }
 
-  // What the stone just placed at (x, y) makes in each direction: { five, fours, open, threes }.
+  // What the stone of player p at cell k makes in each direction: { five, fours, open, threes }.
   //   fours: directions holding a four; open: some four has two completing cells; threes: directions holding an open three.
-  // board: { size, walls: Set of keys, stones: Map key -> player }; the stone must already be in `stones`.
-  function analyze(board, x, y) {
-    const { size, walls, stones } = board;
-    const me = stones.get(y * size + x);
+  function analyzeCell(grid, k) {
+    const size = grid.size;
+    const p = grid.cell[k];
+    const x = k % size;
+    const y = (k - x) / size;
     const out = { five: false, fours: 0, open: false, threes: 0 };
-    for (const [dx, dy] of DIRS) {
-      const cells = [];
-      for (let i = -REACH; i <= REACH; i++) {
-        const cx = x + dx * i;
-        const cy = y + dy * i;
-        if (cx < 0 || cy < 0 || cx >= size || cy >= size || walls.has(cy * size + cx)) {
-          cells.push(BLOCK);
-          continue;
-        }
-        const s = stones.get(cy * size + cx);
-        cells.push(s === undefined ? EMPTY : s === me ? OWN : BLOCK);
-      }
-      if (makesFive(cells, CENTRE)) {
+    for (let d = 0; d < 4; d++) {
+      const L = lineOf[d](x, y, size);
+      const pos = posOf[d](x, y);
+      const O = grid.own[p][d][L];
+      const B = grid.blocked(p, d, L);
+      let five = false;
+      for (let s = Math.max(0, pos - 4); s <= pos && !five; s++) five = ((O >>> s) & 31) === 31;
+      if (five) {
         out.five = true;
         continue;
       }
-      const done = completions(cells);
-      if (done.length) {
+      const done = fourCells(O, B, pos);
+      if (done) {
         out.fours++;
-        if (done.length >= 2) out.open = true;
+        if (done & (done - 1)) out.open = true;
         continue;
       }
-      for (let i = 0; i < cells.length; i++) {
-        if (cells[i] !== EMPTY) continue;
-        cells[i] = OWN;
-        const open = completions(cells).length >= 2; // the three can become an open four
-        cells[i] = EMPTY;
-        if (open) {
+      // an open three: one more stone makes a four with two completing cells
+      for (let e = Math.max(0, pos - 4); e <= pos + 4; e++) {
+        if ((O | B) >>> e & 1) continue;
+        if (popcount(fourCells(O | (1 << e), B, pos)) >= 2) {
           out.threes++;
           break;
         }
@@ -74,51 +154,56 @@
     return out;
   }
 
-  // 'five' | 'four' | 'three' | '' : the strongest single threat of the stone at (x, y).
-  function classify(board, x, y) {
-    const a = analyze(board, x, y);
-    return a.five ? 'five' : a.fours ? 'four' : a.threes ? 'three' : '';
-  }
-
-  // The move's winning combination: 'five' | 'open4' (open four) | '4-4' | '4-3' | '3-3' | ''.
-  function finish(board, x, y) {
-    const a = analyze(board, x, y);
-    if (a.five) return 'five';
-    if (a.open) return 'open4';
-    if (a.fours >= 2) return '4-4';
-    if (a.fours && a.threes) return '4-3';
-    return a.threes >= 2 ? '3-3' : '';
-  }
-
-  const RANK = { five: 5, open4: 4, '4-4': 4, '4-3': 3, '3-3': 2 };
-  const SEVERE = new Set(['five', 'open4', '4-4']);
-
-  // Empty cells within reach of a stone of `player`: the only places a new threat of theirs can appear.
-  function nearby(board, player) {
-    const { size, walls, stones } = board;
-    const out = new Set();
-    for (const [k, p] of stones) {
-      if (p !== player) continue;
-      const sx = k % size;
-      const sy = (k - sx) / size;
-      for (let y = Math.max(0, sy - 4); y <= Math.min(size - 1, sy + 4); y++) {
-        for (let x = Math.max(0, sx - 4); x <= Math.min(size - 1, sx + 4); x++) {
-          const c = y * size + x;
-          if (!stones.has(c) && !walls.has(c)) out.add(c);
+  // Empty cells (as keys) that lie in a five-window (5 cells in a row, no enemy stone, wall or edge) holding at least
+  // `minOwn` and fewer than five stones of `player`. With 4 stones the cell completes a five, with 3 a move there
+  // makes a four, with 2 an open three can appear. These are all the cells where a threat of that size can be made.
+  function windowCells(grid, player, minOwn) {
+    const out = [];
+    const { cellAt } = grid.geo;
+    const stamp = grid.stamp;
+    const gen = ++grid.gen;
+    for (let d = 0; d < 4; d++) {
+      const own = grid.own[player][d];
+      for (let L = 0; L < own.length; L++) {
+        const O = own[L];
+        if (!O) continue;
+        const B = grid.blocked(player, d, L);
+        const hi = 31 - Math.clz32(O);
+        const lo = 31 - Math.clz32(O & -O);
+        for (let s = Math.max(0, lo - 4); s <= hi; s++) {
+          if ((B >>> s) & 31) continue;
+          const w = (O >>> s) & 31;
+          const c = POP5[w];
+          if (c < minOwn || c >= 5) continue;
+          for (let i = 0; i < 5; i++) {
+            if ((w >>> i) & 1) continue;
+            const k = cellAt[d][L * 32 + s + i];
+            if (stamp[k] !== gen) {
+              stamp[k] = gen;
+              out.push(k);
+            }
+          }
         }
       }
     }
     return out;
   }
 
-  // Finish of `player` playing each empty cell near their stones: Map key -> finish (only cells with one).
-  function map(board, player, cells) {
-    const { size, stones } = board;
+  // The stone at cell k makes: 'five' | 'four' | 'three' | ''.
+  const levelOf = (a) => (a.five ? 'five' : a.fours ? 'four' : a.threes ? 'three' : '');
+  // Its winning combination: 'five' | 'open4' (open four) | '4-4' | '4-3' | '3-3' | ''.
+  const finishOf = (a) => (a.five ? 'five' : a.open ? 'open4' : a.fours >= 2 ? '4-4' : a.fours && a.threes ? '4-3' : a.threes >= 2 ? '3-3' : '');
+
+  const RANK = { five: 5, open4: 4, '4-4': 4, '4-3': 3, '3-3': 2 };
+  const SEVERE = new Set(['five', 'open4', '4-4']);
+
+  // Finish of `player` playing each cell of `cells`: Map key -> finish (only cells with one).
+  function gridMap(grid, player, cells) {
     const out = new Map();
-    for (const k of cells || nearby(board, player)) {
-      stones.set(k, player);
-      const f = finish(board, k % size, Math.floor(k / size));
-      stones.delete(k);
+    for (const k of cells) {
+      grid.set(k, player);
+      const f = finishOf(analyzeCell(grid, k));
+      grid.clear(k);
       if (f) out.set(k, f);
     }
     return out;
@@ -126,37 +211,43 @@
 
   // Cells the side to move must choose from to survive the opponent's next move, or null when nothing is urgent
   // (or the side to move can win at once). Covers fives, open fours and double fours; counter-threats are not considered.
-  function defences(board, toMove) {
-    const { size, stones } = board;
-    const mine = map(board, toMove);
-    for (const f of mine.values()) if (f === 'five') return null;
-    const theirs = map(board, 1 - toMove);
-    const urgent = [...theirs].filter(([, f]) => SEVERE.has(f)).map(([k]) => k);
-    if (!urgent.length) return null;
-    const fives = urgent.filter((k) => theirs.get(k) === 'five');
+  function gridDefences(grid, toMove) {
+    const opp = 1 - toMove;
+    if (windowCells(grid, toMove, 4).length) return null;
+    // a severe combination needs a five-window that already holds three stones, so only those cells are classified
+    const theirs = gridMap(grid, opp, windowCells(grid, opp, 3));
+    const urgent = [];
+    const fives = [];
+    for (const [k, f] of theirs) {
+      if (f === 'five') fives.push(k);
+      if (SEVERE.has(f)) urgent.push(k);
+    }
     if (fives.length) return fives;
-    const out = [];
+    if (!urgent.length) return null;
+    const size = grid.size;
     const cand = new Set();
     for (const u of urgent) {
       const ux = u % size;
-      const uy = Math.floor(u / size);
+      const uy = (u - ux) / size;
       for (let y = Math.max(0, uy - 5); y <= Math.min(size - 1, uy + 5); y++) {
         for (let x = Math.max(0, ux - 5); x <= Math.min(size - 1, ux + 5); x++) {
           const k = y * size + x;
-          if (!stones.has(k) && !board.walls.has(k)) cand.add(k);
+          if (grid.cell[k] === -1) cand.add(k);
         }
       }
     }
+    const out = [];
     for (const c of cand) {
-      stones.set(c, toMove);
-      const still = urgent.some((u) => {
-        if (u === c) return false;
-        stones.set(u, 1 - toMove);
-        const f = finish(board, u % size, Math.floor(u / size));
-        stones.delete(u);
-        return SEVERE.has(f);
-      });
-      stones.delete(c);
+      grid.set(c, toMove);
+      let still = false;
+      for (const u of urgent) {
+        if (u === c) continue;
+        grid.set(u, opp);
+        still = SEVERE.has(finishOf(analyzeCell(grid, u)));
+        grid.clear(u);
+        if (still) break;
+      }
+      grid.clear(c);
       if (!still) out.push(c);
     }
     return out;
@@ -164,189 +255,214 @@
 
   // ---------- victory search (VCF / VCT) ----------
 
-  // Empty cells lying in a five-window (5 cells in a row, no enemy stone, wall or edge) that already holds at least
-  // `minOwn` stones of `player` (and fewer than five). With 4 stones the cell completes a five, with 3 a move there
-  // makes a four. Much cheaper than classifying every cell, and it finds every cell that can make a four or five.
-  function windowCells(board, player, minOwn) {
-    const { size, walls, stones } = board;
-    const out = new Set();
-    for (const [k, p] of stones) {
-      if (p !== player) continue;
-      const sx = k % size;
-      const sy = (k - sx) / size;
-      for (const [dx, dy] of DIRS) {
-        for (let o = -4; o <= 0; o++) {
-          let own = 0;
-          let ok = true;
-          const empties = [];
-          for (let i = 0; i < 5 && ok; i++) {
-            const x = sx + dx * (o + i);
-            const y = sy + dy * (o + i);
-            const c = y * size + x;
-            if (x < 0 || y < 0 || x >= size || y >= size || walls.has(c)) ok = false;
-            else if (!stones.has(c)) empties.push(c);
-            else if (stones.get(c) === player) own++;
-            else ok = false;
-          }
-          if (ok && own >= minOwn && own < 5) for (const c of empties) out.add(c);
-        }
-      }
-    }
-    return out;
-  }
-
   class Abort extends Error {}
 
-  // Does the player who just moved (att) win by force? The defender is to move. mode 'VCF': the attacker plays only
-  // fours (the defender must block the single completing cell); 'VCT': fours and open threes (the defender may
-  // answer a three with any cell that stops an open four). Counter-threats of the defender other than an
-  // immediate five are not modelled, so a VCT found here is optimistic about defender counter-fours.
+  const cellOf = (grid, k) => [k % grid.size, Math.floor(k / grid.size)];
+
+  // The attacker (ctx.att) has just moved and the defender is to move. Returns the winning continuation as a list of
+  // cell keys (defender reply, attacker move, ...) ending with the attacker's five, or null when the attacker does not
+  // win by force. The defender's strongest resistance (the longest reply) is the one kept, so the line is a single
+  // principal variation. Search rules:
+  //   VCF: the attacker plays only fours, the defender must block the single completing cell.
+  //   VCT: also open threes, which the defender may answer with any cell that stops an open four.
+  // Counter-threats of the defender other than an immediate five are not modelled, so a VCT is optimistic about them.
   function refute(ctx, depth) {
-    const { board, att, mode } = ctx;
+    const { grid, att, mode } = ctx;
     const def = 1 - att;
     if (--ctx.budget < 0) throw new Abort();
-    if (windowCells(board, def, 4).size) return false; // the defender completes a five first
-    const comp = windowCells(board, att, 4);
-    if (comp.size >= 2) return true; // two ways to make five: open four or double four
+    if (windowCells(grid, def, 4).length) return null; // the defender completes a five first
+    const comp = windowCells(grid, att, 4);
+    if (comp.length >= 2) return [comp[0], comp[1]]; // open or double four: block one, the other makes five
     let replies;
-    if (comp.size === 1) {
-      replies = [...comp];
+    if (comp.length === 1) {
+      replies = comp;
     } else {
-      if (mode === 'VCF') return false;
-      replies = defences(board, def);
-      if (!replies) return false; // no threat at all
+      if (mode === 'VCF') return null;
+      replies = gridDefences(grid, def);
+      if (!replies) return null; // no threat at all
     }
+    let best = [];
     for (const r of replies) {
-      board.stones.set(r, def);
-      let won;
+      grid.set(r, def);
+      let sub;
       try {
-        won = attack(ctx, depth - 1);
+        sub = attack(ctx, depth - 1);
       } finally {
-        board.stones.delete(r);
+        grid.clear(r);
       }
-      if (!won) return false;
+      if (!sub) return null;
+      if (sub.length + 1 > best.length) best = [r, ...sub];
     }
-    return true;
+    return best; // empty when no reply exists: the combination itself wins
   }
 
-  // The attacker (ctx.att) is to move: is there a forcing move that wins?
+  // The attacker is to move: the cell keys of a forcing win (attacker move, defender reply, ..., five), or null.
   function attack(ctx, depth) {
-    const { board, att, mode } = ctx;
+    const { grid, att, mode } = ctx;
     const def = 1 - att;
     if (--ctx.budget < 0) throw new Abort();
-    if (windowCells(board, att, 4).size) return true; // makes five at once
-    if (depth <= 0 || windowCells(board, def, 4).size) return false; // out of depth, or must block a four first
-    const fours = windowCells(board, att, 3);
-    let moves = [...fours];
+    const five = windowCells(grid, att, 4);
+    if (five.length) return [five[0]]; // makes five at once
+    if (depth <= 0 || windowCells(grid, def, 4).length) return null; // out of depth, or must block a four first
+    let moves = windowCells(grid, att, 3);
     let threesToo = false;
     if (mode === 'VCT') {
       // An open three is too slow while the defender threatens an open four of their own.
-      const urgent = [...map(board, def)].some(([, f]) => SEVERE.has(f));
+      let urgent = false;
+      for (const f of gridMap(grid, def, windowCells(grid, def, 3)).values()) urgent = urgent || SEVERE.has(f);
       threesToo = !urgent;
-      if (threesToo) moves = [...windowCells(board, att, 2)];
+      if (threesToo) moves = windowCells(grid, att, 2);
     }
     const scored = [];
     for (const m of moves) {
-      board.stones.set(m, att);
-      const an = analyze(board, m % board.size, Math.floor(m / board.size));
-      board.stones.delete(m);
+      grid.set(m, att);
+      const an = analyzeCell(grid, m);
+      grid.clear(m);
       if (!an.fours && !(threesToo && an.threes)) continue;
       scored.push({ m, score: (an.open ? 8 : 0) + (an.fours >= 2 ? 6 : 0) + (an.fours && an.threes ? 4 : 0) + an.fours * 2 + an.threes });
     }
     scored.sort((p, q) => q.score - p.score);
     for (const { m } of scored) {
-      board.stones.set(m, att);
-      let won;
+      grid.set(m, att);
+      let sub;
       try {
-        won = refute(ctx, depth);
+        sub = refute(ctx, depth);
       } finally {
-        board.stones.delete(m);
+        grid.clear(m);
       }
-      if (won) return true;
+      if (sub) return [m, ...sub];
     }
-    return false;
+    return null;
   }
 
   const DEPTH = { VCF: 12, VCT: 5 }; // attacking moves searched
   const BUDGET = 4000; // search nodes per proof, so a hard position cannot freeze the page
 
-  // Does `att`, who has just played the last stone on `board`, win by force with `mode` ('VCF' | 'VCT')?
-  // Returns false when the search ran out of budget.
-  function proves(board, att, mode, budget = BUDGET) {
-    const ctx = { board, att, mode, budget };
-    try {
-      return refute(ctx, DEPTH[mode]);
-    } catch (e) {
-      if (e instanceof Abort) return false;
-      throw e;
-    }
-  }
-
-  // Finds the attack that wins and traces it back from the end of `line` ([[x, y], ...], line[0] played by `first`).
-  // The attacker is the side that wins: the last attacking move must lead to a forced victory (five, open four,
-  // 4-4, or a VCF / VCT that the search proves from there). From that move the chain extends backwards over the
-  // attacker's earlier moves for as long as each one is itself a threat (a four for VCF, a four or open three for
-  // VCT), because a quiet move starts a new plan. Returns
-  //   { kind: 'VCF' | 'VCT', start, end, kinds, finish }   start/end: line indices of the first / last attacking move
-  // or null. kinds[i] is the threat made by line[i]; finish is the winning combination of line[end].
-  function chain(board, line, first) {
-    const size = board.size;
-    const stones = new Map(board.stones);
-    const b = { size, walls: board.walls, stones };
-    const kinds = [];
-    const finishes = [];
-    const cells = [];
+  // Replays `line` (line[0] played by `first`) on a grid of the board, stopping at the first impossible move.
+  // Returns the cells played and, per move, the threat it makes and its winning combination.
+  function replay(board, line, first) {
+    const grid = new Grid(board);
+    const out = { cells: [], kinds: [], finishes: [] };
     for (let i = 0; i < line.length; i++) {
       const [x, y] = line[i];
-      const k = y * size + x;
-      if (x < 0 || stones.has(k) || board.walls.has(k)) break;
-      stones.set(k, (first + i) % 2);
-      cells.push(k);
-      const a = analyze(b, x, y);
-      kinds.push(a.five ? 'five' : a.fours ? 'four' : a.threes ? 'three' : '');
-      finishes.push(a.five ? 'five' : a.open ? 'open4' : a.fours >= 2 ? '4-4' : a.fours && a.threes ? '4-3' : a.threes >= 2 ? '3-3' : '');
+      if (x < 0 || y < 0 || x >= board.size || y >= board.size) break;
+      const k = y * board.size + x;
+      if (grid.cell[k] !== -1) break;
+      grid.set(k, (first + i) % 2);
+      out.cells.push(k);
+      const a = analyzeCell(grid, k);
+      out.kinds.push(levelOf(a));
+      out.finishes.push(finishOf(a));
     }
-    const n = cells.length;
+    return out;
+  }
+
+  const COMBOS = new Set(['open4', '4-4', '4-3', '3-3']);
+
+  // Finds the attack that wins and traces it back from the end of `line` ([[x, y], ...], line[0] played by `first`).
+  // The attacker is the side that wins. The solver plays the rest of the win itself (engines stop a PV before the
+  // end), so the result is one complete line to victory:
+  //   - the line ends with an attacking move: it is kept (a move after it is dropped) and the solver finishes from there;
+  //   - the line ends with a defender move: the solver finds the attacker's win from that position.
+  // From the final winning move the chain extends backwards over the attacker's earlier moves for as long as each is
+  // itself a threat (a four for VCF, a four or open three for VCT): a quiet move starts a new plan. Returns
+  //   { kind: 'VCF' | 'VCT', line, start, end, added, kinds, finish }
+  // line: the PV plus the solver's moves; start/end: indices of the first / last attacking move of the chain; added: index
+  // of the first move that came from the solver (line.length if none); finish: the winning combination of line[end].
+  // null when the line holds no victory.
+  function chain(board, line, first) {
+    const base = replay(board, line, first);
+    const n = base.cells.length;
+    if (!n) return null;
     let budget = BUDGET;
-    for (const p of [0, 1]) { // the side that moves first in the line, then the other one
+    // Tries to win from the position after line[from]; `attackerToMove` says who is to move there.
+    function attempt(p, from, attackerToMove) {
       const att = (first + p) % 2;
-      let e = n - 1 - ((((n - 1 - p) % 2) + 2) % 2); // last move of the attacker
-      for (let tries = 0; tries < 2 && e >= p; tries++, e -= 2) {
-        if (!kinds[e]) continue; // a quiet move cannot be the end of a continuous attack
-        // the board as it was right after line[e]
-        b.stones = new Map(board.stones);
-        for (let i = 0; i <= e; i++) b.stones.set(cells[i], (first + i) % 2);
-        let mode = kinds[e] === 'five' ? 'VCF' : '';
-        for (const m of mode ? [] : ['VCF', 'VCT']) {
-          const ctx = { board: b, att, mode: m, budget };
+      const done = !attackerToMove && base.kinds[from] === 'five';
+      let ext = done ? [] : null;
+      let mode = done ? 'VCF' : '';
+      if (!done) {
+        const grid = new Grid(board);
+        for (let i = 0; i <= from; i++) grid.set(base.cells[i], (first + i) % 2);
+        for (const m of ['VCF', 'VCT']) {
+          const ctx = { grid, att, mode: m, budget };
           try {
-            if (refute(ctx, DEPTH[m])) mode = m;
+            const keys = attackerToMove ? attack(ctx, DEPTH[m]) : refute(ctx, DEPTH[m]);
+            if (keys) {
+              ext = keys.map((k) => cellOf(grid, k));
+              mode = m;
+            }
           } catch (err) {
             if (!(err instanceof Abort)) throw err;
           }
           budget = Math.max(0, ctx.budget);
           if (mode) break;
         }
-        if (!mode) continue;
-        let start = e;
-        let onlyFours = kinds[e] === 'four' || kinds[e] === 'five';
-        while (start - 2 >= p && kinds[start - 2]) {
-          if (kinds[start - 2] === 'three') onlyFours = false;
-          start -= 2;
-        }
-        // trace back only through threats the mode allows: a VCF chain stops at an open three
-        if (mode === 'VCF' && !onlyFours) {
-          start = e;
-          while (start - 2 >= p && (kinds[start - 2] === 'four' || kinds[start - 2] === 'five')) start -= 2;
-          onlyFours = true;
-        }
-        const count = (e - start) / 2 + 1;
-        if (count < 2 && !['open4', '4-4', '4-3', '3-3'].includes(finishes[e])) continue; // a lone five or four is no attack
-        return { kind: mode === 'VCF' && onlyFours ? 'VCF' : 'VCT', start, end: e, kinds: kinds.slice(0, e + 1), finish: finishes[e] };
+        if (!mode) return null;
+      }
+      const full = line.slice(0, from + 1).concat(ext);
+      const rep = replay(board, full, first);
+      if (rep.cells.length !== full.length) return null;
+      const end = full.length - 1 - ((((full.length - 1 - p) % 2) + 2) % 2); // last attacking move
+      if (end < p || !rep.kinds[end]) return null;
+      const allowed = (kd) => kd === 'four' || kd === 'five' || (mode === 'VCT' && kd === 'three');
+      let start = end;
+      while (start - 2 >= p && allowed(rep.kinds[start - 2])) start -= 2;
+      let onlyFours = true;
+      for (let i = start; i <= end; i += 2) if (rep.kinds[i] === 'three') onlyFours = false;
+      if ((end - start) / 2 + 1 < 2 && !COMBOS.has(rep.finishes[end])) return null; // a lone five or four is no attack
+      return {
+        kind: mode === 'VCF' && onlyFours ? 'VCF' : 'VCT',
+        line: full,
+        start,
+        end,
+        added: from + 1,
+        kinds: rep.kinds,
+        finish: rep.finishes[end],
+      };
+    }
+    for (const p of [0, 1]) { // the side that moves first in the line, then the other one
+      const last = n - 1 - ((((n - 1 - p) % 2) + 2) % 2); // last attacking move, or below p when there is none
+      const tries = [];
+      if (last < n - 1) tries.push([n - 1, true]); // the line ends with a defender move: the attacker moves next
+      for (let e = last; e >= p && e >= last - 2; e -= 2) if (base.kinds[e]) tries.push([e, false]);
+      for (const [from, attackerToMove] of tries) {
+        const c = attempt(p, from, attackerToMove);
+        if (c) return c;
       }
     }
     return null;
   }
 
-  G.threats = { classify, finish, map, defences, proves, chain, RANK };
+  // ---------- public API: boards are { size, walls: Set of keys, stones: Map key -> player } ----------
+
+  // For the stone already in `stones` at (x, y).
+  const analyze = (board, x, y) => analyzeCell(new Grid(board), y * board.size + x);
+
+  // Wins by force: winning line [[x, y], ...] for `att`, or null. mode 'VCF' | 'VCT'; attackerToMove says who moves next.
+  function solve(board, att, mode, attackerToMove, budget = BUDGET) {
+    const grid = new Grid(board);
+    const ctx = { grid, att, mode, budget };
+    try {
+      const keys = attackerToMove ? attack(ctx, DEPTH[mode]) : refute(ctx, DEPTH[mode]);
+      return keys && keys.map((k) => cellOf(grid, k));
+    } catch (e) {
+      if (e instanceof Abort) return null;
+      throw e;
+    }
+  }
+
+  G.threats = {
+    classify: (board, x, y) => levelOf(analyze(board, x, y)),
+    finish: (board, x, y) => finishOf(analyze(board, x, y)),
+    // Finish of `player` playing each empty cell where a threat can start: Map key -> finish (only cells with one).
+    map(board, player, cells) {
+      const grid = new Grid(board);
+      return gridMap(grid, player, cells || windowCells(grid, player, 2));
+    },
+    defences: (board, toMove) => gridDefences(new Grid(board), toMove),
+    solve,
+    chain,
+    RANK,
+  };
 })(window.Gomoku = window.Gomoku || {});

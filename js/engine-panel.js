@@ -64,6 +64,7 @@
     let status = ''; // loader progress text
     let result = null; // { key, kind, toMove, lines, done } analysis of the position on the board
     let preview = -1; // index of the result line shown on the board
+    let boardPreview = false; // the preview comes from hovering a candidate marker on the board
     let step = 0; // moves of that line shown (hover on a move, or scroll on the board); 0 = the whole line
     let lastEngine = null; // engine settings at the previous settingsChanged(), to react to changes
     let wasReady = false; // true once loaded; stays true while the single-threaded build restarts after a stop
@@ -367,7 +368,8 @@
         const chain = attackChain(l.line);
         const end = chain ? finishText(chain.finish) : '';
         const tag = chain ? ` <span class="atk ${chain.kind}" title="${esc(t('eng.attackHelp', { kind: chain.kind, n: (chain.end - chain.start) / 2 + 1, from: chain.start + 1, to: chain.end + 1, end }))}">${chain.kind}${end ? `·${esc(end)}` : ''}</span>` : '';
-        const rest = l.line.map(([a, b], k) => `<span class="pvm${i === preview && k + 1 === step ? ' cur' : ''}" data-step="${k + 1}">${esc(app.cellText(a, b))}</span>`).join(' ');
+        const added = chain ? chain.added : l.line.length;
+        const rest = (chain ? chain.line : l.line).map(([a, b], k) => `<span class="pvm${k >= added ? ' pvx' : ''}${i === preview && k + 1 === step ? ' cur' : ''}" data-step="${k + 1}">${esc(app.cellText(a, b))}</span>`).join(' ');
         return `<tr data-line="${i}" class="${i === preview ? 'on' : ''}">` +
           `<td>${i + 1}</td>` +
           `<td><button class="small" data-engplay="${i}" title="${esc(t('eng.playLine', { move }))}"${x >= 0 ? '' : ' disabled'}>${esc(move)}</button></td>` +
@@ -410,6 +412,12 @@
       return cache.get(key);
     }
 
+    // The line to show for a result line: the PV, completed by the solver when it proves a victory (VCF / VCT).
+    function fullLine(l) {
+      const chain = attackChain(l.line);
+      return chain ? chain.line : l.line;
+    }
+
     function findChain(line) {
       const game = app.game();
       const stones = new Map();
@@ -424,9 +432,9 @@
         return;
       }
       if (preview >= 0 && lines[preview]) {
-        const full = lines[preview].line;
+        const full = fullLine(lines[preview]);
         const n = step > 0 && step < full.length ? step : full.length;
-        app.board.setAnalysis({ line: full.slice(0, n), first: result.toMove, chain: attackChain(full), mark: n < full.length ? n - 1 : -1 });
+        app.board.setAnalysis({ line: full.slice(0, n), first: result.toMove, chain: attackChain(lines[preview].line), mark: n < full.length ? n - 1 : -1 });
         return;
       }
       const cands = [];
@@ -460,9 +468,10 @@
       const lines = result ? shownLines(result.lines) : [];
       if (!lines.length) return false;
       const i = preview >= 0 ? preview : 0;
-      const len = lines[i].line.length;
+      const len = fullLine(lines[i]).length;
       const cur = preview >= 0 ? step || len : 0;
       const next = Math.max(0, Math.min(len, cur + dir));
+      boardPreview = false; // stepping pins the line: leaving the marker no longer clears it
       if (next === cur && preview >= 0) return true;
       if (next === 0) setPreview(-1);
       else setPreview(i, next);
@@ -494,6 +503,18 @@
     table.addEventListener('pointerleave', (e) => {
       if (!(e.relatedTarget && boardWrap.contains(e.relatedTarget))) setPreview(-1);
     });
+    // Hovering the marker of any candidate (not only the best one) shows that candidate's line.
+    app.board.onHoverCell = (cell) => {
+      const lines = result ? shownLines(result.lines) : [];
+      const i = cell ? lines.findIndex((l) => l.line[0] && l.line[0][0] === cell.x && l.line[0][1] === cell.y) : -1;
+      if (i >= 0) {
+        boardPreview = true;
+        setPreview(i);
+      } else if (boardPreview) {
+        boardPreview = false;
+        setPreview(-1);
+      }
+    };
     app.board.svg.addEventListener('pointerleave', (e) => {
       if (!(e.relatedTarget && table.contains(e.relatedTarget))) setPreview(-1);
     });
