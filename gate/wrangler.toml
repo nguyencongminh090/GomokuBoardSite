@@ -8,6 +8,6 @@ binding = "ASSETS"
 run_worker_first = true # the Worker checks the token before any file is served
 
 [vars]
-ALLOWED_ORIGINS = "https://ngmint.github.io,http://localhost:8000"
-ALLOWED_KEYS_URL = "https://ngmint.github.io/GomokuBoardSite/allowed-keys.json"
+ALLOWED_ORIGINS = "https://nguyencongminh090.github.io,http://localhost:8000"
+ALLOWED_KEYS_URL = "https://nguyencongminh090.github.io/GomokuBoardSite/allowed-keys.json"
 TOKEN_TTL = "21600"
