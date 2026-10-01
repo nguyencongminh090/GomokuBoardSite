@@ -11,6 +11,7 @@
   const games = store.loadGames(); // id -> serialised game
   let game = null;
   let mode = 'play'; // 'play' | 'setup'
+  let tab = 'play'; // the open tab
 
   const board = new G.BoardView($('#board'), onCell);
 
@@ -18,6 +19,7 @@
     game: () => game,
     settings: () => settings,
     mode: () => mode,
+    tab: () => tab,
     // Plays a stone for the side to move; `byHost` is false for the engine's own moves.
     play(x, y, byHost) {
       if (mode === 'play' && game.play(x, y)) update(byHost);
@@ -28,6 +30,15 @@
     flush: () => flush(),
     board,
     authorize: () => security.authorizeEngine(),
+  });
+
+  const explain = G.createExplainPanel({
+    game: () => game,
+    mode: () => mode,
+    tab: () => tab,
+    cellText: (x, y) => cellText(x, y),
+    playerName: (p) => playerName(p),
+    board,
   });
 
   const security = G.createSecurityPanel({ esc, toast, settings: () => settings, engineStop: () => engine.unload() });
@@ -162,6 +173,8 @@
     renderPlayPanel();
     renderHeader();
     engine.render();
+    explain.positionChanged();
+    explain.render();
     if (!$('[data-panel="games"]').hidden) renderGameList();
   }
 
@@ -595,9 +608,11 @@
   // ---------- tabs, buttons, keyboard ----------
 
   function selectTab(name) {
+    tab = name;
     for (const t of $$('[data-tab]')) t.setAttribute('aria-selected', String(t.dataset.tab === name));
     for (const p of $$('[data-panel]')) p.hidden = p.dataset.panel !== name;
     if (name === 'games') renderGameList();
+    explain.render();
   }
 
   for (const t of $$('[data-tab]')) t.addEventListener('click', () => selectTab(t.dataset.tab));

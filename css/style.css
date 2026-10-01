@@ -158,7 +158,7 @@ select, input[type="number"], .field input:not([type]) {
 #board .hint circle { fill: var(--accent); stroke: #fff; stroke-width: 1.5; }
 #board .hint text { fill: #1d1305; font-size: 13px; font-weight: 700; }
 #board .ghost { pointer-events: none; }
-#board .analysis { pointer-events: none; }
+#board .analysis, #board .explain { pointer-events: none; }
 #board .cand circle { fill: #334155; stroke: #fff; stroke-width: 1.5; }
 #board .cand text { dominant-baseline: alphabetic; fill: #fff; font-size: 12px; font-weight: 700; }
 #board .cand.t1 circle { fill: #15803d; }
@@ -175,6 +175,8 @@ select, input[type="number"], .field input:not([type]) {
 #board .must { fill: none; stroke: #b91c1c; stroke-width: 2.5; stroke-dasharray: 4 3; }
 #board .threat { fill: none; stroke-width: 3; }
 #board .threat.three { stroke-dasharray: 6 4; }
+#board .threat.block { stroke-width: 1.5; }
+#board .threat.counter { stroke-width: 2.5; stroke-dasharray: 2 3; }
 #board .cand-tag { dominant-baseline: alphabetic; font-size: 9.5px; font-weight: 700; letter-spacing: .02em; }
 @keyframes cand-pulse { from { transform: scale(1); opacity: .9; } to { transform: scale(2); opacity: 0; } }
 #board .cand-label { dominant-baseline: alphabetic; font-size: 9px; font-weight: 700; }
@@ -208,7 +210,8 @@ body.focus .panel { display: none; }
   border-bottom: 2px solid transparent;
   background: transparent;
   color: var(--muted);
-  padding: 11px 8px;
+  padding: 11px 4px;
+  white-space: nowrap;
 }
 .tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
 .tab-body { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px 20px; }
@@ -318,6 +321,7 @@ kbd {
 .atk { display: inline-block; padding: 0 4px; margin-right: 4px; border-radius: 3px; background: #b91c1c; color: #fff; font-size: 10px; font-weight: 700; }
 .atk.VCT { background: #7c3aed; }
 .pv-legend { margin: 6px 0 0; }
+.atk.counter { background: #0f766e; }
 .pvm.pvx { font-style: italic; }
 .pvm { cursor: default; border-radius: 3px; }
 .pvm:hover, .pvm.cur { background: var(--accent-soft); color: var(--text); }
@@ -573,3 +577,13 @@ dialog .field input:not([type="checkbox"]) { width: 180px; }
   * { transition: none !important; }
   #board .cand circle.pulse { animation: none; }
 }
+
+/* Explain tab */
+.exp-steps { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.exp-steps button { width: 100%; text-align: left; display: flex; gap: 8px; align-items: baseline; padding: 4px 8px; font-size: 13px; }
+.exp-steps button.on { background: var(--accent-soft); }
+.exp-steps .n { min-width: 18px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.exp-steps .mv { font-weight: 700; min-width: 40px; }
+.exp-steps .why { color: var(--muted); }
+.exp-steps li.counter .why { color: #0f766e; }
+.exp-legend { line-height: 1.9; margin: 0; }

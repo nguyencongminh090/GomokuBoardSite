@@ -6,6 +6,7 @@
 
   const P = 40;
   const f = (n) => Math.round(n * 10) / 10;
+  const COUNTER = '#0f766e'; // the defender's counter-attack (a four that forces a block)
   const ATTACK = { VCF: '#b91c1c', VCT: '#7c3aed' }; // attack chain colours: fours only / fours and open threes
   const f3 = (n) => Math.round(n * 1000) / 1000;
 
@@ -382,12 +383,15 @@
         out.push(t.join(''));
       }
 
+      this.tagCells = null;
       if (s.threatMap && mode === 'play') out.push(this.threatMap(game, m));
-      out.push('<g class="analysis"></g><g class="ghost"></g>');
+      out.push('<g class="explain"></g><g class="analysis"></g><g class="ghost"></g>');
       this.svg.innerHTML = out.join('');
       this.analysisLayer = this.svg.querySelector('.analysis');
+      this.explainLayer = this.svg.querySelector('.explain');
       this.analysisHtml = '';
       this.ghost = this.svg.querySelector('.ghost');
+      this.drawExplain();
       this.drawAnalysis();
       this.drawGhost();
     }
@@ -395,7 +399,7 @@
     // Threat map: tags on empty cells that would give a winning combination (green: side to move, red: the opponent),
     // and dashed rings on the cells the side to move must choose from to survive.
     threatMap(game, m) {
-      const T = G.threats;
+      const T = G.explain;
       const size = game.size;
       const stones = new Map();
       for (const [k, id] of game.position()) stones.set(k, game.player(id));
@@ -421,11 +425,12 @@
           `<text x="${cx}" y="${cy}">${text}</text></g>`);
       }
       out.push('</g>');
+      this.tagCells = new Set(cells.keys());
       return out.join('');
     }
 
     // Engine overlay, drawn in its own layer (like the hover ghost) so search updates don't re-render the board.
-    // overlay: { cands: [{ x, y, rank, label, tier, tag }], busy, line: [[x, y], ...] | null, first: player of line[0], chain: G.threats.chain result (victory run start..end) | null, mark: index of the move to stress | -1 } or null.
+    // overlay: { cands: [{ x, y, rank, label, tier, tag }], busy, line: [[x, y], ...] | null, first: player of line[0], chain: G.explain.chain result (victory run start..end) | null, mark: index of the move to stress | -1 } or null.
     // tier (1 best, 2 close, 3 weaker, 0 unknown) sets the marker colour and size; busy pulses the best marker.
     // A line (a previewed variation) replaces the candidate markers while it is shown.
     setAnalysis(overlay) {
@@ -450,25 +455,7 @@
       const ink = G.contrast.ink(bg)[0] ? '#fff' : '#1a1a1a'; // same rule as the board's other text
       const out = [];
       if (a.line && a.line.length) {
-        // Moves of the victory chain (a.chain, traced back from the winning move) are solid and ringed in the
-        // chain's colour; the rest of the line is faint.
-        const ch = a.chain;
-        a.line.forEach(([x, y], i) => {
-          const player = (a.first + i) % 2;
-          const inChain = ch && i >= ch.start && i <= ch.end;
-          const attack = inChain && (i - ch.start) % 2 === 0;
-          out.push(`<g opacity="${inChain ? (attack ? 0.9 : 0.55) : 0.3}">${piece(player, c(x), c(y), s, game.key(x, y))}</g>`);
-          if (attack) {
-            out.push(`<circle class="threat ${ch.kinds[i]}" cx="${c(x)}" cy="${c(y)}" r="${f(P * 0.46)}" stroke="${ATTACK[ch.kind]}"/>`);
-          }
-          if (ch && i === ch.end && ch.finish) {
-            const text = ch.finish === 'five' ? '5' : ch.finish === 'open4' ? '4+' : ch.finish;
-            out.push(`<text class="cand-tag" x="${c(x)}" y="${f(c(y) - P * 0.46 - 3)}" fill="${ATTACK[ch.kind]}" stroke="${bg}" stroke-width="3" paint-order="stroke">${text}</text>`);
-          }
-          const fill = paper ? ink : player ? '#1a1a1a' : '#f4f4f4';
-          const halo = paper ? ` stroke="${bg}" stroke-width="4" paint-order="stroke"` : '';
-          out.push(`<text class="pvnum${i === a.mark ? ' cur' : ''}${ch && i >= ch.added ? ' solver' : ''}" x="${c(x)}" y="${c(y)}" dy=".36em" fill="${fill}"${halo}>${i + 1}</text>`);
-        });
+        out.push(...this.lineMarkup(a, st));
       } else {
         const RADIUS = [10.5, 12, 11, 9.5];
         // Draw the best marker last so a weaker neighbour never covers it.
@@ -492,6 +479,57 @@
       if (html === this.analysisHtml) return;
       this.analysisHtml = html;
       layer.innerHTML = html;
+    }
+
+    // Markup of a previewed line (a.line, first mover a.first, optional victory chain a.chain and stressed move a.mark).
+    lineMarkup(a, st) {
+      const { game, s, m } = st;
+      const c = (i) => m + (i + 0.5) * P;
+      const paper = s.theme === 'paper';
+      const bg = paper ? s.paper.bg : s.stone.bg;
+      const ink = G.contrast.ink(bg)[0] ? '#fff' : '#1a1a1a'; // same rule as the board's other text
+      const out = [];
+      // Moves of the victory chain (a.chain, traced back from the winning move) are solid and ringed in the
+      // chain's colour; the rest of the line is faint.
+      const ch = a.chain;
+      a.line.forEach(([x, y], i) => {
+        const player = (a.first + i) % 2;
+        const inChain = ch && i >= ch.start && i <= ch.end;
+        const attack = inChain && (i - ch.start) % 2 === 0;
+        if (this.tagCells && this.tagCells.has(game.key(x, y))) {
+          // a threat-map tag under a previewed stone would show through it: cover the tag first
+          out.push(`<rect x="${f(c(x) - 16)}" y="${f(c(y) - 9)}" width="32" height="18" fill="${bg}"/>`);
+        }
+        out.push(`<g opacity="${inChain ? (attack ? 0.9 : 0.55) : 0.3}">${piece(player, c(x), c(y), s, game.key(x, y))}</g>`);
+        if (attack) {
+          // a move without a threat is a forced block of the defender's counter-four: thin ring
+          out.push(`<circle class="threat ${ch.kinds[i] || 'block'}" cx="${c(x)}" cy="${c(y)}" r="${f(P * 0.46)}" stroke="${ATTACK[ch.kind]}"/>`);
+        } else if (inChain && i > ch.start && i < ch.end && (ch.kinds[i] === 'four' || ch.kinds[i] === 'five')) {
+          out.push(`<circle class="threat counter" cx="${c(x)}" cy="${c(y)}" r="${f(P * 0.4)}" stroke="${COUNTER}"/>`);
+        }
+        if (ch && i === ch.end && ch.finish) {
+          const text = ch.finish === 'five' ? '5' : ch.finish === 'open4' ? '4+' : ch.finish;
+          out.push(`<text class="cand-tag" x="${c(x)}" y="${f(c(y) - P * 0.46 - 3)}" fill="${ATTACK[ch.kind]}" stroke="${bg}" stroke-width="3" paint-order="stroke">${text}</text>`);
+        }
+        const fill = paper ? ink : player ? '#1a1a1a' : '#f4f4f4';
+        const halo = paper ? ` stroke="${bg}" stroke-width="4" paint-order="stroke"` : '';
+        out.push(`<text class="pvnum${i === a.mark ? ' cur' : ''}${ch && i >= ch.added ? ' solver' : ''}" x="${c(x)}" y="${c(y)}" dy=".36em" fill="${fill}"${halo}>${i + 1}</text>`);
+      });
+      return out;
+    }
+
+    // Explain overlay (the Explain tab's own line), in a layer under the engine overlay. Same shape as setAnalysis' line.
+    setExplain(overlay) {
+      this.explain = overlay;
+      this.drawExplain();
+    }
+
+    drawExplain() {
+      const layer = this.explainLayer;
+      const st = this.state;
+      if (!layer || !st) return;
+      const a = this.explain;
+      layer.innerHTML = a && a.line && a.line.length ? this.lineMarkup(a, st).join('') : '';
     }
 
     setHover(cell) {

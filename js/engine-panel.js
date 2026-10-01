@@ -422,7 +422,7 @@
       const game = app.game();
       const stones = new Map();
       for (const [k, id] of game.position()) stones.set(k, game.player(id));
-      return G.threats.chain({ size: game.size, walls: game.walls, stones }, line, result.toMove);
+      return G.explain.chain({ size: game.size, walls: game.walls, stones }, line, result.toMove);
     }
 
     function renderOverlay() {
@@ -519,7 +519,7 @@
       if (!(e.relatedTarget && table.contains(e.relatedTarget))) setPreview(-1);
     });
     app.board.svg.addEventListener('wheel', (e) => {
-      if (e.ctrlKey || !e.deltaY || app.mode() === 'setup') return; // ctrl + wheel is the browser's zoom
+      if (e.ctrlKey || !e.deltaY || app.mode() === 'setup' || app.tab() === 'explain') return; // ctrl + wheel is the browser's zoom; the Explain tab has its own
       if (scrollPreview(e.deltaY > 0 ? 1 : -1)) e.preventDefault();
     }, { passive: false });
     table.addEventListener('focusin', (e) => {

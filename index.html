@@ -38,6 +38,7 @@
       <nav class="tabs" role="tablist">
         <button role="tab" data-tab="play" aria-selected="true" data-i18n="tab.play"></button>
         <button role="tab" data-tab="engine" aria-selected="false" data-i18n="tab.engine"></button>
+        <button role="tab" data-tab="explain" aria-selected="false" data-i18n="tab.explain"></button>
         <button role="tab" data-tab="settings" aria-selected="false" data-i18n="tab.settings"></button>
         <button role="tab" data-tab="games" aria-selected="false" data-i18n="tab.games"></button>
       </nav>
@@ -110,6 +111,7 @@
             <p class="muted small-text pv-legend" id="engLegend" hidden>
               <span class="atk VCF">VCF</span> <span data-i18n="eng.legend.vcf"></span> ·
               <span class="atk VCT">VCT</span> <span data-i18n="eng.legend.vct"></span><br>
+              <span class="atk counter">⚔</span> <span data-i18n="eng.legend.counter"></span><br>
               <span data-i18n="eng.legend.scroll"></span>
             </p>
             <details class="engine-dist">
@@ -211,6 +213,39 @@
       </div>
 
       <!-- Settings: grouped by how often the host changes them (board, display, general) -->
+      <div class="tab-body" data-panel="explain" hidden>
+        <section class="card">
+          <h3 data-i18n="exp.title"></h3>
+          <p class="muted small-text" data-i18n="exp.intro"></p>
+          <label class="switch-row">
+            <span><span data-i18n="set.threatMap"></span><small data-i18n="set.threatMapHelp"></small></span>
+            <input type="checkbox" role="switch" class="switch" data-key="threatMap">
+          </label>
+        </section>
+
+        <section class="card">
+          <h3 data-i18n="exp.win"></h3>
+          <p class="muted small-text" data-i18n="exp.winHelp"></p>
+          <div class="engine-actions cols-2">
+            <button id="expFind" class="primary" data-i18n="exp.find"></button>
+            <button id="expClear" data-i18n="exp.clear"></button>
+          </div>
+          <p class="muted small-text" id="expStatus" role="status" aria-live="polite"></p>
+          <ol class="exp-steps" id="expSteps"></ol>
+        </section>
+
+        <section class="card">
+          <h3 data-i18n="exp.legend"></h3>
+          <p class="small-text exp-legend">
+            <span class="atk VCF">VCF</span> <span data-i18n="eng.legend.vcf"></span><br>
+            <span class="atk VCT">VCT</span> <span data-i18n="eng.legend.vct"></span><br>
+            <span class="atk counter">⚔</span> <span data-i18n="eng.legend.counter"></span><br>
+            <span data-i18n="exp.legend.tags"></span><br>
+            <span data-i18n="eng.legend.scroll"></span>
+          </p>
+        </section>
+      </div>
+
       <div class="tab-body" data-panel="settings" hidden>
         <section class="card">
           <h3 data-i18n="set.board"></h3>
@@ -263,10 +298,6 @@
           <label class="switch-row">
             <span><span data-i18n="set.lastMove"></span><small data-i18n="set.lastMoveHelp"></small></span>
             <input type="checkbox" role="switch" class="switch" data-key="showLastMove">
-          </label>
-          <label class="switch-row">
-            <span><span data-i18n="set.threatMap"></span><small data-i18n="set.threatMapHelp"></small></span>
-            <input type="checkbox" role="switch" class="switch" data-key="threatMap">
           </label>
         </section>
 
@@ -346,10 +377,11 @@
   <script src="js/game.js?v=1.4.6"></script>
   <script src="js/security.js?v=1.4.6"></script>
   <script src="js/storage.js?v=1.4.6"></script>
-  <script src="js/threats.js?v=1.4.6"></script>
+  <script src="js/explain.js?v=1.4.6"></script>
   <script src="js/board.js?v=1.4.6"></script>
   <script src="js/engine.js?v=1.4.6"></script>
   <script src="js/engine-panel.js?v=1.4.6"></script>
+  <script src="js/explain-panel.js?v=1.4.6"></script>
   <script src="js/security-panel.js?v=1.4.6"></script>
   <script src="js/main.js?v=1.4.6"></script>
 </body>

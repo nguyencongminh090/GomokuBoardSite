@@ -8,7 +8,7 @@ const path = require('path');
 const assert = require('assert');
 
 global.window = {};
-for (const f of ['js/i18n.js', 'js/contrast.js', 'js/coords.js', 'js/settings.js', 'js/game.js', 'js/security.js', 'js/threats.js', 'js/engine.js']) {
+for (const f of ['js/i18n.js', 'js/contrast.js', 'js/coords.js', 'js/settings.js', 'js/game.js', 'js/security.js', 'js/explain.js', 'js/engine.js']) {
   eval(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'));
 }
 const G = window.Gomoku;
@@ -307,7 +307,7 @@ function threatBoard(size, stones, walls = []) {
 }
 
 test('threat classifier: five, four, open three, blocked three', () => {
-  const T = G.threats;
+  const T = G.explain;
   let b = threatBoard(15, [[3, 7, 0], [4, 7, 0], [5, 7, 0], [6, 7, 0], [7, 7, 0]]);
   assert.equal(T.classify(b, 7, 7), 'five');
   b = threatBoard(15, [[4, 7, 0], [5, 7, 0], [6, 7, 0], [7, 7, 0]]);
@@ -321,7 +321,7 @@ test('threat classifier: five, four, open three, blocked three', () => {
 });
 
 test('attack chain must end in a victory and traces back from it', () => {
-  const T = G.threats;
+  const T = G.explain;
   // VCF: row three blocked on the left by white; cross four (8,7), white must block (9,7), cross makes an open four in the column
   const b = threatBoard(15, [[5, 7, 0], [6, 7, 0], [7, 7, 0], [7, 5, 0], [7, 6, 0], [4, 7, 1], [1, 1, 1]]);
   const c = T.chain(b, [[8, 7], [9, 7], [7, 8], [1, 2]], 0);
@@ -354,7 +354,7 @@ test('attack chain must end in a victory and traces back from it', () => {
 });
 
 test('threat finish: open four, 4-3 and 3-3 combinations', () => {
-  const T = G.threats;
+  const T = G.explain;
   let b = threatBoard(15, [[5, 7, 0], [6, 7, 0], [7, 7, 0]]);
   assert.equal(T.finish(b, 7, 7), ''); // a lone three is not a finish
   b = threatBoard(15, [[5, 7, 0], [6, 7, 0], [7, 7, 0], [8, 7, 0]]);
@@ -368,7 +368,7 @@ test('threat finish: open four, 4-3 and 3-3 combinations', () => {
 });
 
 test('threat defences: the forced block of a four and of an open three', () => {
-  const T = G.threats;
+  const T = G.explain;
   // cross (0) has a four, white (1) to move must block the one completing cell
   let b = threatBoard(15, [[4, 7, 0], [5, 7, 0], [6, 7, 0], [7, 7, 0], [3, 7, 1]]);
   assert.deepEqual(T.defences(b, 1), [7 * 15 + 8]);
@@ -384,7 +384,7 @@ test('threat defences: the forced block of a four and of an open three', () => {
 });
 
 test('threats treat walls like the board edge', () => {
-  const T = G.threats;
+  const T = G.explain;
   const at = (x, y) => y * 15 + x;
   // four with a wall on one end is still a four (one completing cell); walls on both ends make it dead
   let b = threatBoard(15, [[4, 7, 0], [5, 7, 0], [6, 7, 0], [7, 7, 0]], [at(3, 7)]);
@@ -405,7 +405,7 @@ test('threats treat walls like the board edge', () => {
 });
 
 test('threat bitboards: every direction on the largest board, edges and corners', () => {
-  const T = G.threats;
+  const T = G.explain;
   const n = 26;
   // anti-diagonal five reaching the corner area, diagonal four against the edge, column and row at the far side
   let b = threatBoard(n, [[25, 0, 0], [24, 1, 0], [23, 2, 0], [22, 3, 0], [21, 4, 0]]);
@@ -422,7 +422,7 @@ test('threat bitboards: every direction on the largest board, edges and corners'
 });
 
 test('solver returns one winning line ending in a five', () => {
-  const T = G.threats;
+  const T = G.explain;
   const b = threatBoard(15, [[5, 7, 0], [6, 7, 0], [7, 7, 0], [7, 5, 0], [7, 6, 0], [4, 7, 1], [1, 1, 1]]);
   const line = T.solve(b, 0, 'VCF', true);
   assert(line && line.length % 2 === 1, 'attacker moves first and last');
@@ -432,4 +432,43 @@ test('solver returns one winning line ending in a five', () => {
   line.forEach(([x, y], i) => stones.set(y * 15 + x, i % 2));
   assert.equal(T.classify({ size: 15, walls: b.walls, stones }, last[0], last[1]), 'five');
   assert.equal(T.solve(threatBoard(15, [[7, 7, 0]]), 0, 'VCT', true), null);
+});
+
+test('solver models counter-attacks: a double three is refuted by the defender\'s own four-then-open-four', () => {
+  const T = G.explain;
+  // cross plays (12,10): a double open three. Without counter-play that wins.
+  const cross = [[10, 10, 0], [11, 10, 0], [12, 8, 0], [12, 9, 0], [2, 6, 0]];
+  const calm = threatBoard(15, cross.concat([[1, 1, 1], [1, 3, 1], [13, 13, 1], [13, 1, 1], [8, 13, 1]]));
+  const win = T.solve(calm, 0, 'VCT', true);
+  assert(win && win[0][0] === 12 && win[0][1] === 10, 'double three wins when the defender has no counter-play');
+  // white owns a 4-3 at (6,6): four in the row (blocked by cross at (2,6)) plus an open three in the column.
+  // Counter: white (6,6) four, cross must block (7,6), then white (6,7) makes an open four and wins first.
+  const armed = threatBoard(15, cross.concat([[3, 6, 1], [4, 6, 1], [5, 6, 1], [6, 4, 1], [6, 5, 1]]));
+  assert.equal(T.solve(armed, 0, 'VCT', true), null);
+});
+
+test('solver lets the attacker block a defender four at no cost and go on', () => {
+  const T = G.explain;
+  // white holds a four in the column x = 9 (cross at (9,11) closes one end): cross must block (9,6), and that block
+  // makes an open four in row 6, so cross still wins. Without the interlude the solver gave up on any defender four.
+  const b = threatBoard(15, [[9, 7, 1], [9, 8, 1], [9, 9, 1], [9, 10, 1], [9, 11, 0], [10, 6, 0], [11, 6, 0], [12, 6, 0], [1, 1, 0], [1, 3, 1]]);
+  const line = T.solve(b, 0, 'VCF', true);
+  assert(line && line[0][0] === 9 && line[0][1] === 6, 'cross blocks (9,6) first');
+  assert.equal(line.length, 3);
+  // two completing cells for the defender are lost: the attacker cannot block both
+  const lost = threatBoard(15, [[9, 7, 1], [9, 8, 1], [9, 9, 1], [9, 10, 1], [10, 6, 0], [11, 6, 0], [12, 6, 0], [1, 1, 0], [1, 3, 1]]);
+  assert.equal(T.solve(lost, 0, 'VCF', true), null);
+});
+
+test('solver deepens iteratively: the line shown is a shortest win, and results do not depend on the table', () => {
+  const T = G.explain;
+  // cross can win at once with an open four, but also by a longer chain of fours elsewhere: the short one is returned
+  const b = threatBoard(15, [[7, 7, 0], [8, 7, 0], [9, 7, 0], [3, 3, 0], [3, 4, 0], [3, 5, 0], [3, 2, 1], [1, 1, 1], [1, 3, 1]]);
+  const line = T.solve(b, 0, 'VCF', true);
+  assert(line, 'a win exists');
+  assert.equal(line.length, 3, 'open four, a block, the five');
+  assert(line[0][1] === 7 && (line[0][0] === 6 || line[0][0] === 10), 'the open four in row 7');
+  assert.deepEqual(T.solve(b, 0, 'VCF', true), line, 'the same answer every time');
+  // grids are reused between calls: a second board of the same size is not polluted by the first
+  assert.equal(T.solve(threatBoard(15, [[7, 7, 0]]), 0, 'VCF', true), null);
 });

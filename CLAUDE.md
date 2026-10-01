@@ -43,9 +43,9 @@ Use a scratch `--user-data-dir` so the test run doesn't share localStorage with 
 
 ## Architecture
 
-The scripts are classic `<script>` tags, loaded in dependency order in `index.html`: `i18n → contrast → coords → settings → game → security → storage → threats → board → engine → engine-panel → security-panel → main`.
+The scripts are classic `<script>` tags, loaded in dependency order in `index.html`: `i18n → contrast → coords → settings → game → security → storage → explain → board → engine → engine-panel → explain-panel → security-panel → main`.
 Each is an IIFE that attaches to the global namespace `window.Gomoku` (`G`). Keep it that way: ES modules would break
-`file://` use, and `tests/model.test.js` loads `coords.js`/`game.js`/`security.js`/`threats.js`/`engine.js` by `eval` with a stub `window`, so
+`file://` use, and `tests/model.test.js` loads `coords.js`/`game.js`/`security.js`/`explain.js`/`engine.js` by `eval` with a stub `window`, so
 those files must stay free of DOM access at load time (`engine.js` touches `Worker` only when a load is requested).
 
 - **`game.js` (`G.Game`): the only owner of game state.** Walls are a `Set` of cell keys (`y * size + x`, origin top-left).
@@ -64,20 +64,30 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
     and each line is nudged onto the pixel grid, with its width in whole device pixels. Don't size `#board` from CSS,
     don't draw grid lines at raw `m + i * P` coordinates, and don't add `shape-rendering="crispEdges"`: any of these
     brings back lines that render at uneven thickness. A `ResizeObserver` redraws when the available space changes.
-- **`threats.js` (`G.threats`)** is pure freestyle threat analysis (no DOM; walls, edges and enemy stones block), modelled on
+- **`explain.js` (`G.explain`)** is pure freestyle threat analysis (no DOM; walls, edges and enemy stones block), modelled on
   Rapfi's pattern classes (`core/types.h` `Pattern4`). The board is held as **bitboards per line** (`Grid`: one 32-bit mask per
   player for every row, column and both diagonals; a cell is one bit of four lines), so window tests are mask operations. The
   public API takes plain `{ size, walls, stones }` boards: `classify`/`finish` (five, open four, 4-4, 4-3, 3-3), `map` (cells
   that would give such a finish), `defences` (cells the side to move must choose from: fives, open fours, double fours;
-  counter-threats ignored), `solve` and `chain`. `solve` is a small VCF/VCT search returning one winning line (VCF: only
+  counter-threats ignored), `solve` and `chain`. `solve` is a small VCF/VCT search (iterative deepening, so the line is a shortest win; a Zobrist-hashed transposition table per search; `Grid`s are pooled; budget-capped) returning one winning line (VCF: only
   fours, the defender must block; VCT: fours and open threes, the defender may answer a three with any cell that stops an
-  open four; defender counter-fours are not modelled; node budget and depth are capped). `chain` replays an engine PV, lets
+  open four; VCT also models the defender's counter-attack: instead of blocking a three, the defender may play a four, the attacker must
+  block it at no cost, and a defender double or open four wins; a forced block of a defender four never costs an attacking
+  move; node budget, depth and nested counters are capped). `chain` replays an engine PV, lets
   the solver **play the rest of the win** (engines stop a PV early) and traces the victory back from its end over the
   attacker's earlier threat moves; a run of threats that does not end in a win is not highlighted. Result
-  `{ kind: 'VCF' | 'VCT', line, start, end, added, kinds, finish }` (`line` = PV + solver moves, from `added` on). The engine
+  `{ kind: 'VCF' | 'VCT', line, start, end, added, kinds, finish }` (`line` = PV + solver moves, from `added` on). Counter-fours and the attacker's forced blocks inside the chain are drawn
+  as teal dotted rings and thin rings. The engine
   never reports this, so it is recomputed client-side. `settings.threatMap` draws `map` tags and `defences` rings
   (`BoardView.threatMap`, play mode only). Keep the bitboard code equal to the plain definitions: compare against an oracle
   (the pre-bitboard version in git, commit 0859097) after any change to `analyzeCell`/`windowCells`.
+- **Explain vs Engine**: the engine only searches and reports (`engine.js`, `engine-panel.js`: controls, results table, and
+  the PV hover / wheel preview, which keep working while it searches). **Explain** is everything we add on top, in
+  `explain.js` (model) and `explain-panel.js` (the "Giải thích" tab): the threat map switch, a position-level VCF/VCT
+  search for the side to move (works without an engine), a step list that explains each move (attack, forced block,
+  counter-attack), and the legend. Explain draws in its own board layer (`BoardView.setExplain`, under the engine's
+  `setAnalysis` layer) and only while its tab is open; each panel's wheel handler ignores the other tab (`app.tab()`).
+  The engine panel also calls `G.explain.chain` to tag and complete its PVs. Neither panel changes the game.
 - **`main.js`** holds app state (`game`, `mode: 'play' | 'setup'`, `settings`). The flow is always: mutate `game` → `persist()`
   (debounced localStorage write, flushed on `pagehide`) → `refresh()` (board + panels re-rendered from state).
   Settings controls are bound generically: inputs use `data-key="path.in.settings"` (checkbox/colour/select) and option
@@ -85,7 +95,7 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
   needs a default in `settings.js` plus a control with one of those attributes. No per-control JS is needed.
   Visual option cards (board theme, symbol style, stone style) are `data-set` buttons rendered by `renderPicks()` in
   `main.js` from preview functions in `board.js` (`themePreview`, `symbolPreview`, `stonePreview`), so they always show
-  the current colours. The Settings tab is grouped into three cards, most-used first: Board → Display → General → Security.
+  the current colours. The Settings tab is grouped into cards, most-used first: Board → Display → General → Security. The tabs are Play, Engine, Explain, Settings, Games.
 - **Page theme**: `<html data-ui="light|dark">` selects the CSS token set in `css/style.css`. An inline script in
   `index.html` sets it before first paint; `applyPageTheme()` in `main.js` keeps it in sync, including `auto` following
   the system. Use `--accent-text` (not `--accent`) for accent-coloured text and thin lines, because it is tuned for contrast per theme.
