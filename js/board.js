@@ -110,8 +110,7 @@
   const portalRgb = (index, a = 1) => `rgba(${PORTAL_COLORS[index % PORTAL_COLORS.length].join(',')},${a})`;
 
   // One end of a portal pair: a coloured ring with a soft glow and a dark centre dot. The ring sits on a thin ink
-  // outline so it keeps its contrast on any board colour, and the pair number sits in the corner (colour alone
-  // must not tell pairs apart).
+  // outline so it keeps its contrast on any board colour.
   function portal(x0, y0, index, s) {
     const cx = x0 + P / 2;
     const cy = y0 + P / 2;
@@ -122,8 +121,7 @@
     return `<g class="portal"><circle cx="${f(cx)}" cy="${f(cy)}" r="${f(r + w)}" fill="${portalRgb(index, 0.25)}"/>` +
       `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(r)}" fill="none" stroke="${ink}" stroke-opacity=".6" stroke-width="${f(w + 2)}"/>` +
       `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(r)}" fill="none" stroke="${portalRgb(index)}" stroke-width="${f(w)}"/>` +
-      `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(P * 0.08)}" fill="#262626"/>` +
-      `<text x="${f(x0 + 3)}" y="${f(y0 + 3)}" dy=".8em" font-size="${P < 30 ? 9 : 11}" font-weight="700" fill="${ink}" stroke="${bg}" stroke-width="2.5" paint-order="stroke">${index + 1}</text></g>`;
+      `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(P * 0.08)}" fill="#262626"/></g>`;
   }
 
   // Dashed link between two cell centres, in a pair's colour.
