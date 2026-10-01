@@ -513,6 +513,17 @@ test('portal pairs: unplayable, min distance 3, not on walls or moves, removed a
   assert.equal(g.portals.length, 0);
 });
 
+test('a second pair can be placed once the first exists, cell by cell', () => {
+  const g = G.Game.create(15, 't');
+  g.addPortal(2, 2, 10, 10);
+  assert.equal(g.portalCellFree(g.key(6, 6)), true);
+  assert.equal(g.portalCellFree(g.key(4, 4)), false); // 2 away from (2,2)
+  assert.equal(g.portalCellFree(g.key(5, 2)), true); // exactly 3 away
+  assert.equal(g.portalCellFree(g.key(2, 2)), false); // an existing portal cell
+  assert.equal(g.addPortal(5, 2, 12, 5), true);
+  assert.equal(g.portals.length, 2);
+});
+
 test('portals survive a JSON round trip and bad pairs in stored data are dropped', () => {
   const g = G.Game.create(15, 't');
   g.addPortal(2, 2, 10, 10);

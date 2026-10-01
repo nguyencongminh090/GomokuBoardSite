@@ -258,14 +258,19 @@
       return p ? (p[0] === k ? p[1] : p[0]) : -1;
     }
 
+    // True when cell key k is at least MIN_PORTAL_DISTANCE (Chebyshev) from every existing portal cell.
+    portalCellFree(k) {
+      return !this.portals.some((p) => p.some((c) => this.portalNear(k, c)));
+    }
+
+    portalNear(i, j) {
+      const s = this.size;
+      return Math.max(Math.abs((i % s) - (j % s)), Math.abs(Math.floor(i / s) - Math.floor(j / s))) < MIN_PORTAL_DISTANCE;
+    }
+
     // True when a new pair (a, b) keeps every portal cell, old and new, at least MIN_PORTAL_DISTANCE apart.
     portalFits(a, b) {
-      if (a === b) return false;
-      const s = this.size;
-      const cells = [a, b].concat(...this.portals);
-      const near = (i, j) => Math.max(Math.abs((i % s) - (j % s)), Math.abs(Math.floor(i / s) - Math.floor(j / s))) < MIN_PORTAL_DISTANCE;
-      if (near(a, b)) return false;
-      return !cells.slice(2).some((c) => near(a, c) || near(b, c));
+      return a !== b && !this.portalNear(a, b) && this.portalCellFree(a) && this.portalCellFree(b);
     }
 
     // Why a pair cannot be added: 'blocked' (a wall or a move uses a cell), 'near' (too close to another portal

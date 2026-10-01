@@ -147,11 +147,8 @@
       return;
     }
     if (pending === null) {
-      const problem = game.portalProblem(x, y, x, y);
-      if (problem === 'blocked') return toast(t('setup.portalBlocked'));
-      // A single cell is checked against the other pairs by trying it as a pair with itself (distance 0 fails
-      // on its own), so test the distance to existing portals directly.
-      if (game.portals.some((p) => !game.portalFits(k, p[0]) || !game.portalFits(k, p[1]))) return toast(t('setup.portalNear', { d: G.Game.MIN_PORTAL_DISTANCE }));
+      if (game.walls.has(k) || game.nodes.some((n, i) => i > 0 && n.x === x && n.y === y)) return toast(t('setup.portalBlocked'));
+      if (!game.portalCellFree(k)) return toast(t('setup.portalNear', { d: G.Game.MIN_PORTAL_DISTANCE }));
       pending = k;
       update();
       return;
