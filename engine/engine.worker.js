@@ -19,7 +19,8 @@ const VERSION_QUERY = self.location.search;
 const PARAMS = new URLSearchParams(VERSION_QUERY);
 const GATE = PARAMS.get('gate') || '';
 const FILE_QUERY = GATE ? `?v=${encodeURIComponent(PARAMS.get('v') || '')}&t=${encodeURIComponent(PARAMS.get('t') || '')}` : VERSION_QUERY;
-const fileUrl = (name) => (GATE ? `${GATE}${name}` : name);
+const ENGINE_BASE = GATE ? `${GATE}engine/` : ''; // the gate serves the files under /engine/
+const fileUrl = (name) => ENGINE_BASE + name;
 
 if (self.name === 'em-pthread') {
   // Emscripten starts each search thread of the multi-threaded build from the script that loaded it,
@@ -53,7 +54,7 @@ if (self.name === 'em-pthread') {
       return;
     }
     self.Rapfi({
-      locateFile: (path, prefix) => `${GATE || prefix}${path}${FILE_QUERY}`, // the .wasm and .data files
+      locateFile: (path, prefix) => `${ENGINE_BASE || prefix}${path}${FILE_QUERY}`, // the .wasm and .data files
       onReceiveStdout: (text) => post({ type: 'line', text }),
       onReceiveStderr: (text) => post({ type: 'line', text: `[stderr] ${text}` }),
       onExit: (code) => post({ type: 'exit', code }),

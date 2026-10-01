@@ -2,7 +2,7 @@
 // The multi-threaded engine needs SharedArrayBuffer, which browsers only allow on isolated pages, and
 // GitHub Pages cannot send these headers itself. js/engine-panel.js registers this worker only when
 // the host turns on multi-threading, then reloads the page once so the page itself comes through it.
-// The site loads nothing from other origins, so require-corp blocks nothing it uses.
+// Requests to other origins (the engine gate) are left alone: that server sends CORS and CORP headers itself.
 'use strict';
 
 self.addEventListener('install', () => self.skipWaiting());
@@ -10,6 +10,7 @@ self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 
 self.addEventListener('fetch', (e) => {
   const req = e.request;
+  if (new URL(req.url).origin !== self.location.origin) return;
   if (req.cache === 'only-if-cached' && req.mode !== 'same-origin') return;
   // Pages are revalidated on every visit, so a new release (new ?v= asset URLs) shows up at once.
   const fresh = req.mode === 'navigate' ? fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }) : fetch(req);
