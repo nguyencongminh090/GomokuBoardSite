@@ -204,9 +204,14 @@ body.focus .panel { display: none; }
   background: var(--surface);
   overflow-x: auto;
   scrollbar-width: none;
+  overscroll-behavior-x: contain;
 }
+/* Fade the edge that has more tabs hidden behind it. */
+.tabs.more-start { -webkit-mask-image: linear-gradient(to right, transparent, #000 28px); mask-image: linear-gradient(to right, transparent, #000 28px); }
+.tabs.more-end { -webkit-mask-image: linear-gradient(to left, transparent, #000 28px); mask-image: linear-gradient(to left, transparent, #000 28px); }
+.tabs.more-start.more-end { -webkit-mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent); }
 .tabs button {
-  flex: 1;
+  flex: 1 0 auto;
   border: 0;
   border-radius: 0;
   border-bottom: 2px solid transparent;

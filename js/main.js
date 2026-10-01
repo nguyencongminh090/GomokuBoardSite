@@ -620,6 +620,22 @@
   }
 
   for (const t of $$('[data-tab]')) t.addEventListener('click', () => selectTab(t.dataset.tab));
+
+  // The tab strip scrolls when it does not fit: fade the overflowing edges and let the wheel scroll it sideways.
+  const tabsNav = $('.tabs');
+  function updateTabEdges() {
+    const max = tabsNav.scrollWidth - tabsNav.clientWidth;
+    tabsNav.classList.toggle('more-start', tabsNav.scrollLeft > 1);
+    tabsNav.classList.toggle('more-end', tabsNav.scrollLeft < max - 1);
+  }
+  tabsNav.addEventListener('scroll', updateTabEdges, { passive: true });
+  tabsNav.addEventListener('wheel', (e) => {
+    if (e.deltaY && !e.deltaX && tabsNav.scrollWidth > tabsNav.clientWidth) {
+      tabsNav.scrollLeft += e.deltaY;
+      e.preventDefault();
+    }
+  }, { passive: false });
+  new ResizeObserver(updateTabEdges).observe(tabsNav);
   for (const b of $$('[data-mode]')) b.addEventListener('click', () => setMode(b.dataset.mode));
 
   document.addEventListener('click', (e) => {
