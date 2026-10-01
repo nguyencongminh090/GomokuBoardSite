@@ -425,7 +425,7 @@
     }
 
     // Engine overlay, drawn in its own layer (like the hover ghost) so search updates don't re-render the board.
-    // overlay: { cands: [{ x, y, rank, label, tier, tag }], busy, line: [[x, y], ...] | null, first: player of line[0], chain: G.threats.chain result | null, mark: index of the move to stress | -1 } or null.
+    // overlay: { cands: [{ x, y, rank, label, tier, tag }], busy, line: [[x, y], ...] | null, first: player of line[0], chain: G.threats.chain result (victory run start..end) | null, mark: index of the move to stress | -1 } or null.
     // tier (1 best, 2 close, 3 weaker, 0 unknown) sets the marker colour and size; busy pulses the best marker.
     // A line (a previewed variation) replaces the candidate markers while it is shown.
     setAnalysis(overlay) {
@@ -450,14 +450,20 @@
       const ink = G.contrast.ink(bg)[0] ? '#fff' : '#1a1a1a'; // same rule as the board's other text
       const out = [];
       if (a.line && a.line.length) {
-        // Moves of the continuous attack (a.chain) are solid and ringed by threat; the rest of the line is faint.
-        const n = a.chain ? a.chain.moves : 0;
+        // Moves of the victory chain (a.chain, traced back from the winning move) are solid and ringed in the
+        // chain's colour; the rest of the line is faint.
+        const ch = a.chain;
         a.line.forEach(([x, y], i) => {
           const player = (a.first + i) % 2;
-          const attack = i < n && i % 2 === 0;
-          out.push(`<g opacity="${i < n ? (attack ? 0.9 : 0.55) : 0.3}">${piece(player, c(x), c(y), s, game.key(x, y))}</g>`);
+          const inChain = ch && i >= ch.start && i <= ch.end;
+          const attack = inChain && (i - ch.start) % 2 === 0;
+          out.push(`<g opacity="${inChain ? (attack ? 0.9 : 0.55) : 0.3}">${piece(player, c(x), c(y), s, game.key(x, y))}</g>`);
           if (attack) {
-            out.push(`<circle class="threat ${a.chain.kinds[i]}" cx="${c(x)}" cy="${c(y)}" r="${f(P * 0.46)}" stroke="${ATTACK[a.chain.kind]}"/>`);
+            out.push(`<circle class="threat ${ch.kinds[i]}" cx="${c(x)}" cy="${c(y)}" r="${f(P * 0.46)}" stroke="${ATTACK[ch.kind]}"/>`);
+          }
+          if (ch && i === ch.end && ch.finish) {
+            const text = ch.finish === 'five' ? '5' : ch.finish === 'open4' ? '4+' : ch.finish;
+            out.push(`<text class="cand-tag" x="${c(x)}" y="${f(c(y) - P * 0.46 - 3)}" fill="${ATTACK[ch.kind]}" stroke="${bg}" stroke-width="3" paint-order="stroke">${text}</text>`);
           }
           const fill = paper ? ink : player ? '#1a1a1a' : '#f4f4f4';
           const halo = paper ? ` stroke="${bg}" stroke-width="4" paint-order="stroke"` : '';

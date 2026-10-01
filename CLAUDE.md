@@ -67,8 +67,12 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
 - **`threats.js` (`G.threats`)** is pure freestyle threat analysis (no DOM; walls, edges and enemy stones block), modelled on
   Rapfi's pattern classes (`core/types.h` `Pattern4`). `analyze`/`finish` classify a placed stone (five, open four, 4-4, 4-3,
   3-3); `map` lists those cells for a player; `defences` gives the cells the side to move must choose from (fives, open fours,
-  double fours; counter-threats are ignored); `chain` replays an engine PV and returns the continuous attack (VCF: only fours,
-  VCT: fours and open threes, at least 2 attacking moves) with its winning `finish`. The engine never reports this, so it is
+  double fours; counter-threats are ignored); `proves` is a small VCF/VCT search (VCF: only fours, the
+  defender must block; VCT: fours and open threes, the defender may answer a three with any cell that stops an open four;
+  defender counter-fours are not modelled; node budget and depth are capped). `chain` replays an engine PV and traces a
+  victory back from its end: the last attacking move must win (five, open four, 4-4, or `proves`), then the chain extends
+  backwards over the attacker's earlier threat moves. A run of threats that does not end in a win is not highlighted.
+  Result `{ kind: 'VCF' | 'VCT', start, end, kinds, finish }`. The engine never reports this, so it is
   recomputed client-side. `settings.threatMap` draws `map` tags and `defences` rings (`BoardView.threatMap`, play mode only).
 - **`main.js`** holds app state (`game`, `mode: 'play' | 'setup'`, `settings`). The flow is always: mutate `game` → `persist()`
   (debounced localStorage write, flushed on `pagehide`) → `refresh()` (board + panels re-rendered from state).

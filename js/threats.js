@@ -162,37 +162,191 @@
     return out;
   }
 
-  // Follows `line` ([[x, y], ...], first move by `first`) from `board` and returns the attack chain:
-  //   { kind: 'VCF' | 'VCT', moves: n, kinds: [...], finish: winning combination of the last attack move } covering the leading moves of the line in which
-  //   every move of the attacker (line[0]'s player) is a five, four or three, or null when there is none.
-  // kinds[i] is the threat made by line[i] (''/'five'/'four'/'three'); defender moves are the forced replies.
-  // A chain needs at least 2 attacking moves, otherwise it is just a single threat, not a continuous attack.
+  // ---------- victory search (VCF / VCT) ----------
+
+  // Empty cells lying in a five-window (5 cells in a row, no enemy stone, wall or edge) that already holds at least
+  // `minOwn` stones of `player` (and fewer than five). With 4 stones the cell completes a five, with 3 a move there
+  // makes a four. Much cheaper than classifying every cell, and it finds every cell that can make a four or five.
+  function windowCells(board, player, minOwn) {
+    const { size, walls, stones } = board;
+    const out = new Set();
+    for (const [k, p] of stones) {
+      if (p !== player) continue;
+      const sx = k % size;
+      const sy = (k - sx) / size;
+      for (const [dx, dy] of DIRS) {
+        for (let o = -4; o <= 0; o++) {
+          let own = 0;
+          let ok = true;
+          const empties = [];
+          for (let i = 0; i < 5 && ok; i++) {
+            const x = sx + dx * (o + i);
+            const y = sy + dy * (o + i);
+            const c = y * size + x;
+            if (x < 0 || y < 0 || x >= size || y >= size || walls.has(c)) ok = false;
+            else if (!stones.has(c)) empties.push(c);
+            else if (stones.get(c) === player) own++;
+            else ok = false;
+          }
+          if (ok && own >= minOwn && own < 5) for (const c of empties) out.add(c);
+        }
+      }
+    }
+    return out;
+  }
+
+  class Abort extends Error {}
+
+  // Does the player who just moved (att) win by force? The defender is to move. mode 'VCF': the attacker plays only
+  // fours (the defender must block the single completing cell); 'VCT': fours and open threes (the defender may
+  // answer a three with any cell that stops an open four). Counter-threats of the defender other than an
+  // immediate five are not modelled, so a VCT found here is optimistic about defender counter-fours.
+  function refute(ctx, depth) {
+    const { board, att, mode } = ctx;
+    const def = 1 - att;
+    if (--ctx.budget < 0) throw new Abort();
+    if (windowCells(board, def, 4).size) return false; // the defender completes a five first
+    const comp = windowCells(board, att, 4);
+    if (comp.size >= 2) return true; // two ways to make five: open four or double four
+    let replies;
+    if (comp.size === 1) {
+      replies = [...comp];
+    } else {
+      if (mode === 'VCF') return false;
+      replies = defences(board, def);
+      if (!replies) return false; // no threat at all
+    }
+    for (const r of replies) {
+      board.stones.set(r, def);
+      let won;
+      try {
+        won = attack(ctx, depth - 1);
+      } finally {
+        board.stones.delete(r);
+      }
+      if (!won) return false;
+    }
+    return true;
+  }
+
+  // The attacker (ctx.att) is to move: is there a forcing move that wins?
+  function attack(ctx, depth) {
+    const { board, att, mode } = ctx;
+    const def = 1 - att;
+    if (--ctx.budget < 0) throw new Abort();
+    if (windowCells(board, att, 4).size) return true; // makes five at once
+    if (depth <= 0 || windowCells(board, def, 4).size) return false; // out of depth, or must block a four first
+    const fours = windowCells(board, att, 3);
+    let moves = [...fours];
+    let threesToo = false;
+    if (mode === 'VCT') {
+      // An open three is too slow while the defender threatens an open four of their own.
+      const urgent = [...map(board, def)].some(([, f]) => SEVERE.has(f));
+      threesToo = !urgent;
+      if (threesToo) moves = [...windowCells(board, att, 2)];
+    }
+    const scored = [];
+    for (const m of moves) {
+      board.stones.set(m, att);
+      const an = analyze(board, m % board.size, Math.floor(m / board.size));
+      board.stones.delete(m);
+      if (!an.fours && !(threesToo && an.threes)) continue;
+      scored.push({ m, score: (an.open ? 8 : 0) + (an.fours >= 2 ? 6 : 0) + (an.fours && an.threes ? 4 : 0) + an.fours * 2 + an.threes });
+    }
+    scored.sort((p, q) => q.score - p.score);
+    for (const { m } of scored) {
+      board.stones.set(m, att);
+      let won;
+      try {
+        won = refute(ctx, depth);
+      } finally {
+        board.stones.delete(m);
+      }
+      if (won) return true;
+    }
+    return false;
+  }
+
+  const DEPTH = { VCF: 12, VCT: 5 }; // attacking moves searched
+  const BUDGET = 4000; // search nodes per proof, so a hard position cannot freeze the page
+
+  // Does `att`, who has just played the last stone on `board`, win by force with `mode` ('VCF' | 'VCT')?
+  // Returns false when the search ran out of budget.
+  function proves(board, att, mode, budget = BUDGET) {
+    const ctx = { board, att, mode, budget };
+    try {
+      return refute(ctx, DEPTH[mode]);
+    } catch (e) {
+      if (e instanceof Abort) return false;
+      throw e;
+    }
+  }
+
+  // Finds the attack that wins and traces it back from the end of `line` ([[x, y], ...], line[0] played by `first`).
+  // The attacker is the side that wins: the last attacking move must lead to a forced victory (five, open four,
+  // 4-4, or a VCF / VCT that the search proves from there). From that move the chain extends backwards over the
+  // attacker's earlier moves for as long as each one is itself a threat (a four for VCF, a four or open three for
+  // VCT), because a quiet move starts a new plan. Returns
+  //   { kind: 'VCF' | 'VCT', start, end, kinds, finish }   start/end: line indices of the first / last attacking move
+  // or null. kinds[i] is the threat made by line[i]; finish is the winning combination of line[end].
   function chain(board, line, first) {
+    const size = board.size;
     const stones = new Map(board.stones);
-    const b = { size: board.size, walls: board.walls, stones };
+    const b = { size, walls: board.walls, stones };
     const kinds = [];
     const finishes = [];
+    const cells = [];
     for (let i = 0; i < line.length; i++) {
       const [x, y] = line[i];
-      if (x < 0 || stones.has(y * board.size + x) || board.walls.has(y * board.size + x)) break;
-      stones.set(y * board.size + x, (first + i) % 2);
+      const k = y * size + x;
+      if (x < 0 || stones.has(k) || board.walls.has(k)) break;
+      stones.set(k, (first + i) % 2);
+      cells.push(k);
       const a = analyze(b, x, y);
       kinds.push(a.five ? 'five' : a.fours ? 'four' : a.threes ? 'three' : '');
       finishes.push(a.five ? 'five' : a.open ? 'open4' : a.fours >= 2 ? '4-4' : a.fours && a.threes ? '4-3' : a.threes >= 2 ? '3-3' : '');
     }
-    let moves = 0;
-    let attacks = 0;
-    let onlyFours = true;
-    for (let i = 0; i < kinds.length; i += 2) {
-      if (!kinds[i]) break;
-      if (kinds[i] === 'three') onlyFours = false;
-      attacks++;
-      moves = i + 1;
-      if (kinds[i] === 'five') break;
+    const n = cells.length;
+    let budget = BUDGET;
+    for (const p of [0, 1]) { // the side that moves first in the line, then the other one
+      const att = (first + p) % 2;
+      let e = n - 1 - ((((n - 1 - p) % 2) + 2) % 2); // last move of the attacker
+      for (let tries = 0; tries < 2 && e >= p; tries++, e -= 2) {
+        if (!kinds[e]) continue; // a quiet move cannot be the end of a continuous attack
+        // the board as it was right after line[e]
+        b.stones = new Map(board.stones);
+        for (let i = 0; i <= e; i++) b.stones.set(cells[i], (first + i) % 2);
+        let mode = kinds[e] === 'five' ? 'VCF' : '';
+        for (const m of mode ? [] : ['VCF', 'VCT']) {
+          const ctx = { board: b, att, mode: m, budget };
+          try {
+            if (refute(ctx, DEPTH[m])) mode = m;
+          } catch (err) {
+            if (!(err instanceof Abort)) throw err;
+          }
+          budget = Math.max(0, ctx.budget);
+          if (mode) break;
+        }
+        if (!mode) continue;
+        let start = e;
+        let onlyFours = kinds[e] === 'four' || kinds[e] === 'five';
+        while (start - 2 >= p && kinds[start - 2]) {
+          if (kinds[start - 2] === 'three') onlyFours = false;
+          start -= 2;
+        }
+        // trace back only through threats the mode allows: a VCF chain stops at an open three
+        if (mode === 'VCF' && !onlyFours) {
+          start = e;
+          while (start - 2 >= p && (kinds[start - 2] === 'four' || kinds[start - 2] === 'five')) start -= 2;
+          onlyFours = true;
+        }
+        const count = (e - start) / 2 + 1;
+        if (count < 2 && !['open4', '4-4', '4-3', '3-3'].includes(finishes[e])) continue; // a lone five or four is no attack
+        return { kind: mode === 'VCF' && onlyFours ? 'VCF' : 'VCT', start, end: e, kinds: kinds.slice(0, e + 1), finish: finishes[e] };
+      }
     }
-    if (attacks < 2) return null;
-    return { kind: onlyFours ? 'VCF' : 'VCT', moves, kinds: kinds.slice(0, moves), finish: finishes[moves - 1] };
+    return null;
   }
 
-  G.threats = { classify, finish, map, defences, chain, RANK };
+  G.threats = { classify, finish, map, defences, proves, chain, RANK };
 })(window.Gomoku = window.Gomoku || {});

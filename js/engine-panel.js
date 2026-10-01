@@ -366,7 +366,7 @@
         const move = x >= 0 ? app.cellText(x, y) : '–';
         const chain = attackChain(l.line);
         const end = chain ? finishText(chain.finish) : '';
-        const tag = chain ? ` <span class="atk ${chain.kind}" title="${esc(t('eng.attackHelp', { kind: chain.kind, n: Math.ceil(chain.moves / 2), end }))}">${chain.kind}${end ? `·${esc(end)}` : ''}</span>` : '';
+        const tag = chain ? ` <span class="atk ${chain.kind}" title="${esc(t('eng.attackHelp', { kind: chain.kind, n: (chain.end - chain.start) / 2 + 1, from: chain.start + 1, to: chain.end + 1, end }))}">${chain.kind}${end ? `·${esc(end)}` : ''}</span>` : '';
         const rest = l.line.map(([a, b], k) => `<span class="pvm${i === preview && k + 1 === step ? ' cur' : ''}" data-step="${k + 1}">${esc(app.cellText(a, b))}</span>`).join(' ');
         return `<tr data-line="${i}" class="${i === preview ? 'on' : ''}">` +
           `<td>${i + 1}</td>` +
@@ -404,6 +404,13 @@
 
     // Continuous attack (VCF / VCT) in a line, found by replaying it on the position the search ran on.
     function attackChain(line) {
+      const key = line.join(';');
+      const cache = result.chains || (result.chains = new Map());
+      if (!cache.has(key)) cache.set(key, findChain(line));
+      return cache.get(key);
+    }
+
+    function findChain(line) {
       const game = app.game();
       const stones = new Map();
       for (const [k, id] of game.position()) stones.set(k, game.player(id));

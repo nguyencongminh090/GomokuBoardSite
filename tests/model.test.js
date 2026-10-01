@@ -320,14 +320,29 @@ test('threat classifier: five, four, open three, blocked three', () => {
   assert.equal(T.classify(b, 7, 7), '');
 });
 
-test('threat chain: VCF of two fours, VCT with a three, no chain for one threat', () => {
+test('attack chain must end in a victory and traces back from it', () => {
   const T = G.threats;
-  // cross has 3 in a row (5..7, 7) and another three in a column (7, 5..6 + 7); cross plays four then four
-  const b = threatBoard(15, [[5, 7, 0], [6, 7, 0], [7, 7, 0], [7, 5, 0], [7, 6, 0], [1, 1, 1], [2, 1, 1]]);
-  const c = T.chain(b, [[8, 7], [9, 7], [7, 8], [1, 2], [7, 9]], 0);
+  // VCF: row three blocked on the left by white; cross four (8,7), white must block (9,7), cross makes an open four in the column
+  const b = threatBoard(15, [[5, 7, 0], [6, 7, 0], [7, 7, 0], [7, 5, 0], [7, 6, 0], [4, 7, 1], [1, 1, 1]]);
+  const c = T.chain(b, [[8, 7], [9, 7], [7, 8], [1, 2]], 0);
   assert(c, 'chain expected');
   assert.equal(c.kind, 'VCF');
-  assert(T.chain(b, [[8, 7], [9, 7]], 0) === null, 'single attack is not a chain');
+  assert.equal(c.start, 0);
+  assert.equal(c.end, 2);
+  assert.equal(c.finish, 'open4');
+  // a quiet first move is not part of the chain: the chain starts at the first threat of the winning run
+  const q = T.chain(b, [[12, 12], [1, 2], [8, 7], [9, 7], [7, 8]], 0);
+  assert(q && q.start === 2 && q.end === 4, 'quiet move excluded');
+  // an open three that leads nowhere is not a victory, so nothing is highlighted
+  const t = threatBoard(15, [[6, 7, 0], [7, 7, 0], [1, 1, 1]]);
+  assert(T.chain(t, [[8, 7], [5, 7]], 0) === null, 'three then block is no victory');
+  // VCT: a double open three wins although it holds no four
+  const d = threatBoard(15, [[5, 7, 0], [6, 7, 0], [7, 5, 0], [7, 6, 0], [1, 1, 1]]);
+  const v = T.chain(d, [[7, 7]], 0);
+  assert(v && v.kind === 'VCT' && v.finish === '3-3');
+  // the defender may be the winner of the line
+  const w = T.chain(b, [[12, 12], [8, 7], [9, 7]], 0);
+  assert(w === null || w.start >= 1, 'only the winning side is traced');
 });
 
 test('threat finish: open four, 4-3 and 3-3 combinations', () => {

@@ -175,7 +175,7 @@ select, input[type="number"], .field input:not([type]) {
 #board .must { fill: none; stroke: #b91c1c; stroke-width: 2.5; stroke-dasharray: 4 3; }
 #board .threat { fill: none; stroke-width: 3; }
 #board .threat.three { stroke-dasharray: 6 4; }
-#board .cand-tag { dominant-baseline: alphabetic; font-size: 8px; font-weight: 700; letter-spacing: .02em; }
+#board .cand-tag { dominant-baseline: alphabetic; font-size: 9.5px; font-weight: 700; letter-spacing: .02em; }
 @keyframes cand-pulse { from { transform: scale(1); opacity: .9; } to { transform: scale(2); opacity: 0; } }
 #board .cand-label { dominant-baseline: alphabetic; font-size: 9px; font-weight: 700; }
 #board .pvnum.cur { font-size: 19px; }
