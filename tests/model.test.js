@@ -472,3 +472,24 @@ test('solver deepens iteratively: the line shown is a shortest win, and results 
   // grids are reused between calls: a second board of the same size is not polluted by the first
   assert.equal(T.solve(threatBoard(15, [[7, 7, 0]]), 0, 'VCF', true), null);
 });
+
+test('pruning useless fours never loses a win and never lengthens the line', () => {
+  const T = G.explain;
+  let seed = 12345;
+  const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
+  let wins = 0;
+  for (let i = 0; i < 150; i++) {
+    const stones = [];
+    const count = 14 + Math.floor(rnd() * 14);
+    for (let j = 0; j < count; j++) stones.push([4 + Math.floor(rnd() * 7), 4 + Math.floor(rnd() * 7), j % 2]);
+    const b = threatBoard(15, stones);
+    for (const mode of ['VCF', 'VCT']) {
+      const full = T.solve(b, 0, mode, true, 4000, false);
+      const cut = T.solve(b, 0, mode, true, 4000, true);
+      if (full) assert(cut, `${mode} win lost on position ${i}`);
+      if (full && cut) assert(cut.length <= full.length, `${mode} line longer on position ${i}`);
+      if (cut) wins++;
+    }
+  }
+  assert(wins > 50, 'the sample should hold wins');
+});

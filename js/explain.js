@@ -342,9 +342,32 @@
   // A search context: the grid, the attacker, VCF or VCT, the node budget, and the transposition tables. A position
   // is the same position however it was reached, so each is searched once per depth. There are two tables (attacker to
   // move / defender to move) per level of nested counter-attack, because a nested search is cut off sooner.
-  function makeCtx(grid, att, mode, budget) {
+  // `prune` switches off the heuristic cut of useless fours (see usefulFour / usefulCounter), for the oracle test.
+  function makeCtx(grid, att, mode, budget, prune = true) {
     const tables = () => [0, 1, 2, 3].map(() => new Map());
-    return { grid, att, mode, budget, counters: 0, cut: false, tt: { attack: tables(), refute: tables() } };
+    return { grid, att, mode, budget, prune, top: 0, counters: 0, cut: false, tt: { attack: tables(), refute: tables() } };
+  }
+
+  // Fours are cut only this many attacking moves below the root of an iteration: the first levels stay exhaustive,
+  // and iterative deepening makes up for what a cut loses further down.
+  const PRUNE_FROM = 2;
+  const pruneOn = (ctx, depth) => ctx.prune && ctx.top - depth >= PRUNE_FROM;
+
+  // Rule A. A four that is not a finish is worth playing only if it makes progress: after the stone and the forced
+  // block, the attacker has a cell that starts a threat which was not there before (`before`: those cells at the
+  // node). Otherwise it only burns a window and delays. `grid` has the four's stone `m` not yet placed.
+  function usefulFour(ctx, m, before) {
+    const { grid, att, mode } = ctx;
+    grid.set(m, att);
+    const comp = windowCells(grid, att, 4);
+    let ok = true;
+    if (comp.length === 1) {
+      grid.set(comp[0], 1 - att);
+      ok = windowCells(grid, att, mode === 'VCF' ? 3 : 2).some((k) => !before.has(k));
+      grid.clear(comp[0]);
+    }
+    grid.clear(m);
+    return ok;
   }
 
   // Table lookup: undefined on a miss, null when the position is known not to win within `depth`, or the winning line.
@@ -418,6 +441,10 @@
     // defender may play a four of their own. The attacker must block it, and the defender then moves again with
     // the attacker's threat still standing; a double four or open four by the defender wins for the defender.
     if (mode === 'VCT' && !comp.length && ctx.counters < MAX_COUNTERS) {
+      // Rule B. A counter-four that is no finish only helps if its stone lands on a cell the attacker's threats need
+      // (a window with three stones, or a defence cell); anywhere else the attacker blocks and wins as before.
+      let vital = null;
+      const cut = pruneOn(ctx, depth);
       for (const m of windowCells(grid, def, 3)) {
         grid.set(m, def);
         const stops = foursOf(analyzeCell(grid, m)) ? windowCells(grid, def, 4) : [];
@@ -428,6 +455,12 @@
         if (stops.length >= 2) {
           grid.clear(m);
           return null; // the counter-attack wins outright
+        }
+        if (cut) {
+          grid.clear(m);
+          if (!vital) vital = new Set([...windowCells(grid, att, 3), ...replies]);
+          if (!vital.has(m)) continue;
+          grid.set(m, def);
         }
         const c = stops[0];
         grid.set(c, att);
@@ -509,6 +542,8 @@
     }
     // Moves as integers, score in the high bits (cells are below 1024), so ordering allocates no objects.
     const scored = [];
+    const cut = pruneOn(ctx, depth);
+    let before = null;
     for (const m of moves) {
       grid.set(m, att);
       const an = analyzeCell(grid, m);
@@ -516,6 +551,10 @@
       const f = foursOf(an);
       const t3 = threesOf(an);
       if (!f && !(threesToo && t3)) continue;
+      if (cut && f === 1 && !t3 && !(an & (FIVE | OPEN))) {
+        if (!before) before = new Set(windowCells(grid, att, mode === 'VCF' ? 3 : 2));
+        if (!usefulFour(ctx, m, before)) continue;
+      }
       scored.push(((an & OPEN ? 8 : 0) + (f >= 2 ? 6 : 0) + (f && t3 ? 4 : 0) + f * 2 + t3) << 10 | m);
     }
     scored.sort((p, q) => q - p);
@@ -539,6 +578,7 @@
   function deepen(ctx, attackerToMove) {
     for (let d = 1; d <= DEPTH[ctx.mode]; d++) {
       ctx.cut = false;
+      ctx.top = d;
       const keys = attackerToMove ? attack(ctx, d) : refute(ctx, d);
       if (keys) return keys;
       if (!ctx.cut) return null;
@@ -573,6 +613,42 @@
   }
 
   const COMBOS = new Set(['open4', '4-4', '4-3', '3-3']);
+
+  // Does `line` (line[0] by `first`) play legally to a five by `att`, every four answered on its only completing cell?
+  function lineWins(board, line, first, att) {
+    return withGrid(board, (grid) => {
+      for (let i = 0; i < line.length; i++) {
+        const [x, y] = line[i];
+        const k = y * board.size + x;
+        const p = (first + i) % 2;
+        if (grid.cell[k] !== -1) return false;
+        grid.set(k, p);
+        const a = analyzeCell(grid, k);
+        if (a & FIVE) return p === att && i === line.length - 1;
+        if (!foursOf(a)) continue;
+        const stops = windowCells(grid, p, 4);
+        if (stops.length === 1 && (i + 1 >= line.length || line[i + 1][1] * board.size + line[i + 1][0] !== stops[0])) return false;
+      }
+      return false;
+    });
+  }
+
+  // Rule C. Drops the four pairs (a four and the block it forces) from the moves of `line` at index `from` on that
+  // the win does not need, last pair first. Only the tail after the last three is trimmed: there every move is forced
+  // (each four has one answer), so the shorter line is still a forced win.
+  function trimLine(board, line, first, att, from) {
+    let kinds = replay(board, line, first).kinds;
+    if (kinds.length !== line.length) return line;
+    from = Math.max(from, kinds.lastIndexOf('three') + 1);
+    for (let i = line.length - 3; i >= from; i--) {
+      if (kinds[i] !== 'four') continue;
+      const shorter = line.slice(0, i).concat(line.slice(i + 2));
+      if (!lineWins(board, shorter, first, att)) continue;
+      line = shorter;
+      kinds = replay(board, line, first).kinds;
+    }
+    return line;
+  }
 
   // Finds the attack that wins and traces it back from the end of `line` ([[x, y], ...], line[0] played by `first`).
   // The attacker is the side that wins. The solver plays the rest of the win itself (engines stop a PV before the
@@ -616,7 +692,7 @@
         });
         if (!mode) return null;
       }
-      const full = line.slice(0, from + 1).concat(ext);
+      const full = trimLine(board, line.slice(0, from + 1).concat(ext), first, att, from + 1);
       const rep = replay(board, full, first);
       if (rep.cells.length !== full.length) return null;
       const end = full.length - 1 - ((((full.length - 1 - p) % 2) + 2) % 2); // last attacking move
@@ -659,9 +735,9 @@
 
   // Wins by force: shortest winning line [[x, y], ...] for `att`, or null. mode 'VCF' | 'VCT'; attackerToMove says who
   // moves next.
-  function solve(board, att, mode, attackerToMove, budget = BUDGET) {
-    return withGrid(board, (grid) => {
-      const ctx = makeCtx(grid, att, mode, budget);
+  function solve(board, att, mode, attackerToMove, budget = BUDGET, prune = true) {
+    const line = withGrid(board, (grid) => {
+      const ctx = makeCtx(grid, att, mode, budget, prune);
       try {
         const keys = deepen(ctx, attackerToMove);
         return keys && keys.map((k) => cellOf(grid, k));
@@ -670,6 +746,7 @@
         throw e;
       }
     });
+    return line && prune ? trimLine(board, line, attackerToMove ? att : 1 - att, att, 0) : line;
   }
 
   G.explain = {
