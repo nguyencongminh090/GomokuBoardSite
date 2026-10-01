@@ -9,6 +9,10 @@ while players call moves over voice chat (TikTok live, video calls). It is not m
 no build step and no dependencies.
 
 Product decisions (don't change them unless asked):
+- Besides WALL cells the host can set **portal pairs** (`game.portals`, `[keyA, keyB]`): unplayable, Chebyshev distance >= 3
+  between any two portal cells (the engine's rule, `Game.MIN_PORTAL_DISTANCE`), never on a wall or a move. A line entering one
+  leaves from the other in the same direction. Explain/threat map are **off** on boards with portals (`explain.js` has no
+  portal geometry); only the engine understands them.
 - The board is a free editor, not a rules engine. There is **no win detection** and no rule enforcement beyond "cell
   is empty and not a wall".
 - "Numbers inside cells" means a **spiral numbering of every cell** from the centre (1 … size²) that viewers use to call
@@ -53,6 +57,10 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
   Moves form a variation tree stored as a **flat `nodes` array where a parent always has a lower index than its children**.
   Node 0 is the empty-board sentinel. Serialisation (`[parent, x, y]` triples + `prefs` + `cur`) and `removeSubtree`
   (which compacts and re-indexes) both rely on that ordering, so any new tree mutation must preserve it.
+  - Portals: `portals` serialises as `[ax, ay, bx, by]`; the constructor drops invalid pairs. The engine client sends
+    `INFO CLEARPORTALS` + `INFO YXPORTAL a b` before the `YXBOARD` block only when the set changed (`portalCommands`,
+    `EngineClient.portals`; `START` clears them engine-side). The block cannot carry pairs, so a job's identity is
+    `G.engineProtocol.jobKey(game)`, not the block alone.
   - `cur` is the displayed node. Each node's `pref` is the child that Forward, `toEnd` and `line()` follow. `goTo` rewrites
     `pref` along the path so Forward retraces the line you jumped to.
   - Player = `(depth - 1) % 2` (0 = cross/black moves first). It is derived, not stored.

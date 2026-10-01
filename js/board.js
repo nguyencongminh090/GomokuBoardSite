@@ -105,6 +105,20 @@
     return `<rect x="${x0 + 1.5}" y="${y0 + 1.5}" width="${P - 3}" height="${P - 3}" fill="url(#pHatch)"/>`;
   }
 
+  // One end of a portal pair: a ring in the board's ink colour, tinted by pair, with the pair number inside
+  // (the number, not the tint, tells pairs apart).
+  const PORTAL_HUES = [200, 28, 150, 285, 340, 55, 230, 100];
+  function portal(x0, y0, index, s) {
+    const cx = x0 + P / 2;
+    const cy = y0 + P / 2;
+    const bg = s.theme === 'paper' ? s.paper.bg : s.stone.bg;
+    const ink = G.contrast.ink(bg)[0] ? '#fff' : '#000';
+    const hue = PORTAL_HUES[index % PORTAL_HUES.length];
+    return `<g class="portal"><circle cx="${f(cx)}" cy="${f(cy)}" r="${f(P * 0.4)}" fill="hsl(${hue} 70% 55% / .35)" stroke="${ink}" stroke-width="2"/>` +
+      `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(P * 0.27)}" fill="none" stroke="${ink}" stroke-width="1.2" stroke-dasharray="3 3"/>` +
+      `<text x="${f(cx)}" y="${f(cy)}" dy=".36em" text-anchor="middle" font-size="${P < 30 ? 11 : 13}" font-weight="700" fill="${ink}">${index + 1}</text></g>`;
+  }
+
   function starPoints(n) {
     if (n < 9) return [];
     const a = n >= 13 ? 3 : 2;
@@ -167,6 +181,8 @@
       this.onCell = onCell;
       this.state = null;
       this.hover = null;
+      this.tool = 'wall'; // setup tool: 'wall' | 'portal'
+      this.pending = null; // cell key of the first end of a portal pair being placed
       svg.addEventListener('pointermove', (e) => this.setHover(this.cellAt(e)));
       svg.addEventListener('pointerleave', () => this.setHover(null));
       svg.addEventListener('click', (e) => {
@@ -321,6 +337,17 @@
         out.push(wall(m + (k % n) * P, m + Math.floor(k / n) * P, s.theme));
       }
 
+      // Portals
+      game.portals.forEach(([a, b], i) => {
+        for (const k of [a, b]) out.push(portal(m + (k % n) * P, m + Math.floor(k / n) * P, i, s));
+      });
+
+      // First end of a pair the host has clicked but not completed
+      if (mode === 'setup' && this.pending !== null && this.pending !== undefined) {
+        const k = this.pending;
+        out.push(`<rect x="${m + (k % n) * P + 3}" y="${m + Math.floor(k / n) * P + 3}" width="${P - 6}" height="${P - 6}" fill="none" stroke="#2f7de0" stroke-width="3" stroke-dasharray="5 4"/>`);
+      }
+
       const pos = game.position();
 
       // Spiral cell numbers on empty cells
@@ -328,7 +355,7 @@
         const nums = G.coords.spiral(n);
         const t = [];
         for (let k = 0; k < n * n; k++) {
-          if (pos.has(k) || game.walls.has(k)) continue;
+          if (pos.has(k) || game.walls.has(k) || game.isPortal(k)) continue;
           t.push(`<text x="${c(k % n)}" y="${c(Math.floor(k / n))}">${nums[k]}</text>`);
         }
         const size = n * n >= 100 ? 12 : 14;
@@ -384,7 +411,7 @@
       }
 
       this.tagCells = null;
-      if (s.threatMap && mode === 'play') out.push(this.threatMap(game, m));
+      if (s.threatMap && mode === 'play' && !game.portals.length) out.push(this.threatMap(game, m));
       out.push('<g class="explain"></g><g class="analysis"></g><g class="ghost"></g>');
       this.svg.innerHTML = out.join('');
       this.analysisLayer = this.svg.querySelector('.analysis');
@@ -553,12 +580,18 @@
       const y0 = m + h.y * P;
       const k = game.key(h.x, h.y);
       let svg = '';
-      if (mode === 'setup') {
+      const mark = (kk, color) => `<rect x="${m + (kk % game.size) * P + 3}" y="${m + Math.floor(kk / game.size) * P + 3}" width="${P - 6}" height="${P - 6}" fill="none" stroke="${color}" stroke-width="3" stroke-dasharray="5 4"/>`;
+      if (mode === 'setup' && this.tool === 'portal') {
+        if (game.isPortal(k)) svg = mark(k, '#e0342f') + mark(game.portalPartner(k), '#e0342f'); // clicking removes the pair
+        else svg = `<g opacity=".5">${portal(x0, y0, game.portals.length, s)}</g>`;
+      } else if (mode === 'setup') {
         svg = game.walls.has(k)
           ? `<rect x="${x0 + 3}" y="${y0 + 3}" width="${P - 6}" height="${P - 6}" fill="none" stroke="#e0342f" stroke-width="3" stroke-dasharray="5 4"/>`
           : `<g opacity=".45">${wall(x0, y0, s.theme)}</g>`;
       } else if (game.canPlay(h.x, h.y)) {
         svg = `<g opacity=".38">${piece(game.toMove(), x0 + P / 2, y0 + P / 2, s, k)}</g>`;
+      } else if (game.isPortal(k)) {
+        svg = mark(game.portalPartner(k), '#2f7de0'); // where a line entering this cell leaves
       }
       this.ghost.innerHTML = svg;
     }

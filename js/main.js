@@ -12,6 +12,8 @@
   let game = null;
   let mode = 'play'; // 'play' | 'setup'
   let tab = 'play'; // the open tab
+  let tool = 'wall'; // setup tool: 'wall' | 'portal'
+  let pending = null; // first end of a portal pair, waiting for its partner
 
   const board = new G.BoardView($('#board'), onCell);
 
@@ -109,6 +111,7 @@
   function openGame(data) {
     game = data instanceof G.Game ? data : new G.Game(data);
     mode = 'play';
+    pending = null;
     store.setCurrent(game.id);
     persist();
     refresh();
@@ -118,6 +121,10 @@
   // ---------- actions ----------
 
   function onCell(x, y) {
+    if (mode === 'setup' && tool === 'portal') {
+      onPortalCell(x, y);
+      return;
+    }
     if (mode === 'setup') {
       const r = game.toggleWall(x, y);
       if (r === 'blocked') {
@@ -128,6 +135,40 @@
       return;
     }
     if (game.play(x, y)) update(true);
+  }
+
+  // Portal tool: click a portal to remove its pair; otherwise click two free cells to make a pair.
+  function onPortalCell(x, y) {
+    const k = game.key(x, y);
+    if (game.isPortal(k)) {
+      pending = null;
+      game.removePortal(k);
+      update();
+      return;
+    }
+    if (pending === null) {
+      const problem = game.portalProblem(x, y, x, y);
+      if (problem === 'blocked') return toast(t('setup.portalBlocked'));
+      // A single cell is checked against the other pairs by trying it as a pair with itself (distance 0 fails
+      // on its own), so test the distance to existing portals directly.
+      if (game.portals.some((p) => !game.portalFits(k, p[0]) || !game.portalFits(k, p[1]))) return toast(t('setup.portalNear', { d: G.Game.MIN_PORTAL_DISTANCE }));
+      pending = k;
+      update();
+      return;
+    }
+    if (k === pending) {
+      pending = null;
+      update();
+      return;
+    }
+    const problem = game.portalProblem(pending % game.size, Math.floor(pending / game.size), x, y);
+    if (problem) {
+      toast(t(problem === 'near' ? 'setup.portalNear' : 'setup.portalBlocked', { d: G.Game.MIN_PORTAL_DISTANCE }));
+      return;
+    }
+    game.addPortal(pending % game.size, Math.floor(pending / game.size), x, y);
+    pending = null;
+    update();
   }
 
   // `played` marks a stone the host just placed, which is the engine's cue when it plays one side.
@@ -143,6 +184,7 @@
 
   function setMode(m) {
     mode = m;
+    pending = null;
     refresh();
     engine.positionChanged(false);
   }
@@ -170,6 +212,8 @@
 
   function refresh() {
     applyThemeVars();
+    board.tool = tool;
+    board.pending = pending;
     board.render(game, settings, mode);
     document.body.classList.toggle('setup', mode === 'setup');
     renderPlayPanel();
@@ -212,6 +256,14 @@
     $('#setupHelp').hidden = mode !== 'setup';
     $('#wallCount').textContent = t('setup.count', { n: game.walls.size });
     $('#clearWalls').disabled = !game.walls.size;
+    $('#portalCount').textContent = pending !== null ? t('setup.portalPending') : t('setup.portalCount', { n: game.portals.length });
+    $('#clearPortals').disabled = !game.portals.length;
+    for (const b of $$('[data-tool]')) {
+      b.classList.toggle('on', b.dataset.tool === tool);
+      b.setAttribute('aria-pressed', String(b.dataset.tool === tool));
+    }
+    $('#setupWallHelp').hidden = tool !== 'wall';
+    $('#setupPortalHelp').hidden = tool !== 'portal';
 
     $('#toStart').disabled = $('#back').disabled = game.cur === 0;
     $('#forward').disabled = $('#toEnd').disabled = !node.children.length;
@@ -268,6 +320,8 @@
       const name = g.name || t('games.untitled');
       const meta = [`${g.size}×${g.size}`, t('games.moves', { n: moves })];
       if (walls) meta.push(t('games.walls', { n: walls }));
+      const portals = Array.isArray(g.portals) ? g.portals.length : 0;
+      if (portals) meta.push(t('games.portals', { n: portals }));
       meta.push(when);
       return `<li class="${isCur ? 'current' : ''}">
         <div class="info">
@@ -495,12 +549,13 @@
 
   function updateKeepWalls() {
     const box = $('#newKeepWalls');
-    const ok = game.walls.size > 0 && chosenSize() === game.size;
+    const count = game.walls.size + game.portals.length;
+    const ok = count > 0 && chosenSize() === game.size;
     box.disabled = !ok;
     if (!ok) box.checked = false;
-    $('#keepWallsNote').textContent = !game.walls.size
+    $('#keepWallsNote').textContent = !count
       ? t('new.noWalls')
-      : ok ? t('games.walls', { n: game.walls.size }) : t('new.sameSize');
+      : ok ? [game.walls.size && t('games.walls', { n: game.walls.size }), game.portals.length && t('games.portals', { n: game.portals.length })].filter(Boolean).join(', ') : t('new.sameSize');
   }
 
   $('#newSize').addEventListener('change', () => {
@@ -521,6 +576,7 @@
     const next = G.Game.create(size, $('#newName').value.trim() || defaultName());
     if ($('#newKeepWalls').checked) {
       for (const k of game.walls) next.walls.add(k);
+      next.portals = game.portals.map((p) => [...p]);
     }
     dropIfEmpty();
     openGame(next);
@@ -652,6 +708,19 @@
   $('#toEnd').addEventListener('click', () => nav(() => game.toEnd()));
   $('#newGame').addEventListener('click', openNewDialog);
   $('#deleteMove').addEventListener('click', deleteCurrentMove);
+  for (const b of $$('[data-tool]')) {
+    b.addEventListener('click', () => {
+      tool = b.dataset.tool;
+      pending = null;
+      refresh();
+    });
+  }
+  $('#clearPortals').addEventListener('click', () => {
+    if (confirm(t('setup.confirmClearPortals', { n: game.portals.length })) && game.clearPortals()) {
+      pending = null;
+      update();
+    }
+  });
   $('#clearWalls').addEventListener('click', () => {
     if (confirm(t('setup.confirmClear', { n: game.walls.size })) && game.clearWalls()) update();
   });

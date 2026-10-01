@@ -151,9 +151,9 @@
     function search(kind, go) {
       if (!canSearch()) return;
       const game = app.game();
-      const block = P.boardBlock(game);
-      client.run({ kind, block, size: game.size, config: config(kind), go });
-      result = { key: block, kind, toMove: game.toMove(), lines: [], done: false };
+      const key = P.jobKey(game);
+      client.run({ kind, key, block: P.boardBlock(game), portals: P.portalCommands(game), size: game.size, config: config(kind), go });
+      result = { key, kind, toMove: game.toMove(), lines: [], done: false };
       preview = -1;
       render();
     }
@@ -175,7 +175,7 @@
     // (not the engine) just placed a stone, which is the engine's cue in "engine plays X/O" mode.
     function positionChanged(played) {
       const game = app.game();
-      const key = canSearch() ? P.boardBlock(game) : '';
+      const key = canSearch() ? P.jobKey(game) : '';
       if (result && result.key !== key) {
         result = null;
         preview = -1;
@@ -186,8 +186,8 @@
       } else if (played && engineSettings().side === String(game.toMove())) {
         engineMove();
       } else if (engineSettings().auto) {
-        if (!running || running.block !== key) analyze();
-      } else if (running && running.block !== key) {
+        if (!running || running.key !== key) analyze();
+      } else if (running && running.key !== key) {
         client.cancel();
       }
       render();
@@ -226,7 +226,7 @@
           if (data.out && /^MESSAGE (Transposition table|Hash)/.test(data.text)) app.toast(data.text.slice(8));
           break;
         case 'analysis':
-          if (result && result.key === data.job.block) result.lines = data.lines.slice();
+          if (result && result.key === data.job.key) result.lines = data.lines.slice();
           break;
         case 'done':
           onDone(data);
@@ -248,7 +248,7 @@
         const best = shownLines(lines)[0];
         if (best) move = best.line[0];
       }
-      if (result && result.key === job.block) {
+      if (result && result.key === job.key) {
         if (lines.length) result.lines = lines.slice();
         // Moves from the opening logic (e.g. on an empty board) come without an INFO feed: show the move alone.
         else if (move && move[0] >= 0 && !job.stopped) result.lines = [{ pv: 0, line: [move] }];
@@ -256,7 +256,7 @@
       }
       if (job.kind !== 'move' || job.superseded) return;
       const game = app.game();
-      if (P.boardBlock(game) !== job.block || app.mode() === 'setup') return; // the host moved on
+      if (P.jobKey(game) !== job.key || app.mode() === 'setup') return; // the host moved on
       if (!move || move[0] < 0 || !game.canPlay(move[0], move[1])) {
         if (!job.stopped) app.toast(t('eng.noMove'));
         return;
@@ -410,6 +410,7 @@
 
     function findChain(line) {
       const game = app.game();
+      if (game.portals.length) return null; // the threat analysis does not know portals
       const stones = new Map();
       for (const [k, id] of game.position()) stones.set(k, game.player(id));
       return G.explain.chain({ size: game.size, walls: game.walls, stones }, line, result.toMove);

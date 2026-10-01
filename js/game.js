@@ -1,4 +1,4 @@
-// Game model: board size, walls and a variation tree of moves.
+// Game model: board size, walls, portal pairs and a variation tree of moves.
 //
 // Nodes live in a flat array; node 0 is the empty-board root. A node's parent always has a
 // smaller index, so the array can be serialised as [parent, x, y] triples and rebuilt in order.
@@ -8,6 +8,7 @@
 
   const MIN_SIZE = 5;
   const MAX_SIZE = 26;
+  const MIN_PORTAL_DISTANCE = 3; // Chebyshev distance between any two portal cells (the engine's rule)
 
   function newId() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -28,6 +29,15 @@
       this.walls = new Set();
       for (const w of Array.isArray(data.walls) ? data.walls : []) {
         if (Array.isArray(w) && this.inBounds(w[0], w[1])) this.walls.add(this.key(w[0], w[1]));
+      }
+
+      // Portal pairs as [keyA, keyB]. A line entering one cell leaves from the other in the same direction.
+      this.portals = [];
+      for (const p of Array.isArray(data.portals) ? data.portals : []) {
+        if (!Array.isArray(p) || p.length < 4 || !this.inBounds(p[0], p[1]) || !this.inBounds(p[2], p[3])) continue;
+        const a = this.key(p[0], p[1]);
+        const b = this.key(p[2], p[3]);
+        if (!this.walls.has(a) && !this.walls.has(b) && this.portalFits(a, b)) this.portals.push([a, b]);
       }
 
       this.nodes = [{ parent: -1, x: -1, y: -1, depth: 0, children: [], pref: -1 }];
@@ -60,6 +70,7 @@
         createdAt: this.createdAt,
         updatedAt: this.updatedAt,
         walls: [...this.walls].map((k) => [k % s, Math.floor(k / s)]),
+        portals: this.portals.map(([a, b]) => [a % s, Math.floor(a / s), b % s, Math.floor(b / s)]),
         nodes: this.nodes.slice(1).map((n) => [n.parent, n.x, n.y]),
         prefs: this.nodes.map((n) => n.pref),
         cur: this.cur,
@@ -80,7 +91,7 @@
     }
 
     isEmpty() {
-      return this.nodes.length === 1 && this.walls.size === 0;
+      return this.nodes.length === 1 && this.walls.size === 0 && this.portals.length === 0;
     }
 
     addNode(parent, x, y) {
@@ -136,7 +147,7 @@
     canPlay(x, y) {
       if (!this.inBounds(x, y)) return false;
       const k = this.key(x, y);
-      return !this.walls.has(k) && !this.position().has(k);
+      return !this.walls.has(k) && !this.isPortal(k) && !this.position().has(k);
     }
 
     // Plays at (x, y). Re-uses an existing branch with the same move instead of duplicating it.
@@ -226,10 +237,69 @@
         this.touch();
         return 'removed';
       }
-      if (this.nodes.some((n, i) => i > 0 && n.x === x && n.y === y)) return 'blocked';
+      if (this.isPortal(k) || this.nodes.some((n, i) => i > 0 && n.x === x && n.y === y)) return 'blocked';
       this.walls.add(k);
       this.touch();
       return 'added';
+    }
+
+    // Index of the pair that owns cell key k, or -1.
+    portalIndex(k) {
+      return this.portals.findIndex(([a, b]) => a === k || b === k);
+    }
+
+    isPortal(k) {
+      return this.portalIndex(k) >= 0;
+    }
+
+    // The other end of the pair that owns cell key k, or -1.
+    portalPartner(k) {
+      const p = this.portals[this.portalIndex(k)];
+      return p ? (p[0] === k ? p[1] : p[0]) : -1;
+    }
+
+    // True when a new pair (a, b) keeps every portal cell, old and new, at least MIN_PORTAL_DISTANCE apart.
+    portalFits(a, b) {
+      if (a === b) return false;
+      const s = this.size;
+      const cells = [a, b].concat(...this.portals);
+      const near = (i, j) => Math.max(Math.abs((i % s) - (j % s)), Math.abs(Math.floor(i / s) - Math.floor(j / s))) < MIN_PORTAL_DISTANCE;
+      if (near(a, b)) return false;
+      return !cells.slice(2).some((c) => near(a, c) || near(b, c));
+    }
+
+    // Why a pair cannot be added: 'blocked' (a wall or a move uses a cell), 'near' (too close to another portal
+    // cell), or '' when it fits.
+    portalProblem(x1, y1, x2, y2) {
+      if (!this.inBounds(x1, y1) || !this.inBounds(x2, y2)) return 'blocked';
+      const a = this.key(x1, y1);
+      const b = this.key(x2, y2);
+      const used = (x, y, k) => this.walls.has(k) || this.nodes.some((n, i) => i > 0 && n.x === x && n.y === y);
+      if (used(x1, y1, a) || used(x2, y2, b)) return 'blocked';
+      return this.portalFits(a, b) ? '' : 'near';
+    }
+
+    addPortal(x1, y1, x2, y2) {
+      if (this.portalProblem(x1, y1, x2, y2)) return false;
+      this.portals.push([this.key(x1, y1), this.key(x2, y2)]);
+      this.touch();
+      return true;
+    }
+
+    // Removes the whole pair that owns cell key k.
+    removePortal(k) {
+      const i = this.portalIndex(k);
+      if (i < 0) return false;
+      this.portals.splice(i, 1);
+      this.touch();
+      return true;
+    }
+
+    clearPortals() {
+      if (!this.portals.length) return false;
+      this.portals = [];
+      this.touch();
+      return true;
     }
 
     clearWalls() {
@@ -242,5 +312,6 @@
 
   Game.MIN_SIZE = MIN_SIZE;
   Game.MAX_SIZE = MAX_SIZE;
+  Game.MIN_PORTAL_DISTANCE = MIN_PORTAL_DISTANCE;
   G.Game = Game;
 })(window.Gomoku = window.Gomoku || {});

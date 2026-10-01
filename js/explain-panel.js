@@ -36,7 +36,7 @@
 
     function find() {
       const game = app.game();
-      if (app.mode() === 'setup') return;
+      if (app.mode() === 'setup' || game.portals.length) return;
       const board = boardOf(game);
       const me = game.toMove();
       let mode = 'VCF';
@@ -67,7 +67,7 @@
     // Identifies the position (and game) a result belongs to.
     function positionKey() {
       const g = app.game();
-      return `${g.size}|${[...g.walls].join(',')}|${g.path(g.cur).map((id) => `${g.nodes[id].x},${g.nodes[id].y}`).join(';')}|${g.name || ''}`;
+      return `${g.size}|${[...g.walls].join(',')}|${g.portals.join(';')}|${g.path(g.cur).map((id) => `${g.nodes[id].x},${g.nodes[id].y}`).join(';')}|${g.name || ''}`;
     }
 
     // The position changed under the result.
@@ -89,14 +89,15 @@
     }
 
     function render() {
-      const can = app.mode() !== 'setup';
+      const portals = app.game().portals.length > 0; // the analysis does not know portals
+      const can = app.mode() !== 'setup' && !portals;
       $('#expFind').disabled = !can;
       $('#expClear').disabled = !result;
       const status = $('#expStatus');
       const list = $('#expSteps');
       const focused = list.contains(document.activeElement) ? document.activeElement.dataset.step : undefined;
       if (!result) {
-        status.textContent = '';
+        status.textContent = portals ? t('exp.noPortals') : '';
         list.innerHTML = '';
       } else if (result.none) {
         status.textContent = t('exp.none');

@@ -1,8 +1,8 @@
 // Rapfi engine client. The engine is a WebAssembly build of Rapfi (engine/rapfi-*.js) running in a Web
 // Worker (engine/engine.worker.js); this file speaks its Piskvork/Yixin text protocol.
 //
-// Every search is one job: the page sends the whole position as a YXBOARD block (walls as colour 3,
-// stones in move order), then one search command (YXNBEST, YXPLAYSELF or YXOPPDIST). The engine only
+// Every search is one job: the page sends the portal pairs (when they changed) and the whole position as a
+// YXBOARD block (walls as colour 3, stones in move order), then one search command (YXNBEST, YXPLAYSELF or YXOPPDIST). The engine only
 // accepts STOP while it is thinking and answers every search, stopped or not, with one move line, so
 // a new job waits for that line. The block is also the job's key: a result belongs to the position
 // on the board only if the block built from it is the same.
@@ -32,6 +32,20 @@
     }
     lines.push('DONE');
     return lines.join('\n');
+  }
+
+  // Commands that register the game's portal pairs, or [] when it has none. They come before the YXBOARD block:
+  // CLEARPORTALS also drops the walls, which the block then sets again.
+  function portalCommands(game) {
+    if (!game.portals.length) return [];
+    const s = game.size;
+    const at = (k) => `${k % s},${Math.floor(k / s)}`;
+    return ['INFO CLEARPORTALS', ...game.portals.map(([a, b]) => `INFO YXPORTAL ${at(a)} ${at(b)}`)];
+  }
+
+  // Identity of a search position: the block plus the portal pairs (a block cannot carry them).
+  function jobKey(game) {
+    return `${portalCommands(game).join('\n')}\n${boardBlock(game)}`;
   }
 
   // INFO commands for a search configuration, as [name, value] pairs.
@@ -171,6 +185,7 @@
       this.about = '';
       this.size = 0; // board size the engine was last started with
       this.applied = new Map(); // INFO name -> value last sent
+      this.portals = ''; // portal commands the engine holds (START clears them)
     }
 
     get ready() {
@@ -236,6 +251,7 @@
       this.stopping = false;
       this.size = 0;
       this.applied.clear();
+      this.portals = '';
       if (job) this.emit('done', { job, move: null, lines: this.collector.lines });
     }
 
@@ -317,6 +333,13 @@
       if (this.size !== job.size) {
         this.send(`START ${job.size}`);
         this.size = job.size;
+        this.portals = '';
+      }
+      // Registering a pair resets the engine's game, so send them only when they changed.
+      const portals = (job.portals || []).join('\n');
+      if (portals !== this.portals) {
+        for (const c of job.portals && job.portals.length ? job.portals : ['INFO CLEARPORTALS']) this.send(c);
+        this.portals = portals;
       }
       for (const [name, value] of configCommands(job.config)) {
         if (this.applied.get(name) === value) continue;
@@ -346,6 +369,7 @@
       } else if (p.type === 'error' && /No game has been started|Unsupported board size/.test(p.text)) {
         // The search command was refused, so no move line will follow.
         this.size = 0;
+        this.portals = '';
         if (this.job) this.finish(null);
       }
     }
@@ -363,7 +387,7 @@
 
   G.VERSION = VERSION;
   G.serviceWorkerUrl = `coi-serviceworker.js?v=${encodeURIComponent(VERSION || 'dev')}`;
-  G.engineProtocol = { MAX_SIZE, boardBlock, configCommands, parseValue, parseLine, InfoCollector };
+  G.engineProtocol = { MAX_SIZE, boardBlock, portalCommands, jobKey, configCommands, parseValue, parseLine, InfoCollector };
   G.engineSupport = { unsupportedReason, canUseThreads };
   G.EngineClient = EngineClient;
 })(window.Gomoku = window.Gomoku || {});

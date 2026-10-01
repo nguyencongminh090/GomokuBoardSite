@@ -493,3 +493,69 @@ test('pruning useless fours never loses a win and never lengthens the line', () 
   }
   assert(wins > 50, 'the sample should hold wins');
 });
+
+// ---------- portals ----------
+
+test('portal pairs: unplayable, min distance 3, not on walls or moves, removed as a pair', () => {
+  const g = G.Game.create(15, 't');
+  assert.equal(g.addPortal(2, 2, 10, 10), true);
+  assert.equal(g.canPlay(2, 2), false);
+  assert.equal(g.portalPartner(g.key(2, 2)), g.key(10, 10));
+  assert.equal(g.toggleWall(10, 10), 'blocked'); // a wall cannot cover a portal
+  assert.equal(g.portalProblem(4, 4, 12, 12), 'near'); // 2 away from (2,2)
+  assert.equal(g.portalProblem(5, 5, 5, 6), 'near'); // the two ends of one pair too
+  assert.equal(g.portalProblem(5, 5, 8, 5), '');
+  g.toggleWall(0, 0);
+  assert.equal(g.portalProblem(0, 0, 8, 0), 'blocked');
+  g.play(7, 7);
+  assert.equal(g.portalProblem(7, 7, 12, 3), 'blocked');
+  assert.equal(g.removePortal(g.key(10, 10)), true);
+  assert.equal(g.portals.length, 0);
+});
+
+test('portals survive a JSON round trip and bad pairs in stored data are dropped', () => {
+  const g = G.Game.create(15, 't');
+  g.addPortal(2, 2, 10, 10);
+  g.addPortal(5, 8, 12, 2);
+  const back = new G.Game(JSON.parse(JSON.stringify(g.toJSON())));
+  assert.deepEqual(back.portals, g.portals);
+  const bad = new G.Game({ size: 15, portals: [[1, 1, 2, 2], [1, 1, 9, 9], [99, 0, 3, 3], 'x'] });
+  assert.equal(bad.portals.length, 1);
+  assert.equal(new G.Game({ size: 15 }).portals.length, 0); // older saves have no portals
+});
+
+test('engine portal commands come before the block and are part of the job key', () => {
+  const g = G.Game.create(15, 't');
+  assert.deepEqual(EP.portalCommands(g), []);
+  const plain = EP.jobKey(g);
+  g.addPortal(2, 2, 10, 11);
+  assert.deepEqual(EP.portalCommands(g), ['INFO CLEARPORTALS', 'INFO YXPORTAL 2,2 10,11']);
+  assert.notEqual(EP.jobKey(g), plain);
+});
+
+test('engine client registers portals only when they changed and START forgets them', () => {
+  const sent = [];
+  const c = new G.EngineClient(() => {});
+  c.worker = { postMessage: (m) => sent.push(m.text) };
+  c.state = 'idle';
+  const cfg = { rule: 0, threads: 1, hashMB: 1, depth: 0, strength: 100, timeMs: 0 };
+  const job = (portals, size = 15) => ({ kind: 'analyze', key: 'k', block: 'YXBOARD\nDONE', portals, size, config: cfg, go: 'YXNBEST 1' });
+  const portalLines = () => sent.filter((l) => /PORTAL/.test(l));
+  c.startNext = G.EngineClient.prototype.startNext;
+  c.next = job(['INFO CLEARPORTALS', 'INFO YXPORTAL 2,2 10,11']);
+  c.startNext();
+  assert.deepEqual(portalLines(), ['INFO CLEARPORTALS', 'INFO YXPORTAL 2,2 10,11']);
+  c.state = 'idle';
+  c.next = job(['INFO CLEARPORTALS', 'INFO YXPORTAL 2,2 10,11']);
+  c.startNext();
+  assert.equal(portalLines().length, 2); // unchanged: nothing resent
+  c.state = 'idle';
+  c.next = job([]);
+  c.startNext();
+  assert.equal(portalLines().length, 3); // removed: cleared
+  assert.equal(portalLines()[2], 'INFO CLEARPORTALS');
+  c.state = 'idle';
+  c.next = job([], 19); // a new size sends START, which clears them on the engine: no extra CLEARPORTALS
+  c.startNext();
+  assert.equal(portalLines().length, 3);
+});
