@@ -128,6 +128,13 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
   `EngineClient.load` and `run`, and `main.js` freezes `G`, `G.security` and `EngineClient` after start. This is
   client-side only: the engine files in `engine/` are public (and in git history), so a determined user can still run them.
   Real enforcement needs the host to hide them (e.g. Cloudflare Access), not code.
+  **Engine gate (`gate/`, optional):** a Cloudflare Worker that serves the Rapfi files only against a token. `/challenge`
+  gives a MACed nonce, the page signs it with the private key, `/token` verifies it against `allowed-keys.json` (read from
+  Pages) and returns an HMAC token; `/engine/*?t=` checks it. It is switched on by `<meta name="engine-gate" content="URL">`
+  in `index.html` (empty = engine files served locally, old behaviour). Then `G.engineGuard()` returns `{ gate, token }`,
+  and `engine.worker.js` loads the files from the gate (the `gate`/`t` query also reaches the pthread workers).
+  `gate/deploy.sh` copies the engine into `gate/public` (git-ignored) and deploys; the engine files must then be removed
+  from `engine/` and from git history, or the gate protects nothing. Revocation lags by `TOKEN_TTL`.
 - **Engine** (`js/engine.js`, `js/engine-panel.js`, `engine/`): Rapfi runs in a Web Worker (`engine/engine.worker.js`)
   that hosts one of two Emscripten builds: `multi` (pthreads, needs `crossOriginIsolated`) or `single`. Protocol
   facts the client relies on, verified against `command/gomocup.cpp` of the MINT-P engine:

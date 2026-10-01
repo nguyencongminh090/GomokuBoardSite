@@ -117,6 +117,9 @@
       }
     },
 
+    // Signs a text (the engine gate's challenge) with the private key; returns base64.
+    signText: (privateKey, message) => sign(privateKey, message),
+
     async signExport(pair, body) {
       const value = await sign(pair.privateKey, canonical(body));
       return { ...body, signature: { alg: SIG_ALG, publicKey: pair.publicKey, value } };

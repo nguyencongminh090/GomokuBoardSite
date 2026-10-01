@@ -188,7 +188,8 @@
     }
 
     load(variant) {
-      if (!(G.engineGuard && G.engineGuard())) { // the engine is for key holders only (see security-panel.js)
+      const access = G.engineGuard && G.engineGuard(); // { gate, token } for key holders only (see security-panel.js)
+      if (!access) {
         this.fail('locked');
         return;
       }
@@ -197,7 +198,14 @@
       this.setState('loading');
       let worker;
       try {
-        worker = new Worker(`${this.base}engine.worker.js${VERSION ? `?v=${encodeURIComponent(VERSION)}` : ''}`);
+        const query = new URLSearchParams();
+        if (VERSION) query.set('v', VERSION);
+        if (access.gate) {
+          query.set('gate', access.gate);
+          query.set('t', access.token);
+        }
+        const q = query.toString();
+        worker = new Worker(`${this.base}engine.worker.js${q ? `?${q}` : ''}`);
       } catch (err) {
         this.fail(err.message);
         return;

@@ -11,11 +11,14 @@
   G.createSecurityPanel = function (deps) {
     const { esc, toast, settings } = deps;
     const keys = { own: null, trusted: store.loadKeys().trusted };
-    let engineOk = false; // set only after this page proved it holds an allow-listed private key
+    let access = null; // { gate, token }, set only after this page proved it holds an allow-listed private key
+    const gateMeta = document.querySelector('meta[name="engine-gate"]');
+    const gateUrl = gateMeta ? gateMeta.content.trim().replace(/\/+$/, '') : '';
+    const gate = gateUrl ? `${gateUrl}/` : ''; // '' = engine files are served locally
 
     // Read by the engine client before it loads or searches, so calling it directly from the console skips the UI
     // but not this check. Defined once and locked: neither G nor this property can be reassigned afterwards.
-    Object.defineProperty(G, 'engineGuard', { value: () => engineOk, writable: false, configurable: false });
+    Object.defineProperty(G, 'engineGuard', { value: () => access, writable: false, configurable: false });
 
     const ready = store.loadOwnKey().then((pair) => {
       keys.own = pair;
@@ -64,6 +67,31 @@
       }
     }
 
+    // With an engine gate (a Cloudflare Worker) the engine files are only served against a token. The gate sends a
+    // fresh challenge, this device signs it with the private key, and the gate checks it against allowed-keys.json.
+    async function authorizeWithGate() {
+      try {
+        const { challenge } = await (await fetch(`${gate}challenge`, { cache: 'no-store' })).json();
+        const signature = await sec.signText(keys.own.privateKey, challenge);
+        const res = await fetch(`${gate}token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ challenge, signature, publicKey: keys.own.publicKey }),
+        });
+        if (res.status === 403) {
+          toast(t('sec.engineNotAllowed', { fp: (await sec.fingerprint(keys.own.publicKey)).slice(0, 9) }));
+          return false;
+        }
+        const body = await res.json();
+        if (!res.ok || typeof body.token !== 'string') throw new Error(body.error || res.status);
+        access = { gate, token: body.token };
+        return true;
+      } catch (e) {
+        toast(t('sec.engineGateFailed'));
+        return false;
+      }
+    }
+
     // ---------- actions ----------
 
     async function createKeys() {
@@ -87,7 +115,7 @@
       if (!confirm(t('sec.deleteConfirm'))) return;
       await store.saveOwnKey(null);
       keys.own = null;
-      engineOk = false;
+      access = null;
       deps.engineStop();
       render();
       toast(t('sec.deleted'));
@@ -242,11 +270,12 @@
       // allowed-keys.json (published with the site). A fresh challenge is signed, so a copied public key is not enough.
       async authorizeEngine() {
         await ready;
-        engineOk = false;
+        access = null;
         if (!sec.supported() || !keys.own) {
           toast(t('sec.engineNoKey'));
           return false;
         }
+        if (gate) return authorizeWithGate();
         const list = await loadAllowed();
         if (!list) {
           toast(t('sec.engineListFailed'));
@@ -255,7 +284,7 @@
         const fp = await sec.fingerprint(keys.own.publicKey);
         const entry = list.find((k) => k.fingerprint === fp);
         if (entry && (await sec.proves(keys.own.privateKey, entry.publicKey))) {
-          engineOk = true;
+          access = { gate: '', token: '' };
           return true;
         }
         toast(t('sec.engineNotAllowed', { fp: fp.slice(0, 9) }));

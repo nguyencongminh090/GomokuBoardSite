@@ -13,10 +13,18 @@
 // so a new release never runs against cached files from an old one.
 const VERSION_QUERY = self.location.search;
 
+// With an engine gate, the engine files come from the gate's origin and the page passes its address (`gate`)
+// and an access token (`t`) in the query. Without one, they sit next to this file. The query is also what
+// the pthread workers of the multi build start from, so they inherit both.
+const PARAMS = new URLSearchParams(VERSION_QUERY);
+const GATE = PARAMS.get('gate') || '';
+const FILE_QUERY = GATE ? `?v=${encodeURIComponent(PARAMS.get('v') || '')}&t=${encodeURIComponent(PARAMS.get('t') || '')}` : VERSION_QUERY;
+const fileUrl = (name) => (GATE ? `${GATE}${name}` : name);
+
 if (self.name === 'em-pthread') {
   // Emscripten starts each search thread of the multi-threaded build from the script that loaded it,
   // which is this file. The engine script starts itself when it sees it is running as a pthread.
-  importScripts(`rapfi-multi-simd128.js${VERSION_QUERY}`);
+  importScripts(`${fileUrl('rapfi-multi-simd128.js')}${FILE_QUERY}`);
 } else {
   let engine = null;
   const pending = []; // commands that arrive before the engine is ready
@@ -39,13 +47,13 @@ if (self.name === 'em-pthread') {
       return;
     }
     try {
-      importScripts(`rapfi-${variant}-simd128.js${VERSION_QUERY}`);
+      importScripts(`${fileUrl(`rapfi-${variant}-simd128.js`)}${FILE_QUERY}`);
     } catch (err) {
       post({ type: 'error', text: `Could not load the engine script: ${err.message}` });
       return;
     }
     self.Rapfi({
-      locateFile: (path, prefix) => `${prefix}${path}${VERSION_QUERY}`, // the .wasm and .data files
+      locateFile: (path, prefix) => `${GATE || prefix}${path}${FILE_QUERY}`, // the .wasm and .data files
       onReceiveStdout: (text) => post({ type: 'line', text }),
       onReceiveStderr: (text) => post({ type: 'line', text: `[stderr] ${text}` }),
       onExit: (code) => post({ type: 'exit', code }),
