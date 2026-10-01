@@ -41,6 +41,16 @@
     "x": "w74kR5Ke36V_glzLjwXef1yWI7uKexfWtjNgfwPnLtc",
     "y": "Y41_NtWDGB5LhE-XdjNhdJ_sqXEzXPcN42aMgb-asKk"
    }
+  },
+  {
+   "name": "Doanh",
+   "fingerprint": "A9FE 6AD3 7D3F 4890 0021 DC7C FE64 7988",
+   "publicKey": {
+    "kty": "EC",
+    "crv": "P-256",
+    "x": "EcFWAbjvuIjHhhPTcAlTKnq20RnV8FVvukK6d2ZA7f8",
+    "y": "mphoX111OODXBOiL2H_0OS4HtS9BK1O9zmRYBQdOg3o"
+   }
   }
  ]
 }
