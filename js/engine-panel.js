@@ -93,7 +93,7 @@
       session('reload');
       app.toast(t('eng.isolating'));
       // Reload only once the worker is active, or the reloaded page would not come through it.
-      navigator.serviceWorker.register('coi-serviceworker.js').then(() => navigator.serviceWorker.ready).then(() => {
+      navigator.serviceWorker.register(G.serviceWorkerUrl).then(() => navigator.serviceWorker.ready).then(() => {
         app.flush();
         location.reload();
       }, (err) => {
@@ -199,7 +199,6 @@
       const prev = lastEngine || e;
       lastEngine = { ...e };
       if (e.multi !== prev.multi) {
-        if (!e.multi) unregisterIsolation();
         if (client.ready || client.state === 'loading') load(); // restart with the other build
         return;
       }
@@ -208,15 +207,6 @@
       if (e.side !== prev.side && e.side === String(game.toMove()) && !client.job) engineMove();
       else if (e.auto && !prev.auto && !client.job) analyze();
       else if (!e.auto && prev.auto && client.job && client.job.kind === 'analyze') client.cancel();
-    }
-
-    function unregisterIsolation() {
-      if (!('serviceWorker' in navigator)) return;
-      navigator.serviceWorker.getRegistrations().then((regs) => {
-        for (const r of regs) {
-          if (r.active && r.active.scriptURL.endsWith('/coi-serviceworker.js')) r.unregister();
-        }
-      }, () => {});
     }
 
     // ---------- engine events ----------

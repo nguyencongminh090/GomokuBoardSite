@@ -699,8 +699,16 @@
     syncSettingsUI();
     openInitialGame();
     engine.start();
+    registerServiceWorker();
     // Harden against console tampering: the security API and engine client can no longer be patched in place.
     for (const o of [G.security, G.EngineClient, G.EngineClient.prototype, G]) Object.freeze(o);
+  }
+
+  // The worker makes the page installable and offline-capable and adds the isolation headers the engine
+  // threads need. Its URL carries the release version, so each release installs a fresh cache.
+  function registerServiceWorker() {
+    if (!('serviceWorker' in navigator) || !window.isSecureContext) return;
+    navigator.serviceWorker.register(G.serviceWorkerUrl).catch((err) => console.warn('Service worker unavailable', err));
   }
 
   function openInitialGame() {

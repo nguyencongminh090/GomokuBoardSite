@@ -1,0 +1,15 @@
+{
+  "name": "MCaro",
+  "short_name": "MCaro",
+  "description": "Bàn cờ caro cho livestream: nhánh nước đi, ô tường, giao diện tuỳ chỉnh và lưu ván trong trình duyệt.",
+  "lang": "vi",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#dcb35c",
+  "theme_color": "#dcb35c",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

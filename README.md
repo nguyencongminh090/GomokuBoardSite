@@ -42,8 +42,8 @@ serve the folder: `python3 -m http.server 8000` and open <http://localhost:8000>
 
 The multi-threaded engine needs `SharedArrayBuffer`, which browsers only allow on cross-origin isolated
 pages (COOP/COEP headers). GitHub Pages cannot send those headers, so when multi-threading is on (the
-default), loading the engine registers `coi-serviceworker.js`, which adds them, and reloads the page
-once. Without service workers (or when isolation fails) the single-threaded build is used, and it
+default), `coi-serviceworker.js` (registered on every visit) adds them, and loading the engine reloads the page
+once if it was not yet in control. Without service workers (or when isolation fails) the single-threaded build is used, and it
 stops a search by restarting the engine. See `engine/README.md` for the engine files, their GPLv3
 licence and how to rebuild them.
 
@@ -83,7 +83,8 @@ new release at once instead of a mix of old and new files. The current version i
 | `js/main.js` | UI wiring, panels, keyboard, import/export |
 | `engine/` | Rapfi WebAssembly builds, their worker host and build script (GPLv3, see `engine/README.md`) |
 | `tools/bump-version.js` | Sets the release version used for cache busting (see *Releasing a new version*) |
-| `coi-serviceworker.js` | Adds COOP/COEP headers so the multi-threaded engine can run on GitHub Pages |
+| `coi-serviceworker.js` | Service worker: adds COOP/COEP headers (engine threads on GitHub Pages) and caches the app shell for offline use |
+| `manifest.webmanifest`, `icons/` | PWA manifest and icons: the site can be installed on a phone (Chrome: Install app; iOS Safari: Share → Add to Home Screen). The engine is never cached offline |
 | `tests/model.test.js` | Model and engine protocol tests: `node tests/model.test.js` |
 
 ## Saved game format

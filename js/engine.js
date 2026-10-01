@@ -362,6 +362,7 @@
   }
 
   G.VERSION = VERSION;
+  G.serviceWorkerUrl = `coi-serviceworker.js?v=${encodeURIComponent(VERSION || 'dev')}`;
   G.engineProtocol = { MAX_SIZE, boardBlock, configCommands, parseValue, parseLine, InfoCollector };
   G.engineSupport = { unsupportedReason, canUseThreads };
   G.EngineClient = EngineClient;
