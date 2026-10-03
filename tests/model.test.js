@@ -8,7 +8,7 @@ const path = require('path');
 const assert = require('assert');
 
 global.window = {};
-for (const f of ['js/i18n.js', 'js/contrast.js', 'js/coords.js', 'js/voice.js', 'js/settings.js', 'js/game.js', 'js/security.js', 'js/explain.js', 'js/engine.js']) {
+for (const f of ['js/i18n.js', 'js/contrast.js', 'js/coords.js', 'js/voice.js', 'js/settings.js', 'js/game.js', 'js/security.js', 'js/explain.js', 'js/engine.js', 'js/search.js', 'js/search-panel.js']) {
   eval(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'));
 }
 const G = window.Gomoku;
@@ -681,4 +681,76 @@ test('voice: a phrase names a cell by label or by spiral number, on any board si
   for (const text of ['P8', 'H16', 'H0', 'hai trăm hai mươi sáu', 'không', 'bạn ngủ rồi', '']) assert.equal(G.voice.parseCell(text, 15), null, text);
   assert.notEqual(G.voice.parseCell('một trăm', 10), null); // 100 is the last cell of a 10x10 board
   assert.equal(G.voice.parseCell('một trăm lẻ một', 10), null);
+});
+
+// ---------- feature search ----------
+
+function searchIndex() {
+  const text = (lang, key) => G.i18n.STRINGS[lang][`find.${key}`] || '';
+  return G.search.createIndex(G.SEARCH_FEATURES.map((f) => ({
+    id: f.id,
+    fields: {
+      title: G.i18n.LANGS.map((l) => text(l, f.id)),
+      desc: G.i18n.LANGS.map((l) => text(l, `${f.id}.d`)),
+      kw: G.i18n.LANGS.flatMap((l) => text(l, `${f.id}.k`).split(';').filter(Boolean)),
+    },
+  })));
+}
+const top = (index, q, n = 1) => G.search.query(index, q).slice(0, n).map((r) => r.id);
+
+test('every searchable feature has a title, description and keywords in every language', () => {
+  for (const f of G.SEARCH_FEATURES) {
+    for (const lang of G.i18n.LANGS) {
+      for (const k of [f.id, `${f.id}.d`, `${f.id}.k`]) assert(G.i18n.STRINGS[lang][`find.${k}`], `${lang} find.${k}`);
+    }
+  }
+  assert.equal(new Set(G.SEARCH_FEATURES.map((f) => f.id)).size, G.SEARCH_FEATURES.length, 'duplicate ids');
+});
+
+test('search targets exist in index.html', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  for (const f of G.SEARCH_FEATURES) {
+    for (const sel of f.targets) {
+      const id = /^#([\w-]+)$/.exec(sel);
+      const attr = /^\[(data-[\w-]+)="([^"]+)"\]$/.exec(sel);
+      if (id) assert(html.includes(`id="${id[1]}"`), `${f.id}: ${sel}`);
+      if (attr) assert(html.includes(`${attr[1]}="${attr[2]}"`), `${f.id}: ${sel}`);
+    }
+  }
+});
+
+test('search folds tone marks, stop words and typos', () => {
+  assert.equal(G.search.fold('Cài đặt ĐỔI màu'), 'cai dat doi mau');
+  assert.deepEqual(G.search.tokenize('làm sao để đổi màu'), ['doi', 'mau']);
+  assert.deepEqual(G.search.tokenize('how do I change the colours'), ['change', 'colour']);
+  assert.equal(G.search.distance('voice', 'viice', 2), 1);
+  assert.equal(G.search.distance('abcd', 'abdc', 2), 1, 'adjacent swap');
+});
+
+test('search finds a feature from a natural question, with or without tone marks', () => {
+  const ix = searchIndex();
+  assert.equal(top(ix, 'làm sao để đi quân bằng giọng nói')[0], 'voice');
+  assert.equal(top(ix, 'lam sao de doi mau ban co')[0], 'colors');
+  assert.equal(top(ix, 'how do I play against the computer')[0], 'engine');
+  assert.equal(top(ix, 'dark mode')[0], 'darkmode');
+  assert.equal(top(ix, 'tôi muốn sao lưu ván cờ')[0], 'export');
+  assert.equal(top(ix, 'tuong')[0], 'walls');
+  assert.equal(top(ix, 'portal')[0], 'portals');
+});
+
+test('search tolerates typos and completes the word being typed', () => {
+  const ix = searchIndex();
+  assert.equal(top(ix, 'gioong noi')[0], 'voice');
+  assert.equal(top(ix, 'dark moed')[0], 'darkmode');
+  assert.equal(top(ix, 'expo')[0], 'export', 'prefix of the last word');
+  assert.equal(G.search.complete(ix, 'đổi ngô'), 'đổi ngôn');
+  assert.equal(G.search.complete(ix, 'đổi '), null);
+  assert.equal(G.search.correct(ix, 'giong noii'), 'giọng nói');
+  assert.equal(G.search.correct(ix, 'giọng nói'), null);
+});
+
+test('search returns nothing for gibberish and empty input', () => {
+  const ix = searchIndex();
+  assert.deepEqual(G.search.query(ix, ''), []);
+  assert.deepEqual(G.search.query(ix, 'zzqxj'), []);
 });

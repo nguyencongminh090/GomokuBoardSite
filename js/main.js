@@ -59,6 +59,14 @@
     board,
   });
 
+  const search = G.createSearchPanel({
+    t,
+    esc,
+    openTab: (name) => openTab(name),
+    setMode: (m) => setMode(m),
+    mode: () => mode,
+  });
+
   const security = G.createSecurityPanel({ esc, toast, settings: () => settings, engineStop: () => engine.unload() });
 
   // ---------- helpers ----------
@@ -468,6 +476,7 @@
     $('#focusBtn').textContent = t(document.body.classList.contains('focus') ? 'header.showPanel' : 'header.hidePanel');
     install.refresh();
     voice.renderKey();
+    search.render();
   }
 
   // Preset buttons preview the preset itself (background, grid or lines, symbols or stones, in its own colours).
@@ -703,6 +712,13 @@
     if (document.body.classList.contains('focus')) toggleFocus();
     selectTab('settings');
   });
+  // Opens a panel from code (search jumps): the side panel is shown again if it was hidden.
+  function openTab(name) {
+    if (name === 'settings' && tab !== 'settings') tabBeforeSettings = tab;
+    if (document.body.classList.contains('focus')) toggleFocus();
+    selectTab(name);
+  }
+
   document.addEventListener('click', (e) => {
     const b = e.target.closest('[data-goto-tab]');
     if (b) selectTab(b.dataset.gotoTab);
@@ -775,7 +791,16 @@
   }
   $('#focusBtn').addEventListener('click', toggleFocus);
 
+  function focusSearch() {
+    if (document.body.classList.contains('focus')) toggleFocus();
+    search.focus();
+  }
+
   document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'k' && !dlg.open) {
+      e.preventDefault();
+      return focusSearch();
+    }
     if (e.ctrlKey || e.metaKey || e.altKey || dlg.open) return;
     if (e.target instanceof Element && e.target.closest('input, select, textarea, button, [role="tab"]')) return;
     const actions = {
@@ -788,6 +813,7 @@
       s: () => setMode(mode === 'setup' ? 'play' : 'setup'),
       n: openNewDialog,
       f: toggleFocus,
+      '/': focusSearch,
       a: () => engine.toggleAnalysis(),
       e: () => engine.engineMove(),
     };

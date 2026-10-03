@@ -51,7 +51,7 @@ Use a scratch `--user-data-dir` so the test run doesn't share localStorage with 
 
 ## Architecture
 
-The scripts are classic `<script>` tags, loaded in dependency order in `index.html`: `i18n → contrast → coords → settings → game → security → storage → explain → board → engine → engine-panel → explain-panel → security-panel → voice → voice-panel → main`.
+The scripts are classic `<script>` tags, loaded in dependency order in `index.html`: `i18n → contrast → coords → settings → game → security → storage → explain → board → engine → engine-panel → explain-panel → security-panel → voice → voice-panel → search → search-panel → install → main`.
 Each is an IIFE that attaches to the global namespace `window.Gomoku` (`G`). Keep it that way: ES modules would break
 `file://` use, and `tests/model.test.js` loads `coords.js`/`game.js`/`security.js`/`explain.js`/`engine.js` by `eval` with a stub `window`, so
 those files must stay free of DOM access at load time (`engine.js` touches `Worker` only when a load is requested).
@@ -154,6 +154,13 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
   `gate/deploy.sh` copies the engine from `../GomokuEngineFiles` (outside the repo; `engine/rapfi-*` is git-ignored) into
   `gate/public` (git-ignored) and deploys. The engine files are no longer in the tree, but they are still in git history
   until it is rewritten, so the gate protects nothing until then. Revocation lags by `TOKEN_TTL`.
+- **Feature search** (`js/search.js` model, `js/search-panel.js` UI): the bar above the tabs (`/` or Ctrl+K) finds a control from a short
+  question and jumps to it. The model is DOM-free NLP: fold tone marks (`cai dat` = `cài đặt`), drop stop words and question openers
+  (`làm sao để`, `how do I`), light English stemming, a TF-IDF style index (title > keywords > description, both languages in one
+  index), prefix match for the word being typed, typo tolerance (edit distance 1-2), adjacent-pair bonus, inline completion
+  (`complete`) and "did you mean" (`correct`). `FEATURES` in `search-panel.js` maps each id to a tab and `targets` (first visible
+  selector wins; `before: 'setup'` enters Setup mode first). A new feature needs a row there plus `find.<id>`, `.d` and `.k`
+  (`;`-separated keywords and synonyms) in **both** languages; a test checks the strings and that `#id` / `data-*` targets exist.
 - **Voice moves** (`js/voice.js` model, `js/voice-panel.js` UI): hold the mic button or V, say a cell. The clip goes to Groq's
   `whisper-large-v3` (free tier, `language=vi`, `temperature=0`; 82% right on spoken cell numbers in `tools/voice-proto`, Web Speech
   64%), and `G.voice.parseCell(text, size)` turns the text into a cell: edge labels (`H8`, `hát tám`) or spiral numbers (`ba mươi bảy`),
