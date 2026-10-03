@@ -8,7 +8,7 @@ const path = require('path');
 const assert = require('assert');
 
 global.window = {};
-for (const f of ['js/i18n.js', 'js/contrast.js', 'js/coords.js', 'js/settings.js', 'js/game.js', 'js/security.js', 'js/explain.js', 'js/engine.js']) {
+for (const f of ['js/i18n.js', 'js/contrast.js', 'js/coords.js', 'js/voice.js', 'js/settings.js', 'js/game.js', 'js/security.js', 'js/explain.js', 'js/engine.js']) {
   eval(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'));
 }
 const G = window.Gomoku;
@@ -645,4 +645,40 @@ test('torus: job key differs, and the client sends INFO TORUS first, only on cha
   c.next = job(false, [], 19); // a new size sends START, which clears the torus engine-side: no INFO TORUS 0
   c.startNext();
   assert.equal(torusLines().length, 3);
+});
+
+test('voice: spoken Vietnamese numbers', () => {
+  const n = (text) => G.voice.parseNumber(G.voice.normalize(text));
+  const cases = {
+    'Ba mươi bảy.': 37, 'hai mốt': 21, 'hai mươi mốt': 21, 'hai mươi lăm': 25, 'mười lăm': 15, 'mười': 10, 'bốn mươi tư': 44,
+    'một trăm lẻ năm': 105, 'hai trăm hai mươi lăm': 225, '37': 37, 'ba bảy': 37, 'năm': 5, 'hai trăm năm mươi': 250,
+  };
+  for (const [text, want] of Object.entries(cases)) assert.equal(n(text), want, text);
+  // parts out of order or repeated are not numbers
+  for (const text of ['hai mươi mốt trăm', 'ba mươi trăm', 'hai trăm ba trăm', 'mười mười', 'hai mươi mươi', 'một hai mươi']) assert.equal(n(text), null, text);
+  assert.equal(n('hai mươi 5'), 25);
+  for (const text of ['trăm lẻ năm', 'bạn ngủ rồi', '3.15h', 'hạ chăm lạc trí', '']) assert.equal(n(text), null, text);
+});
+
+test('voice: a phrase names a cell by label or by spiral number, on any board size', () => {
+  const cell = (text, size = 15) => {
+    const c = G.voice.parseCell(text, size);
+    return c && G.coords.label(c.x, c.y, size);
+  };
+  for (const text of ['H8', 'h 8', 'hát tám', 'Hát 8.', 'đánh hát tám', 'H-8']) assert.equal(cell(text), 'H8', text);
+  assert.equal(cell('bê mười lăm'), 'B15');
+  assert.equal(cell('xê ba'), 'C3');
+  assert.equal(cell('A1'), 'A1');
+  for (const [text, want] of [['hờ tám', 'H8'], ['gờ năm', 'G5'], ['cờ ba', 'C3'], ['đê năm', 'D5'], ['do năm', 'D5']]) assert.equal(cell(text), want, text);
+  // chatter and Whisper's silence hallucinations are never cells
+  for (const text of ['ê', 'ờ', 'Ừ.', 'hát tám hát tám', 'Hãy subscribe cho kênh Ghiền Mì Gõ', 'Cảm ơn các bạn đã theo dõi']) assert.equal(cell(text), null, text);
+  const spiral = G.coords.spiral(15);
+  const k = spiral.indexOf(37);
+  const c = G.voice.parseCell('ba mươi bảy', 15);
+  assert.deepEqual([c.x, c.y], [k % 15, Math.floor(k / 15)]);
+  assert.equal(G.voice.parseCell('nước đi ba mươi bảy', 15).kind, 'number');
+  // off the board, or not a cell at all
+  for (const text of ['P8', 'H16', 'H0', 'hai trăm hai mươi sáu', 'không', 'bạn ngủ rồi', '']) assert.equal(G.voice.parseCell(text, 15), null, text);
+  assert.notEqual(G.voice.parseCell('một trăm', 10), null); // 100 is the last cell of a 10x10 board
+  assert.equal(G.voice.parseCell('một trăm lẻ một', 10), null);
 });

@@ -195,6 +195,7 @@
       this.onCell = onCell;
       this.state = null;
       this.hover = null;
+      this.voice = null; // cell heard by voice, previewed like a hover until it is played or cancelled
       this.tool = 'wall'; // setup tool: 'wall' | 'portal'
       this.pending = null; // cell key of the first end of a portal pair being placed
       svg.addEventListener('pointermove', (e) => this.setHover(this.cellAt(e)));
@@ -586,9 +587,15 @@
       if (this.onHoverCell) this.onHoverCell(cell);
     }
 
+    // Previews the cell a voice move is about to take (null clears it).
+    setVoice(cell) {
+      this.voice = cell;
+      this.drawGhost();
+    }
+
     drawGhost() {
       if (!this.ghost) return;
-      const h = this.hover;
+      const h = this.hover || this.voice;
       const st = this.state;
       if (!h || !st) {
         this.ghost.innerHTML = '';

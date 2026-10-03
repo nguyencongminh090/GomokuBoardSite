@@ -619,3 +619,8 @@ dialog .field input:not([type="checkbox"]) { width: 180px; }
 
 .card p a { color: var(--accent-text); }
 .about-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+
+/* Voice moves: hold-to-talk button in the Play tab */
+.voice-block { display: grid; gap: 6px; }
+#micBtn { padding: 12px; touch-action: none; user-select: none; }
+#micBtn.on { border-color: var(--danger); box-shadow: 0 0 0 3px var(--danger-soft), 0 0 0 2px var(--danger); font-weight: 600; }

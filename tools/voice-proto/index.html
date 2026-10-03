@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice accuracy prototype</title>
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; max-width: 980px; margin: 0 auto; padding: 16px; }
+  fieldset { margin: 0 0 12px; }
+  #prompt { font-size: 64px; font-weight: 700; text-align: center; margin: 8px 0; }
+  button { font-size: 16px; padding: 8px 16px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 8px; }
+  td, th { border: 1px solid #8884; padding: 3px 6px; text-align: left; vertical-align: top; }
+  .ok { background: #2a72; } .bad { background: #d332; }
+  #log { color: #888; min-height: 1.4em; }
+</style>
+</head>
+<body>
+<h1>Đo độ chính xác nhận dạng giọng nói (vi-VN)</h1>
+<p>Phải chạy qua <code>http://localhost</code> (không dùng <code>file://</code>). Đọc to giá trị hiện trên màn hình, bấm
+<b>Ghi</b> trước khi nói và <b>Dừng</b> sau khi nói xong.</p>
+
+<fieldset><legend>Cài đặt</legend>
+  <label>Kiểu đọc:
+    <select id="mode"><option value="num">Số ô (ví dụ 37)</option><option value="label">Nhãn cạnh (ví dụ H8)</option></select>
+  </label>
+  <label>Số mẫu: <input id="count" type="number" value="30" min="5" max="200" style="width:4em"></label>
+  <br>
+  <label><input type="checkbox" id="e-web" checked> Web Speech API (nghe trực tiếp, Chrome/Safari)</label><br>
+  <label><input type="checkbox" id="e-whisper" checked> Whisper trong trình duyệt (offline sau khi tải model)</label>
+  <select id="model">
+    <option value="onnx-community/whisper-large-v3-turbo">large-v3-turbo (WebGPU, ~800 MB, chính xác nhất)</option>
+    <option value="onnx-community/whisper-small">small (wasm, ~250 MB)</option>
+    <option value="onnx-community/whisper-base">base (wasm, ~80 MB)</option>
+  </select><br>
+  <label><input type="checkbox" id="e-groq"> Groq whisper-large-v3 (API miễn phí, cần key, âm thanh gửi lên Groq)</label>
+  <input id="groqkey" type="password" placeholder="gsk_..." size="30" autocomplete="off">
+</fieldset>
+
+<button id="start">Bắt đầu bộ mẫu</button>
+<button id="export" disabled>Xuất JSON</button>
+<div id="prompt">–</div>
+<div style="text-align:center">
+  <button id="rec" disabled>Ghi</button> <button id="stop" disabled>Dừng</button> <button id="skip" disabled>Bỏ qua</button>
+</div>
+<div id="log"></div>
+<div id="summary"></div>
+<table id="results"><thead><tr><th>#</th><th>Mong đợi</th><th>Web Speech (top-1 / 5 giả thuyết)</th><th>Whisper</th><th>Groq</th></tr></thead><tbody></tbody></table>
+
+<script src="parser.js"></script>
+<script type="module">
+const P = window.VoiceParser;
+const $ = (id) => document.getElementById(id);
+const LETTERS = 'ABCDEFGHIJKLMNO';
+
+let queue = [];
+let idx = 0;
+let results = [];
+let recorder = null;
+let chunks = [];
+let recog = null;
+let webAlts = [];
+let whisperPipe = null;
+let whisperModel = '';
+
+const log = (s) => { $('log').textContent = s; };
+const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+// Samples cover the hard cases: 1-9, teens, "mốt/lăm/tư" endings, round tens, hundreds.
+function makeItems(mode, n) {
+  const nums = new Set([1, 5, 9, 10, 11, 15, 20, 21, 24, 25, 31, 35, 44, 45, 50, 64, 75, 88, 99, 101, 105, 115, 121, 150, 205, 225]);
+  while (nums.size < 80) nums.add(1 + Math.floor(Math.random() * 225));
+  if (mode === 'num') return shuffle([...nums]).slice(0, n).map(String);
+  const out = [];
+  for (let i = 0; i < n; i++) out.push(LETTERS[Math.floor(Math.random() * 15)] + (1 + Math.floor(Math.random() * 15)));
+  return out;
+}
+
+async function whisper(blob) {
+  const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3');
+  const model = $('model').value;
+  if (!whisperPipe || whisperModel !== model) {
+    log('Đang tải model ' + model + ' (lần đầu có thể mất vài phút)...');
+    // WebGPU is off by default in Chrome on Linux (navigator.gpu is undefined); fall back to wasm (slower, still fine for a 3 min budget).
+    const gpu = model.includes('turbo') && 'gpu' in navigator;
+    if (model.includes('turbo') && !gpu) log('Trình duyệt không có WebGPU, chạy turbo bằng wasm (chậm hơn)...');
+    whisperPipe = await pipeline('automatic-speech-recognition', model, gpu
+      ? { device: 'webgpu', dtype: { encoder_model: 'fp16', decoder_model_merged: 'q4' } }
+      : { device: 'wasm', dtype: 'q8' });
+    whisperModel = model;
+  }
+  const ctx = new AudioContext({ sampleRate: 16000 });
+  const audio = (await ctx.decodeAudioData(await blob.arrayBuffer())).getChannelData(0);
+  await ctx.close();
+  const r = await whisperPipe(audio, { language: 'vietnamese', task: 'transcribe' });
+  return r.text.trim();
+}
+
+async function groq(blob) {
+  const form = new FormData();
+  form.append('file', blob, 'clip.webm');
+  form.append('model', 'whisper-large-v3');
+  form.append('language', 'vi');
+  form.append('temperature', '0');
+  const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+    method: 'POST', headers: { Authorization: 'Bearer ' + $('groqkey').value.trim() }, body: form
+  });
+  if (!res.ok) throw new Error('Groq ' + res.status + ' ' + (await res.text()).slice(0, 120));
+  return (await res.json()).text.trim();
+}
+
+function startWebSpeech() {
+  webAlts = [];
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { log('Trình duyệt không có SpeechRecognition'); return; }
+  recog = new SR();
+  recog.lang = 'vi-VN';
+  recog.maxAlternatives = 5;
+  recog.continuous = true;
+  recog.interimResults = false;
+  recog.onresult = (e) => {
+    const r = e.results[e.results.length - 1];
+    for (let i = 0; i < r.length; i++) webAlts.push(r[i].transcript);
+  };
+  recog.onerror = (e) => log('Web Speech lỗi: ' + e.error);
+  recog.start();
+}
+
+$('start').onclick = () => {
+  const mode = $('mode').value;
+  queue = makeItems(mode, Number($('count').value));
+  idx = 0;
+  results = [];
+  $('results').tBodies[0].innerHTML = '';
+  $('summary').textContent = '';
+  next();
+};
+
+function next() {
+  if (idx >= queue.length) { summarize(); $('prompt').textContent = 'Xong'; $('rec').disabled = $('skip').disabled = true; return; }
+  $('prompt').textContent = queue[idx];
+  $('rec').disabled = false;
+  $('skip').disabled = false;
+  $('stop').disabled = true;
+  $('export').disabled = results.length === 0;
+  log('Mẫu ' + (idx + 1) + '/' + queue.length);
+}
+
+$('skip').onclick = () => { idx++; next(); };
+
+$('rec').onclick = async () => {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false } });
+  chunks = [];
+  recorder = new MediaRecorder(stream);
+  recorder.ondataavailable = (e) => chunks.push(e.data);
+  recorder.onstop = () => { stream.getTracks().forEach((t) => t.stop()); finish(new Blob(chunks, { type: recorder.mimeType })); };
+  recorder.start();
+  if ($('e-web').checked) startWebSpeech();
+  $('rec').disabled = true;
+  $('stop').disabled = false;
+  log('Đang ghi... hãy đọc: ' + queue[idx]);
+};
+
+$('stop').onclick = () => {
+  $('stop').disabled = true;
+  if (recog) recog.stop();
+  recorder.stop();
+};
+
+async function finish(blob) {
+  const expected = queue[idx];
+  const mode = $('mode').value;
+  const row = { expected, mode };
+  await new Promise((r) => setTimeout(r, 800)); // let Web Speech deliver its final result
+  if ($('e-web').checked) {
+    row.web = { alts: webAlts.slice(), top: webAlts[0] || '' };
+    row.web.ok1 = P.parseMove(row.web.top, mode) === expected;
+    row.web.ok5 = webAlts.some((a) => P.parseMove(a, mode) === expected);
+  }
+  for (const [key, fn, box] of [['whisper', whisper, 'e-whisper'], ['groq', groq, 'e-groq']]) {
+    if (!$(box).checked) continue;
+    try {
+      log('Đang nhận dạng bằng ' + key + '...');
+      const text = await fn(blob);
+      row[key] = { text, ok: P.parseMove(text, mode) === expected };
+    } catch (err) {
+      row[key] = { text: 'LỖI: ' + err.message, ok: false, error: true };
+    }
+  }
+  results.push(row);
+  addRow(row, results.length);
+  idx++;
+  next();
+}
+
+function cell(tr, html, cls) { const td = tr.insertCell(); td.innerHTML = html; if (cls) td.className = cls; }
+const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+function addRow(r, n) {
+  const tr = $('results').tBodies[0].insertRow();
+  cell(tr, n);
+  cell(tr, '<b>' + esc(r.expected) + '</b>');
+  cell(tr, r.web ? esc(r.web.top) + '<br><small>' + esc(r.web.alts.slice(1).join(' | ')) + '</small>' : '–', r.web ? (r.web.ok1 ? 'ok' : r.web.ok5 ? '' : 'bad') : '');
+  cell(tr, r.whisper ? esc(r.whisper.text) : '–', r.whisper ? (r.whisper.ok ? 'ok' : 'bad') : '');
+  cell(tr, r.groq ? esc(r.groq.text) : '–', r.groq ? (r.groq.ok ? 'ok' : 'bad') : '');
+}
+
+function summarize() {
+  const n = results.length;
+  const pct = (k) => (n ? Math.round((100 * k) / n) + '%' : '–') + ' (' + k + '/' + n + ')';
+  const lines = [];
+  if (results.some((r) => r.web)) {
+    lines.push('Web Speech top-1: ' + pct(results.filter((r) => r.web && r.web.ok1).length));
+    lines.push('Web Speech trong 5 giả thuyết: ' + pct(results.filter((r) => r.web && r.web.ok5).length));
+  }
+  if (results.some((r) => r.whisper)) lines.push('Whisper (' + whisperModel + '): ' + pct(results.filter((r) => r.whisper && r.whisper.ok).length));
+  if (results.some((r) => r.groq)) lines.push('Groq whisper-large-v3: ' + pct(results.filter((r) => r.groq && r.groq.ok).length));
+  $('summary').innerHTML = '<h3>Kết quả</h3><ul>' + lines.map((l) => '<li>' + esc(l) + '</li>').join('') + '</ul>';
+}
+
+$('export').onclick = () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify({ model: whisperModel, ua: navigator.userAgent, results }, null, 1)], { type: 'application/json' }));
+  a.download = 'voice-results.json';
+  a.click();
+};
+</script>
+</body>
+</html>

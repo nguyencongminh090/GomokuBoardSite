@@ -24,6 +24,9 @@
     showMoveNumbers: false,
     showLastMove: true,
     threatMap: false, // tag cells that would make 4-3 / 3-3 / open fours, and the cells that must be blocked
+    voice: {
+      confirm: true, // show the heard cell for a moment (cancellable) before playing it
+    },
     signExports: true, // sign Export files when a key pair exists
     engine: {
       autoload: false, // load the engine when the page opens

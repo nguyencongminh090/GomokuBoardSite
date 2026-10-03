@@ -9,6 +9,7 @@
     current: 'gomoku-board.current.v1',
     keys: 'gomoku-board.keys.v1',
     installDismissed: 'gomoku-board.install-dismissed.v1',
+    groqKey: 'gomoku-board.groq-key.v1',
   };
 
   // One IndexedDB request per call; resolves with its result once the transaction has committed.
@@ -98,6 +99,14 @@
     },
     dismissInstall() {
       return write(KEYS.installDismissed, Date.now());
+    },
+    // The host's own Groq API key for voice moves. Kept apart from settings: never exported, never reset with them.
+    loadGroqKey() {
+      const key = read(KEYS.groqKey, '');
+      return typeof key === 'string' ? key : '';
+    },
+    saveGroqKey(key) {
+      return write(KEYS.groqKey, key);
     },
     saveKeys(keys) {
       return write(KEYS.keys, { trusted: keys.trusted });

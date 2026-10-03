@@ -45,6 +45,19 @@
     board,
   });
 
+  const voice = G.createVoicePanel({
+    game: () => game,
+    mode: () => mode,
+    settings: () => settings,
+    // Same path as a click on the board: the engine treats it as a host move.
+    play(x, y) {
+      if (mode === 'play' && game.play(x, y)) update(true);
+    },
+    cellText: (x, y) => cellText(x, y),
+    toast: (msg) => toast(msg),
+    board,
+  });
+
   const security = G.createSecurityPanel({ esc, toast, settings: () => settings, engineStop: () => engine.unload() });
 
   // ---------- helpers ----------
@@ -109,6 +122,7 @@
   }
 
   function openGame(data) {
+    voice.cancel();
     game = data instanceof G.Game ? data : new G.Game(data);
     mode = 'play';
     pending = null;
@@ -452,6 +466,7 @@
     $('#langBtn').textContent = settings.lang === 'vi' ? 'VI' : 'EN';
     $('#focusBtn').textContent = t(document.body.classList.contains('focus') ? 'header.showPanel' : 'header.hidePanel');
     install.refresh();
+    voice.renderKey();
   }
 
   // Preset buttons preview the preset itself (background, grid or lines, symbols or stones, in its own colours).
@@ -778,6 +793,7 @@
     engine.start();
     registerServiceWorker();
     install.start();
+    voice.start();
     // Harden against console tampering: the security API and engine client can no longer be patched in place.
     for (const o of [G.security, G.EngineClient, G.EngineClient.prototype, G]) Object.freeze(o);
   }
