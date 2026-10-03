@@ -43,9 +43,9 @@
     return ['INFO CLEARPORTALS', ...game.portals.map(([a, b]) => `INFO YXPORTAL ${at(a)} ${at(b)}`)];
   }
 
-  // Identity of a search position: the block plus the portal pairs (a block cannot carry them).
+  // Identity of a search position: the block plus the torus setting and portal pairs (a block cannot carry them).
   function jobKey(game) {
-    return `${portalCommands(game).join('\n')}\n${boardBlock(game)}`;
+    return `${game.torus ? 'torus\n' : ''}${portalCommands(game).join('\n')}\n${boardBlock(game)}`;
   }
 
   // INFO commands for a search configuration, as [name, value] pairs.
@@ -186,6 +186,7 @@
       this.size = 0; // board size the engine was last started with
       this.applied = new Map(); // INFO name -> value last sent
       this.portals = ''; // portal commands the engine holds (START clears them)
+      this.torus = false; // torus setting the engine holds (START clears it)
     }
 
     get ready() {
@@ -252,6 +253,7 @@
       this.size = 0;
       this.applied.clear();
       this.portals = '';
+      this.torus = false;
       if (job) this.emit('done', { job, move: null, lines: this.collector.lines });
     }
 
@@ -334,6 +336,12 @@
         this.send(`START ${job.size}`);
         this.size = job.size;
         this.portals = '';
+        this.torus = false;
+      }
+      // Like the portal pairs, the torus resets the engine's game, and portals are measured on it: send it first.
+      if (!!job.torus !== this.torus) {
+        this.torus = !!job.torus;
+        this.send(`INFO TORUS ${this.torus ? 1 : 0}`);
       }
       // Registering a pair resets the engine's game, so send them only when they changed.
       const portals = (job.portals || []).join('\n');
@@ -370,6 +378,7 @@
         // The search command was refused, so no move line will follow.
         this.size = 0;
         this.portals = '';
+        this.torus = false;
         if (this.job) this.finish(null);
       }
     }

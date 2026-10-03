@@ -26,6 +26,10 @@
       this.createdAt = Number(data.createdAt) || Date.now();
       this.updatedAt = Number(data.updatedAt) || this.createdAt;
 
+      // Torus: the board has no edges, the last column is next to the first and the last row next to the first.
+      // Set before the portals, because portal distances are measured the short way round on a torus.
+      this.torus = data.torus === true;
+
       this.walls = new Set();
       for (const w of Array.isArray(data.walls) ? data.walls : []) {
         if (Array.isArray(w) && this.inBounds(w[0], w[1])) this.walls.add(this.key(w[0], w[1]));
@@ -69,6 +73,7 @@
         size: s,
         createdAt: this.createdAt,
         updatedAt: this.updatedAt,
+        ...(this.torus ? { torus: true } : {}),
         walls: [...this.walls].map((k) => [k % s, Math.floor(k / s)]),
         portals: this.portals.map(([a, b]) => [a % s, Math.floor(a / s), b % s, Math.floor(b / s)]),
         nodes: this.nodes.slice(1).map((n) => [n.parent, n.x, n.y]),
@@ -91,7 +96,7 @@
     }
 
     isEmpty() {
-      return this.nodes.length === 1 && this.walls.size === 0 && this.portals.length === 0;
+      return this.nodes.length === 1 && this.walls.size === 0 && this.portals.length === 0 && !this.torus;
     }
 
     addNode(parent, x, y) {
@@ -243,6 +248,11 @@
       return 'added';
     }
 
+    // True when lines do not run straight (portals or a torus): the threat analysis does not understand these.
+    bendsLines() {
+      return this.torus || this.portals.length > 0;
+    }
+
     // Index of the pair that owns cell key k, or -1.
     portalIndex(k) {
       return this.portals.findIndex(([a, b]) => a === k || b === k);
@@ -263,9 +273,34 @@
       return !this.portals.some((p) => p.some((c) => this.portalNear(k, c)));
     }
 
-    portalNear(i, j) {
+    // Chebyshev distance of two cell keys. On a torus each axis takes the shorter way round (the engine's rule).
+    distance(i, j) {
       const s = this.size;
-      return Math.max(Math.abs((i % s) - (j % s)), Math.abs(Math.floor(i / s) - Math.floor(j / s))) < MIN_PORTAL_DISTANCE;
+      const axis = (a, b) => {
+        const d = Math.abs(a - b);
+        return this.torus ? Math.min(d, s - d) : d;
+      };
+      return Math.max(axis(i % s, j % s), axis(Math.floor(i / s), Math.floor(j / s)));
+    }
+
+    portalNear(i, j) {
+      return this.distance(i, j) < MIN_PORTAL_DISTANCE;
+    }
+
+    // Turns the torus on or off. Returns false (changing nothing) when the portal pairs would be too close
+    // across the seam, which the engine refuses too.
+    setTorus(on) {
+      on = on === true;
+      if (on === this.torus) return true;
+      this.torus = on;
+      const cells = this.portals.flat();
+      const tooClose = cells.some((a, i) => cells.some((b, j) => i < j && this.portalNear(a, b)));
+      if (tooClose) {
+        this.torus = !on;
+        return false;
+      }
+      this.touch();
+      return true;
     }
 
     // True when a new pair (a, b) keeps every portal cell, old and new, at least MIN_PORTAL_DISTANCE apart.

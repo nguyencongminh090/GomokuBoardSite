@@ -255,6 +255,7 @@
     $('#clearWalls').disabled = !game.walls.size;
     $('#portalCount').textContent = pending !== null ? t('setup.portalPending') : t('setup.portalCount', { n: game.portals.length });
     $('#clearPortals').disabled = !game.portals.length;
+    $('#torusToggle').checked = game.torus;
     for (const b of $$('[data-tool]')) {
       b.classList.toggle('on', b.dataset.tool === tool);
       b.setAttribute('aria-pressed', String(b.dataset.tool === tool));
@@ -319,6 +320,7 @@
       if (walls) meta.push(t('games.walls', { n: walls }));
       const portals = Array.isArray(g.portals) ? g.portals.length : 0;
       if (portals) meta.push(t('games.portals', { n: portals }));
+      if (g.torus === true) meta.push(t('games.torus'));
       meta.push(when);
       return `<li class="${isCur ? 'current' : ''}">
         <div class="info">
@@ -573,6 +575,7 @@
     const next = G.Game.create(size, $('#newName').value.trim() || defaultName());
     if ($('#newKeepWalls').checked) {
       for (const k of game.walls) next.walls.add(k);
+      next.torus = game.torus;
       next.portals = game.portals.map((p) => [...p]);
     }
     dropIfEmpty();
@@ -712,6 +715,11 @@
       refresh();
     });
   }
+  $('#torusToggle').addEventListener('change', (e) => {
+    if (!game.setTorus(e.target.checked)) toast(t('setup.torusNear', { d: G.Game.MIN_PORTAL_DISTANCE }));
+    pending = null;
+    update();
+  });
   $('#clearPortals').addEventListener('click', () => {
     if (confirm(t('setup.confirmClearPortals', { n: game.portals.length })) && game.clearPortals()) {
       pending = null;

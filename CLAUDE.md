@@ -13,6 +13,9 @@ Product decisions (don't change them unless asked):
   between any two portal cells (the engine's rule, `Game.MIN_PORTAL_DISTANCE`), never on a wall or a move. A line entering one
   leaves from the other in the same direction. Explain/threat map are **off** on boards with portals (`explain.js` has no
   portal geometry); only the engine understands them.
+- **Torus** (`game.torus`, saved as `torus: true` only when on): no board edges, the last column/row is next to the first. Portal
+  distance is cyclic. Explain/threat map are off (`game.bendsLines()`). The engine gets `INFO TORUS 0|1` before the portal pairs
+  (`EngineClient.torus`; `START` clears it) and refuses Renju on a torus, so the Engine tab shows a note instead of searching.
 - The board is a free editor, not a rules engine. There is **no win detection** and no rule enforcement beyond "cell
   is empty and not a wall".
 - "Numbers inside cells" means a **spiral numbering of every cell** from the centre (1 … size²) that viewers use to call

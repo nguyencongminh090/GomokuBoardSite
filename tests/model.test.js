@@ -570,3 +570,79 @@ test('engine client registers portals only when they changed and START forgets t
   c.startNext();
   assert.equal(portalLines().length, 3);
 });
+
+test('torus: saved only when on, round trips, and counts as a non-empty game', () => {
+  const g = G.Game.create(15, 't');
+  assert.equal('torus' in g.toJSON(), false);
+  assert.equal(g.setTorus(true), true);
+  assert.equal(g.isEmpty(), false);
+  const back = new G.Game(JSON.parse(JSON.stringify(g.toJSON())));
+  assert.equal(back.torus, true);
+  assert.equal(new G.Game({ size: 15, torus: 'yes' }).torus, false); // only a real true counts
+});
+
+test('torus: portal distance is measured the short way round', () => {
+  const g = G.Game.create(15, 't');
+  assert.equal(g.distance(g.key(0, 7), g.key(14, 7)), 14);
+  g.setTorus(true);
+  assert.equal(g.distance(g.key(0, 7), g.key(14, 7)), 1);
+  assert.equal(g.distance(g.key(0, 0), g.key(14, 14)), 1);
+  assert.equal(g.addPortal(0, 7, 14, 7), false); // neighbours across the seam
+  assert.equal(g.addPortal(0, 7, 12, 7), true); // 3 apart round the back
+});
+
+test('torus: refused while portals are too close across the seam, and the game stays as it was', () => {
+  const g = G.Game.create(15, 't');
+  assert.equal(g.addPortal(0, 7, 13, 7), true); // 13 apart, but 2 across the seam
+  assert.equal(g.setTorus(true), false);
+  assert.equal(g.torus, false);
+  assert.equal(g.setTorus(false), true);
+  const loaded = new G.Game({ size: 15, torus: true, portals: [[0, 7, 13, 7]] });
+  assert.equal(loaded.portals.length, 0); // dropped on load, like any pair that breaks the rules
+});
+
+test('torus: bendsLines covers portals and torus', () => {
+  const g = G.Game.create(15, 't');
+  assert.equal(g.bendsLines(), false);
+  g.setTorus(true);
+  assert.equal(g.bendsLines(), true);
+  g.setTorus(false);
+  g.addPortal(2, 2, 10, 11);
+  assert.equal(g.bendsLines(), true);
+});
+
+test('torus: job key differs, and the client sends INFO TORUS first, only on change, and START forgets it', () => {
+  const g = G.Game.create(15, 't');
+  const plain = EP.jobKey(g);
+  g.setTorus(true);
+  assert.notEqual(EP.jobKey(g), plain);
+
+  const sent = [];
+  const c = new G.EngineClient(() => {});
+  c.worker = { postMessage: (m) => sent.push(m.text) };
+  c.state = 'idle';
+  c.startNext = G.EngineClient.prototype.startNext;
+  const cfg = { rule: 0, threads: 1, hashMB: 1, depth: 0, strength: 100, timeMs: 0 };
+  const job = (torus, portals = [], size = 15) => ({ kind: 'analyze', key: 'k', block: 'YXBOARD\nDONE', portals, torus, size, config: cfg, go: 'YXNBEST 1' });
+  const torusLines = () => sent.filter((l) => /TORUS/.test(l));
+  c.next = job(true, ['INFO CLEARPORTALS', 'INFO YXPORTAL 2,2 10,11']);
+  c.startNext();
+  assert.deepEqual(torusLines(), ['INFO TORUS 1']);
+  assert.ok(sent.indexOf('INFO TORUS 1') > sent.indexOf('START 15'));
+  assert.ok(sent.indexOf('INFO TORUS 1') < sent.indexOf('INFO YXPORTAL 2,2 10,11')); // before the pairs
+  c.state = 'idle';
+  c.next = job(true, ['INFO CLEARPORTALS', 'INFO YXPORTAL 2,2 10,11']);
+  c.startNext();
+  assert.equal(torusLines().length, 1); // unchanged: nothing resent
+  c.state = 'idle';
+  c.next = job(false);
+  c.startNext();
+  assert.deepEqual(torusLines(), ['INFO TORUS 1', 'INFO TORUS 0']);
+  c.state = 'idle';
+  c.next = job(true);
+  c.startNext();
+  c.state = 'idle';
+  c.next = job(false, [], 19); // a new size sends START, which clears the torus engine-side: no INFO TORUS 0
+  c.startNext();
+  assert.equal(torusLines().length, 3);
+});

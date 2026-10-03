@@ -12,6 +12,9 @@ while players call their moves over voice (TikTok live, video calls, ...). No se
 - **Board setup**: add or remove WALL cells that nobody can play on, and **portal pairs** (a line entering one portal
   leaves from the other in the same direction; portal cells are unplayable and at least 3 cells apart). New games can copy
   portals along with walls. Explain is off on boards with portals; the engine supports them.
+- **Torus**: a board setting in Board setup that removes the edges: the last column is next to the first and the last row
+  next to the first, in every direction (a dashed teal frame marks the seam). Portal distances are measured the short way
+  round. Explain is off on a torus; the engine supports it (Freestyle and Standard, not Renju).
 - **Board themes**: *Paper* (cross and circle on grid paper; colours configurable, one symbol style
   shared by both marks: classic, bold or hand-drawn) and *Stone* (black and white stones; colours configurable).
 - **Page theme**: light (default), dark, or auto (follows the system).
@@ -100,6 +103,7 @@ new release at once instead of a mix of old and new files. The current version i
   "updatedAt": 1790000000000,
   "walls": [[3, 3], [11, 11]],
   "portals": [[2, 2, 10, 11]],
+  "torus": true,
   "nodes": [[0, 7, 7], [1, 8, 7], [1, 6, 6]],
   "prefs": [1, 2, -1, -1],
   "cur": 2
@@ -107,6 +111,7 @@ new release at once instead of a mix of old and new files. The current version i
 ```
 
 `x` and `y` are 0-based with the origin at the top-left. `portals` entries are `[ax, ay, bx, by]`
-(optional: older saves have none; pairs that break the placement rules are dropped on load). `nodes[i]` is node `i + 1` as
+(optional: older saves have none; pairs that break the placement rules are dropped on load). `torus` is optional
+and written only when `true`; portal distances are then measured across the seam. `nodes[i]` is node `i + 1` as
 `[parent, x, y]`; node 0 is the empty board. `prefs[n]` is the child that Forward follows from
 node `n` (`-1` when there is none). `cur` is the node currently shown.

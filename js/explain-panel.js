@@ -36,7 +36,7 @@
 
     function find() {
       const game = app.game();
-      if (app.mode() === 'setup' || game.portals.length) return;
+      if (app.mode() === 'setup' || game.bendsLines()) return;
       const board = boardOf(game);
       const me = game.toMove();
       let mode = 'VCF';
@@ -89,7 +89,7 @@
     }
 
     function render() {
-      const portals = app.game().portals.length > 0; // the analysis does not know portals
+      const portals = app.game().bendsLines(); // the analysis does not know portals or a torus
       const can = app.mode() !== 'setup' && !portals;
       $('#expFind').disabled = !can;
       $('#expClear').disabled = !result;

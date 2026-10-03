@@ -331,6 +331,11 @@
         out.push(`<g fill="${s.stone.line}">${starPoints(n).map(([x, y]) => `<circle cx="${f3(xs[x])}" cy="${f3(ys[y])}" r="3.6"/>`).join('')}</g>`);
       }
 
+      // A torus has no edges: a dashed teal frame over the border marks the seam.
+      if (game.torus) {
+        out.push(`<rect x="${m}" y="${m}" width="${n * P}" height="${n * P}" fill="none" stroke="#2fa7a0" stroke-width="2.5" stroke-dasharray="7 5" opacity=".9"/>`);
+      }
+
       // Edge coordinates
       if (edge) {
         const t = [];
@@ -425,7 +430,7 @@
       }
 
       this.tagCells = null;
-      if (s.threatMap && mode === 'play' && !game.portals.length) out.push(this.threatMap(game, m));
+      if (s.threatMap && mode === 'play' && !game.bendsLines()) out.push(this.threatMap(game, m));
       out.push('<g class="explain"></g><g class="analysis"></g><g class="ghost"></g>');
       this.svg.innerHTML = out.join('');
       this.analysisLayer = this.svg.querySelector('.analysis');

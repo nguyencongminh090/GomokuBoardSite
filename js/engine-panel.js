@@ -72,6 +72,8 @@
 
     const engineSettings = () => app.settings().engine;
     const tooBig = () => app.game().size > P.MAX_SIZE;
+    // The engine refuses Renju on a torus (INFO RULE 4 / INFO TORUS 1), so there is nothing to search.
+    const renjuTorus = () => app.game().torus && engineSettings().rule === '4';
 
     // ---------- loading ----------
 
@@ -145,14 +147,14 @@
 
     // Searches can be queued while the engine (re)loads; they start once it is ready.
     function canSearch() {
-      return (client.ready || client.state === 'loading') && !tooBig() && app.mode() !== 'setup';
+      return (client.ready || client.state === 'loading') && !tooBig() && !renjuTorus() && app.mode() !== 'setup';
     }
 
     function search(kind, go) {
       if (!canSearch()) return;
       const game = app.game();
       const key = P.jobKey(game);
-      client.run({ kind, key, block: P.boardBlock(game), portals: P.portalCommands(game), size: game.size, config: config(kind), go });
+      client.run({ kind, key, block: P.boardBlock(game), portals: P.portalCommands(game), torus: game.torus, size: game.size, config: config(kind), go });
       result = { key, kind, toMove: game.toMove(), lines: [], done: false };
       preview = -1;
       render();
@@ -332,7 +334,7 @@
 
       $('#engSide0').textContent = t('eng.side.player', { name: app.playerName(0) });
       $('#engSide1').textContent = t('eng.side.player', { name: app.playerName(1) });
-      const note = tooBig() ? t('eng.tooBig', { max: P.MAX_SIZE }) : app.mode() === 'setup' ? t('eng.setupPaused') : '';
+      const note = tooBig() ? t('eng.tooBig', { max: P.MAX_SIZE }) : renjuTorus() ? t('eng.renjuTorus') : app.mode() === 'setup' ? t('eng.setupPaused') : '';
       $('#engNote').textContent = note;
       $('#engNote').hidden = !note;
       const can = canSearch();
@@ -410,7 +412,7 @@
 
     function findChain(line) {
       const game = app.game();
-      if (game.portals.length) return null; // the threat analysis does not know portals
+      if (game.bendsLines()) return null; // the threat analysis does not know portals or a torus
       const stones = new Map();
       for (const [k, id] of game.position()) stones.set(k, game.player(id));
       return G.explain.chain({ size: game.size, walls: game.walls, stones }, line, result.toMove);
