@@ -621,6 +621,9 @@ dialog .field input:not([type="checkbox"]) { width: 180px; }
 .about-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
 
 /* Voice moves: hold-to-talk button in the Play tab */
+.cell-form { display: grid; gap: 6px; }
+.cell-row { display: flex; gap: 6px; }
+.cell-row input { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
 .voice-block { display: grid; gap: 6px; }
 #micBtn { padding: 12px; touch-action: none; user-select: none; }
 #micBtn.on { border-color: var(--danger); box-shadow: 0 0 0 3px var(--danger-soft), 0 0 0 2px var(--danger); font-weight: 600; }

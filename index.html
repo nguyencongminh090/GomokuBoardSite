@@ -7,7 +7,7 @@
   <!-- Release version. Bump it with `node tools/bump-version.js <version>` before each deploy: it is added to
        every asset URL (?v=), so returning visitors never mix cached old files with new ones. -->
   <meta name="engine-gate" content="https://gomoku-engine-gate.nguyencongminh2247.workers.dev">
-  <meta name="app-version" content="1.8.0">
+  <meta name="app-version" content="1.8.1">
   <meta name="description" content="Bàn cờ caro cho livestream: nhánh nước đi, ô tường, giao diện tuỳ chỉnh và lưu ván trong trình duyệt.">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#dcb35c">
@@ -21,7 +21,7 @@
       document.documentElement.dataset.ui = dark ? 'dark' : 'light';
     } catch (e) { /* storage unavailable: CSS default applies */ }
   </script>
-  <link rel="stylesheet" href="css/style.css?v=1.8.0">
+  <link rel="stylesheet" href="css/style.css?v=1.8.1">
 </head>
 <body>
   <header class="topbar">
@@ -82,6 +82,15 @@
             <button id="clearPortals" class="small" data-i18n="setup.clearPortals"></button>
           </div>
         </div>
+
+        <form class="block cell-form" id="cellForm" autocomplete="off">
+          <div class="cell-row">
+            <input type="text" id="cellInput" maxlength="24" autocapitalize="off" spellcheck="false"
+                   data-i18n-attr="placeholder:cell.placeholder;aria-label:cell.label">
+            <button type="submit" class="primary" data-i18n="cell.play"></button>
+          </div>
+          <span class="muted small-text" id="cellStatus" role="status" aria-live="polite"></span>
+        </form>
 
         <section class="block voice-block" id="voiceBlock" hidden>
           <button id="micBtn" class="wide" aria-pressed="false" data-i18n="voice.hold"></button>
@@ -459,22 +468,22 @@
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="js/i18n.js?v=1.8.0"></script>
-  <script src="js/contrast.js?v=1.8.0"></script>
-  <script src="js/coords.js?v=1.8.0"></script>
-  <script src="js/settings.js?v=1.8.0"></script>
-  <script src="js/game.js?v=1.8.0"></script>
-  <script src="js/security.js?v=1.8.0"></script>
-  <script src="js/storage.js?v=1.8.0"></script>
-  <script src="js/explain.js?v=1.8.0"></script>
-  <script src="js/board.js?v=1.8.0"></script>
-  <script src="js/engine.js?v=1.8.0"></script>
-  <script src="js/engine-panel.js?v=1.8.0"></script>
-  <script src="js/explain-panel.js?v=1.8.0"></script>
-  <script src="js/security-panel.js?v=1.8.0"></script>
-  <script src="js/voice.js?v=1.8.0"></script>
-  <script src="js/voice-panel.js?v=1.8.0"></script>
-  <script src="js/install.js?v=1.8.0"></script>
-  <script src="js/main.js?v=1.8.0"></script>
+  <script src="js/i18n.js?v=1.8.1"></script>
+  <script src="js/contrast.js?v=1.8.1"></script>
+  <script src="js/coords.js?v=1.8.1"></script>
+  <script src="js/settings.js?v=1.8.1"></script>
+  <script src="js/game.js?v=1.8.1"></script>
+  <script src="js/security.js?v=1.8.1"></script>
+  <script src="js/storage.js?v=1.8.1"></script>
+  <script src="js/explain.js?v=1.8.1"></script>
+  <script src="js/board.js?v=1.8.1"></script>
+  <script src="js/engine.js?v=1.8.1"></script>
+  <script src="js/engine-panel.js?v=1.8.1"></script>
+  <script src="js/explain-panel.js?v=1.8.1"></script>
+  <script src="js/security-panel.js?v=1.8.1"></script>
+  <script src="js/voice.js?v=1.8.1"></script>
+  <script src="js/voice-panel.js?v=1.8.1"></script>
+  <script src="js/install.js?v=1.8.1"></script>
+  <script src="js/main.js?v=1.8.1"></script>
 </body>
 </html>

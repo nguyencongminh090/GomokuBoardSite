@@ -214,9 +214,28 @@
       renderKey();
     }
 
+    // ---------- typed cell ----------
+
+    function submitTyped(e) {
+      e.preventDefault();
+      const input = $('#cellInput');
+      const text = input.value.trim();
+      const say2 = (msg) => { $('#cellStatus').textContent = msg; };
+      if (!text) return;
+      if (mode() !== 'play') return say2(t('cell.playOnly'));
+      const g = game();
+      const cell = G.voice.parseCell(text, g.size);
+      if (!cell) return say2(t('cell.unclear', { text }));
+      if (!g.canPlay(cell.x, cell.y)) return say2(t('cell.cantPlay', { cell: cellText(cell.x, cell.y) }));
+      play(cell.x, cell.y);
+      input.value = '';
+      say2('');
+    }
+
     // ---------- wiring ----------
 
     function start() {
+      $('#cellForm').addEventListener('submit', submitTyped);
       $('#voiceBlock').hidden = !supported;
       $('#voiceSettings').hidden = !supported;
       if (!supported) return;
