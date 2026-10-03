@@ -394,11 +394,9 @@ input:disabled, select:disabled { opacity: .45; }
 .contrast-head.advisory { color: var(--accent-text); }
 .contrast-report ul.advisory { border-color: var(--accent-text); background: var(--accent-soft); }
 .contrast-report li button i { width: 12px; height: 12px; border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .3); }
-.sub-label { margin: 10px 0 6px; }
-.hint { margin: 8px 0 0; }
 /* Settings cards */
 .card {
-  padding: 12px 14px 14px;
+  padding: 14px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--surface);
@@ -635,8 +633,13 @@ dialog .field input:not([type="checkbox"]) { width: 180px; }
   cursor: pointer; padding: 8px 2px; font-weight: 600; color: var(--muted); font-size: 13px;
 }
 .about-card > summary { color: var(--text); font-size: 15px; font-weight: 700; }
-.adv[open] > summary { margin-bottom: 8px; }
-.adv > .card, .adv > details.card { margin-bottom: 12px; }
+.adv[open] { display: flex; flex-direction: column; gap: 12px; }
+.adv[open] > summary { margin-bottom: 0; }
+/* Paragraphs get one spacing step (8px) instead of the browser's 1em; classed ones (.hint, .engine-state...) override it. */
+:where(.card, .tab-body) p { margin: 8px 0; }
+.card > :last-child { margin-bottom: 0; }
 .engine-dist.card > summary { cursor: pointer; font-weight: 700; }
 .keys-details .keys { margin-top: 4px; }
 #engMore { align-self: flex-start; }
+/* About is folded inside a card: its sections are flat blocks, not cards inside a card. */
+.about-card > .card { margin-top: 12px; padding: 12px 0 0; border: 0; border-top: 1px solid var(--border); border-radius: 0; background: none; box-shadow: none; }
