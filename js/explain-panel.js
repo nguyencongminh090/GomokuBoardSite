@@ -1,4 +1,4 @@
-// Explain tab: explains the position without an engine (threat map, VCF / VCT search). It owns its own board layer
+// Explain (in the Analyse tab): explains the position without an engine (threat map, VCF / VCT search). It owns its own board layer
 // (BoardView.setExplain) and never changes the game. The engine's PV decorations live in engine-panel.js; both use
 // the model in explain.js.
 (function (G) {
@@ -16,7 +16,7 @@
     let step = 0; // moves shown (hover on a step, or the wheel over the board); 0 = all
 
     const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    const active = () => app.tab() === 'explain';
+    const active = () => app.tab() === 'analyze';
 
     // The position at the cursor as a model board.
     function boardOf(game) {
@@ -119,7 +119,7 @@
       renderOverlay();
     }
 
-    // The line is shown only while the Explain tab is open, so it never clutters play.
+    // The line is shown only while the Analyse tab is open, so it never clutters play.
     function renderOverlay() {
       if (!result || result.none || !active()) {
         app.board.setExplain(null);
@@ -156,13 +156,16 @@
 
     // Mouse wheel over the board walks the line one move per notch (down = forward), like the engine's PV preview.
     app.board.svg.addEventListener('wheel', (e) => {
-      if (e.ctrlKey || !e.deltaY || !active() || !result || result.none) return;
+      if (e.ctrlKey || !e.deltaY || !shown()) return;
       const len = result.line.length;
       const cur = step || len;
       setStep(Math.max(1, Math.min(len, cur + (e.deltaY > 0 ? 1 : -1))));
       e.preventDefault();
     }, { passive: false });
 
-    return { render, positionChanged };
+    // True while a winning line is drawn, so the wheel over the board belongs to it and not to the engine's PV.
+    const shown = () => !!result && !result.none && active();
+
+    return { render, positionChanged, shown };
   };
 })(window.Gomoku = window.Gomoku || {});

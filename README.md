@@ -83,7 +83,7 @@ new release at once instead of a mix of old and new files. The current version i
 | `js/i18n.js` | UI strings (vi, en) and the `data-i18n` markup translator |
 | `js/contrast.js` | WCAG contrast ratios, fix suggestions and the board colour audit |
 | `js/engine.js` | Engine client: Web Worker lifecycle, search jobs, protocol builder and parser |
-| `js/engine-panel.js` | Engine tab, engine block of the Play tab, board overlay |
+| `js/engine-panel.js` | Analyse tab (engine and Explain), engine block of the Play tab, board overlay |
 | `js/main.js` | UI wiring, panels, keyboard, import/export |
 | `engine/` | Rapfi WebAssembly builds, their worker host and build script (GPLv3, see `engine/README.md`) |
 | `tools/bump-version.js` | Sets the release version used for cache busting (see *Releasing a new version*) |

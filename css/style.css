@@ -627,3 +627,16 @@ dialog .field input:not([type="checkbox"]) { width: 180px; }
 .voice-block { display: grid; gap: 6px; }
 #micBtn { padding: 12px; touch-action: none; user-select: none; }
 #micBtn.on { border-color: var(--danger); box-shadow: 0 0 0 3px var(--danger-soft), 0 0 0 2px var(--danger); font-weight: 600; }
+
+/* Panel structure: three tabs, the gear opens Settings, rarely used controls are folded away */
+#settingsBtn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.adv, .about-card, .keys-details { display: block; }
+.adv > summary, .about-card > summary, .keys-details > summary {
+  cursor: pointer; padding: 8px 2px; font-weight: 600; color: var(--muted); font-size: 13px;
+}
+.about-card > summary { color: var(--text); font-size: 15px; font-weight: 700; }
+.adv[open] > summary { margin-bottom: 8px; }
+.adv > .card, .adv > details.card { margin-bottom: 12px; }
+.engine-dist.card > summary { cursor: pointer; font-weight: 700; }
+.keys-details .keys { margin-top: 4px; }
+#engMore { align-self: flex-start; }

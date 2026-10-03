@@ -30,6 +30,7 @@
     <span id="sizeTag" class="tag"></span>
     <div class="spacer"></div>
     <button id="langBtn" class="ghost-btn" title="Tiếng Việt / English">VI</button>
+    <button id="settingsBtn" class="ghost-btn" aria-pressed="false" data-i18n-attr="title:header.settings;aria-label:header.settings">&#x2699;</button>
     <button id="focusBtn" class="ghost-btn" data-i18n-attr="title:header.panelTitle"></button>
   </header>
 
@@ -41,11 +42,8 @@
     <aside class="panel" id="panel">
       <nav class="tabs" role="tablist">
         <button role="tab" data-tab="play" aria-selected="true" data-i18n="tab.play"></button>
-        <button role="tab" data-tab="engine" aria-selected="false" data-i18n="tab.engine"></button>
-        <button role="tab" data-tab="explain" aria-selected="false" data-i18n="tab.explain"></button>
-        <button role="tab" data-tab="settings" aria-selected="false" data-i18n="tab.settings"></button>
+        <button role="tab" data-tab="analyze" aria-selected="false" data-i18n="tab.analyze"></button>
         <button role="tab" data-tab="games" aria-selected="false" data-i18n="tab.games"></button>
-        <button role="tab" data-tab="about" aria-selected="false" data-i18n="tab.about"></button>
       </nav>
 
       <!-- Play -->
@@ -136,32 +134,7 @@
               <div class="eval-bar" aria-hidden="true"><span id="engEvalFill"></span></div>
               <div class="muted small-text" id="engEvalText"></div>
             </div>
-            <table class="pv-table" id="engLines" hidden>
-              <thead><tr>
-                <th>#</th><th data-i18n="eng.col.move"></th><th data-i18n="eng.col.eval"></th>
-                <th data-i18n="eng.col.win"></th><th data-i18n="eng.col.depth"></th><th data-i18n="eng.col.line"></th>
-              </tr></thead>
-              <tbody></tbody>
-            </table>
-            <p class="muted small-text pv-legend" id="engLegend" hidden>
-              <span class="atk VCF">VCF</span> <span data-i18n="eng.legend.vcf"></span> ·
-              <span class="atk VCT">VCT</span> <span data-i18n="eng.legend.vct"></span><br>
-              <span class="atk counter">⚔</span> <span data-i18n="eng.legend.counter"></span><br>
-              <span data-i18n="eng.legend.scroll"></span>
-            </p>
-            <details class="engine-dist">
-              <summary data-i18n="eng.dist"></summary>
-              <div class="dist-row">
-                <button id="engSelfDist" class="small" data-i18n="eng.selfDist"></button>
-                <input type="number" min="1" max="21" data-key="engine.selfDist" data-i18n-attr="aria-label:eng.distN">
-              </div>
-              <p class="muted small-text" id="engSelfDistHelp"></p>
-              <div class="dist-row">
-                <button id="engOppDist" class="small" data-i18n="eng.oppDist"></button>
-                <input type="number" min="1" max="21" data-key="engine.oppDist" data-i18n-attr="aria-label:eng.distN">
-              </div>
-              <p class="muted small-text" id="engOppDistHelp"></p>
-            </details>
+            <button id="engMore" class="small" data-goto-tab="analyze" data-i18n="eng.more" hidden></button>
           </div>
         </section>
 
@@ -180,11 +153,16 @@
           <button id="deleteMove" class="danger small" data-i18n="moves.delete"></button>
         </section>
 
-        <p class="keys muted" data-i18n-html="keys.help"></p>
+        <details class="keys-details">
+          <summary data-i18n="keys.title"></summary>
+          <p class="keys muted" data-i18n-html="keys.help"></p>
+        </details>
       </div>
 
-      <!-- Engine: load and configure (js/engine-panel.js) -->
-      <div class="tab-body" data-panel="engine" hidden>
+
+
+      <!-- Analyse: engine and Explain together; engine tuning is folded away (js/engine-panel.js, js/explain-panel.js) -->
+      <div class="tab-body" data-panel="analyze" hidden>
         <section class="card">
           <h3 data-i18n="eng.card.engine"></h3>
           <p class="engine-state"><span class="status-dot" id="engDot"></span><span id="engStateText"></span></p>
@@ -203,6 +181,57 @@
           </label>
         </section>
 
+        <section class="card">
+          <h3 data-i18n="exp.win"></h3>
+          <p class="muted small-text" data-i18n="exp.winHelp"></p>
+          <div class="engine-actions cols-2">
+            <button id="expFind" class="primary" data-i18n="exp.find"></button>
+            <button id="expClear" data-i18n="exp.clear"></button>
+          </div>
+          <p class="muted small-text" id="expStatus" role="status" aria-live="polite"></p>
+          <ol class="exp-steps" id="expSteps"></ol>
+        </section>
+
+        <section class="card" id="engResults">
+          <h3 data-i18n="eng.results"></h3>
+          <p class="muted small-text" id="engResultsEmpty" data-i18n="eng.resultsEmpty"></p>
+            <table class="pv-table" id="engLines" hidden>
+              <thead><tr>
+                <th>#</th><th data-i18n="eng.col.move"></th><th data-i18n="eng.col.eval"></th>
+                <th data-i18n="eng.col.win"></th><th data-i18n="eng.col.depth"></th><th data-i18n="eng.col.line"></th>
+              </tr></thead>
+              <tbody></tbody>
+            </table>
+            <p class="muted small-text pv-legend" id="engLegend" hidden>
+              <span class="atk VCF">VCF</span> <span data-i18n="eng.legend.vcf"></span> ·
+              <span class="atk VCT">VCT</span> <span data-i18n="eng.legend.vct"></span><br>
+              <span class="atk counter">⚔</span> <span data-i18n="eng.legend.counter"></span><br>
+              <span data-i18n="eng.legend.scroll"></span>
+            </p>
+        </section>
+
+        <section class="card">
+          <h3 data-i18n="exp.title"></h3>
+          <p class="muted small-text" data-i18n="exp.intro"></p>
+          <label class="switch-row">
+            <span><span data-i18n="set.threatMap"></span><small data-i18n="set.threatMapHelp"></small></span>
+            <input type="checkbox" role="switch" class="switch" data-key="threatMap">
+          </label>
+        </section>
+
+        <section class="card">
+          <h3 data-i18n="exp.legend"></h3>
+          <p class="small-text exp-legend">
+            <span class="atk VCF">VCF</span> <span data-i18n="eng.legend.vcf"></span><br>
+            <span class="atk VCT">VCT</span> <span data-i18n="eng.legend.vct"></span><br>
+            <span class="atk counter">⚔</span> <span data-i18n="eng.legend.counter"></span><br>
+            <span data-i18n="exp.legend.tags"></span><br>
+            <span data-i18n="eng.legend.scroll"></span>
+          </p>
+        </section>
+
+        <details class="adv">
+          <summary data-i18n="eng.advanced"></summary>
         <section class="card">
           <h3 data-i18n="eng.card.search"></h3>
           <div class="sub-label" data-i18n="eng.rule"></div>
@@ -242,7 +271,6 @@
             </select>
           </label>
         </section>
-
         <section class="card">
           <h3 data-i18n="eng.card.tools"></h3>
           <div class="engine-actions cols-2">
@@ -254,44 +282,26 @@
             <pre id="engLog" tabindex="0"></pre>
           </details>
         </section>
+        <details class="card engine-dist">
+              <summary data-i18n="eng.dist"></summary>
+              <div class="dist-row">
+                <button id="engSelfDist" class="small" data-i18n="eng.selfDist"></button>
+                <input type="number" min="1" max="21" data-key="engine.selfDist" data-i18n-attr="aria-label:eng.distN">
+              </div>
+              <p class="muted small-text" id="engSelfDistHelp"></p>
+              <div class="dist-row">
+                <button id="engOppDist" class="small" data-i18n="eng.oppDist"></button>
+                <input type="number" min="1" max="21" data-key="engine.oppDist" data-i18n-attr="aria-label:eng.distN">
+              </div>
+              <p class="muted small-text" id="engOppDistHelp"></p>
+            </details>
+        </details>
 
         <p class="muted small-text" data-i18n-html="eng.license"></p>
+      
       </div>
 
-      <!-- Settings: grouped by how often the host changes them (board, display, general) -->
-      <div class="tab-body" data-panel="explain" hidden>
-        <section class="card">
-          <h3 data-i18n="exp.title"></h3>
-          <p class="muted small-text" data-i18n="exp.intro"></p>
-          <label class="switch-row">
-            <span><span data-i18n="set.threatMap"></span><small data-i18n="set.threatMapHelp"></small></span>
-            <input type="checkbox" role="switch" class="switch" data-key="threatMap">
-          </label>
-        </section>
-
-        <section class="card">
-          <h3 data-i18n="exp.win"></h3>
-          <p class="muted small-text" data-i18n="exp.winHelp"></p>
-          <div class="engine-actions cols-2">
-            <button id="expFind" class="primary" data-i18n="exp.find"></button>
-            <button id="expClear" data-i18n="exp.clear"></button>
-          </div>
-          <p class="muted small-text" id="expStatus" role="status" aria-live="polite"></p>
-          <ol class="exp-steps" id="expSteps"></ol>
-        </section>
-
-        <section class="card">
-          <h3 data-i18n="exp.legend"></h3>
-          <p class="small-text exp-legend">
-            <span class="atk VCF">VCF</span> <span data-i18n="eng.legend.vcf"></span><br>
-            <span class="atk VCT">VCT</span> <span data-i18n="eng.legend.vct"></span><br>
-            <span class="atk counter">⚔</span> <span data-i18n="eng.legend.counter"></span><br>
-            <span data-i18n="exp.legend.tags"></span><br>
-            <span data-i18n="eng.legend.scroll"></span>
-          </p>
-        </section>
-      </div>
-
+      <!-- Settings (opened with the gear in the top bar), About folded in at the end -->
       <div class="tab-body" data-panel="settings" hidden>
         <section class="card">
           <h3 data-i18n="set.board"></h3>
@@ -391,12 +401,8 @@
           </label>
         </section>
 
-        <button id="resetSettings" class="link-btn" data-i18n="set.reset"></button>
-        <p class="muted small-text app-version" id="appVersion"></p>
-      </div>
-
-      <!-- About: author, project, usage guide, data, credits -->
-      <div class="tab-body" data-panel="about" hidden>
+        <details class="card about-card">
+          <summary data-i18n="about.section"></summary>
         <section class="card">
           <h3 data-i18n="about.author.title"></h3>
           <p><b>Nguyễn Minh</b><br><a href="mailto:nguyenminhfptu@gmail.com">nguyenminhfptu@gmail.com</a></p>
@@ -419,7 +425,13 @@
           <h3 data-i18n="about.credits.title"></h3>
           <p class="small-text" data-i18n-html="about.credits"></p>
         </section>
+      
+        </details>
+
+        <button id="resetSettings" class="link-btn" data-i18n="set.reset"></button>
+        <p class="muted small-text app-version" id="appVersion"></p>
       </div>
+
 
       <!-- Games -->
       <div class="tab-body" data-panel="games" hidden>

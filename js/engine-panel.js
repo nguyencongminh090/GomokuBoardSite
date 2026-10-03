@@ -1,4 +1,4 @@
-// Engine UI: the Engine tab (load and configure), the engine block of the Play tab (who the engine plays,
+// Engine UI: the Analyse tab (load, results, options), the engine block of the Play tab (who the engine plays,
 // analysis, distance moves, results) and the engine overlay on the board. main.js creates it and passes the
 // app state it needs; it never changes the game except through app.play().
 (function (G) {
@@ -352,6 +352,8 @@
       const table = $('#engLines');
       table.hidden = !lines.length;
       $('#engLegend').hidden = !lines.length;
+      $('#engResultsEmpty').hidden = !!lines.length;
+      $('#engMore').hidden = !lines.length || app.tab() === 'analyze';
       // The rows are rebuilt on every search update: keep keyboard focus on the same row's button.
       const focused = table.contains(document.activeElement) ? document.activeElement.dataset.engplay : undefined;
       table.querySelector('tbody').innerHTML = lines.map((l, i) => {
@@ -512,7 +514,7 @@
       if (!(e.relatedTarget && table.contains(e.relatedTarget))) setPreview(-1);
     });
     app.board.svg.addEventListener('wheel', (e) => {
-      if (e.ctrlKey || !e.deltaY || app.mode() === 'setup' || app.tab() === 'explain') return; // ctrl + wheel is the browser's zoom; the Explain tab has its own
+      if (e.ctrlKey || !e.deltaY || app.mode() === 'setup' || app.explainShown()) return; // ctrl + wheel is the browser's zoom; a shown Explain line has its own
       if (scrollPreview(e.deltaY > 0 ? 1 : -1)) e.preventDefault();
     }, { passive: false });
     table.addEventListener('focusin', (e) => {

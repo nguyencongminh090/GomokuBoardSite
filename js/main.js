@@ -11,7 +11,7 @@
   const games = store.loadGames(); // id -> serialised game
   let game = null;
   let mode = 'play'; // 'play' | 'setup'
-  let tab = 'play'; // the open tab
+  let tab = 'play'; // the open panel: 'play' | 'analyze' | 'games' | 'settings' (the gear, no tab)
   let tool = 'wall'; // setup tool: 'wall' | 'portal'
   let pending = null; // first end of a portal pair, waiting for its partner
 
@@ -22,6 +22,7 @@
     settings: () => settings,
     mode: () => mode,
     tab: () => tab,
+    explainShown: () => explain.shown(),
     // Plays a stone for the side to move; `byHost` is false for the engine's own moves.
     play(x, y, byHost) {
       if (mode === 'play' && game.play(x, y)) update(byHost);
@@ -688,10 +689,24 @@
       if (t.dataset.tab === name) t.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }
     for (const p of $$('[data-panel]')) p.hidden = p.dataset.panel !== name;
+    $('#settingsBtn').setAttribute('aria-pressed', String(name === 'settings'));
     if (name === 'games') renderGameList();
-    if (name === 'about') $('#aboutVersion').textContent = G.VERSION;
     explain.render();
+    engine.render();
   }
+
+  // The gear opens Settings (and About) in the panel; pressing it again returns to the tab that was open.
+  let tabBeforeSettings = 'play';
+  $('#settingsBtn').addEventListener('click', () => {
+    if (tab === 'settings') return selectTab(tabBeforeSettings);
+    tabBeforeSettings = tab;
+    if (document.body.classList.contains('focus')) toggleFocus();
+    selectTab('settings');
+  });
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-goto-tab]');
+    if (b) selectTab(b.dataset.gotoTab);
+  });
 
   for (const t of $$('[data-tab]')) t.addEventListener('click', () => selectTab(t.dataset.tab));
 
@@ -786,6 +801,7 @@
 
   function start() {
     $('#appVersion').textContent = t('app.version', { v: G.VERSION || '–' });
+    $('#aboutVersion').textContent = G.VERSION;
     applyPageTheme();
     applyLanguage();
     syncSettingsUI();

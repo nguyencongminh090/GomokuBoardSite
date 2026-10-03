@@ -15,7 +15,7 @@ Product decisions (don't change them unless asked):
   portal geometry); only the engine understands them.
 - **Torus** (`game.torus`, saved as `torus: true` only when on): no board edges, the last column/row is next to the first. Portal
   distance is cyclic. Explain/threat map are off (`game.bendsLines()`). The engine gets `INFO TORUS 0|1` before the portal pairs
-  (`EngineClient.torus`; `START` clears it) and refuses Renju on a torus, so the Engine tab shows a note instead of searching.
+  (`EngineClient.torus`; `START` clears it) and refuses Renju on a torus, so the engine panel shows a note instead of searching.
 - The board is a free editor, not a rules engine. There is **no win detection** and no rule enforcement beyond "cell
   is empty and not a wall".
 - "Numbers inside cells" means a **spiral numbering of every cell** from the centre (1 … size²) that viewers use to call
@@ -95,10 +95,10 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
   (the pre-bitboard version in git, commit 0859097) after any change to `analyzeCell`/`windowCells`.
 - **Explain vs Engine**: the engine only searches and reports (`engine.js`, `engine-panel.js`: controls, results table, and
   the PV hover / wheel preview, which keep working while it searches). **Explain** is everything we add on top, in
-  `explain.js` (model) and `explain-panel.js` (the "Giải thích" tab): the threat map switch, a position-level VCF/VCT
+  `explain.js` (model) and `explain-panel.js` (the Explain section of the Analyse tab): the threat map switch, a position-level VCF/VCT
   search for the side to move (works without an engine), a step list that explains each move (attack, forced block,
   counter-attack), and the legend. Explain draws in its own board layer (`BoardView.setExplain`, under the engine's
-  `setAnalysis` layer) and only while its tab is open; each panel's wheel handler ignores the other tab (`app.tab()`).
+  `setAnalysis` layer) and only while the Analyse tab is open; the board wheel belongs to Explain while its line is drawn (`explain.shown()`), else to the engine PV.
   The engine panel also calls `G.explain.chain` to tag and complete its PVs. Neither panel changes the game.
 - **`main.js`** holds app state (`game`, `mode: 'play' | 'setup'`, `settings`). The flow is always: mutate `game` → `persist()`
   (debounced localStorage write, flushed on `pagehide`) → `refresh()` (board + panels re-rendered from state).
@@ -107,7 +107,7 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
   needs a default in `settings.js` plus a control with one of those attributes. No per-control JS is needed.
   Visual option cards (board theme, symbol style, stone style) are `data-set` buttons rendered by `renderPicks()` in
   `main.js` from preview functions in `board.js` (`themePreview`, `symbolPreview`, `stonePreview`), so they always show
-  the current colours. The Settings tab is grouped into cards, most-used first: Board → Display → General → Security. The tabs are Play, Engine, Explain, Settings, Games.
+  the current colours. The Settings tab is grouped into cards, most-used first: Board → Display → General → Security. The panel has three tabs (Play, Analyse, Games); the gear in the top bar opens Settings, with About folded in at its end. Analyse holds the engine state, results and Explain, and folds engine tuning into "Engine options". Keep it that way: a new feature goes into one of these, not into a new tab (see `.claude/knowledge/ux-information-architecture.md`).
 - **Page theme**: `<html data-ui="light|dark">` selects the CSS token set in `css/style.css`. An inline script in
   `index.html` sets it before first paint; `applyPageTheme()` in `main.js` keeps it in sync, including `auto` following
   the system. Use `--accent-text` (not `--accent`) for accent-coloured text and thin lines, because it is tuned for contrast per theme.
