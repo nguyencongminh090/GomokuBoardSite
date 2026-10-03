@@ -386,6 +386,7 @@
       // Feature search (js/search.js): title, description and ';'-separated keywords/synonyms per feature
       'find.placeholder': 'Tìm tính năng… ví dụ: đổi màu bàn cờ',
       'find.label': 'Tìm tính năng',
+      'find.open': 'Tìm tính năng (/ hoặc Ctrl+K)',
       'find.clear': 'Xoá tìm kiếm',
       'find.popular': 'Gợi ý cho bạn',
       'find.didYouMean': 'Có phải bạn muốn tìm',
@@ -898,6 +899,7 @@
 
       'find.placeholder': 'Find a feature… e.g. change board colour',
       'find.label': 'Search features',
+      'find.open': 'Find a feature (/ or Ctrl+K)',
       'find.clear': 'Clear search',
       'find.popular': 'Try one of these',
       'find.didYouMean': 'Did you mean',

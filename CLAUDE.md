@@ -154,8 +154,8 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
   `gate/deploy.sh` copies the engine from `../GomokuEngineFiles` (outside the repo; `engine/rapfi-*` is git-ignored) into
   `gate/public` (git-ignored) and deploys. The engine files are no longer in the tree, but they are still in git history
   until it is rewritten, so the gate protects nothing until then. Revocation lags by `TOKEN_TTL`.
-- **Feature search** (`js/search.js` model, `js/search-panel.js` UI): the bar above the tabs (`/` or Ctrl+K) finds a control from a short
-  question and jumps to it. The model is DOM-free NLP: fold tone marks (`cai dat` = `cài đặt`), drop stop words and question openers
+- **Feature search** (`js/search.js` model, `js/search-panel.js` UI): the magnifier button in the top bar (`/` or Ctrl+K) opens a centred `<dialog>` over a dimmed page; it finds a control from a short
+  question and jumps to it (closing the dialog first). The model is DOM-free NLP: fold tone marks (`cai dat` = `cài đặt`), drop stop words and question openers
   (`làm sao để`, `how do I`), light English stemming, a TF-IDF style index (title > keywords > description, both languages in one
   index), prefix match for the word being typed, typo tolerance (edit distance 1-2), adjacent-pair bonus, inline completion
   (`complete`) and "did you mean" (`correct`). `FEATURES` in `search-panel.js` maps each id to a tab and `targets` (first visible

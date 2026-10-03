@@ -791,15 +791,10 @@
   }
   $('#focusBtn').addEventListener('click', toggleFocus);
 
-  function focusSearch() {
-    if (document.body.classList.contains('focus')) toggleFocus();
-    search.focus();
-  }
-
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'k' && !dlg.open) {
       e.preventDefault();
-      return focusSearch();
+      return search.open();
     }
     if (e.ctrlKey || e.metaKey || e.altKey || dlg.open) return;
     if (e.target instanceof Element && e.target.closest('input, select, textarea, button, [role="tab"]')) return;
@@ -813,7 +808,7 @@
       s: () => setMode(mode === 'setup' ? 'play' : 'setup'),
       n: openNewDialog,
       f: toggleFocus,
-      '/': focusSearch,
+      '/': search.open,
       a: () => engine.toggleAnalysis(),
       e: () => engine.engineMove(),
     };

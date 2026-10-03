@@ -60,6 +60,7 @@
     const { t, esc } = deps;
     const input = $('#searchInput');
     const ghost = $('#searchGhost');
+    const dialog = $('#searchDialog');
     const list = $('#searchList');
     const clear = $('#searchClear');
     const byId = new Map(FEATURES.map((f) => [f.id, f]));
@@ -102,12 +103,6 @@
         `<span class="search-opt-desc">${highlight(t(`find.${id}.d`), hits)}</span></div>`;
     }
 
-    function setOpen(open) {
-      list.hidden = !open;
-      input.setAttribute('aria-expanded', String(open));
-      if (!open) input.removeAttribute('aria-activedescendant');
-    }
-
     function render() {
       if (!index) buildIndex();
       const text = input.value;
@@ -130,7 +125,6 @@
         html += `<div class="search-head">${esc(t('find.popular'))}</div>${POPULAR.map((id, i) => option(id, i, [])).join('')}`;
       }
       list.innerHTML = `${html}<p class="search-foot">${esc(t('find.hint'))}</p>`;
-      setOpen(true);
       syncActive();
       renderGhost();
     }
@@ -176,8 +170,7 @@
         const c = document.querySelector(sel);
         if (c && visible(c)) { el = c; break; }
       }
-      setOpen(false);
-      input.blur();
+      dialog.close();
       if (!el) return;
       for (let d = el; d; d = d.parentElement) if (d.tagName === 'DETAILS') d.open = true;
       const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -192,12 +185,9 @@
     }
 
     input.addEventListener('input', () => { active = 0; render(); });
-    input.addEventListener('focus', () => render());
     input.addEventListener('keydown', (e) => {
-      const open = !list.hidden;
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
-        if (!open) return render();
         const n = shown.length;
         active = (active + (e.key === 'ArrowDown' ? 1 : -1) + n) % n;
         syncActive();
@@ -212,13 +202,13 @@
         e.preventDefault();
         acceptCompletion();
       } else if (e.key === 'Escape') {
+        // Esc clears the text first, then closes (the dialog's own Esc handling is replaced).
         e.preventDefault();
-        if (open) setOpen(false);
-        else if (input.value) { input.value = ''; render(); setOpen(false); } else input.blur();
+        if (input.value) { input.value = ''; render(); } else dialog.close();
       }
     });
 
-    // The pop-up keeps the input focused while it is clicked, so the click handler still sees the open list.
+    // Clicking a result must not take focus from the input.
     list.addEventListener('mousedown', (e) => e.preventDefault());
     list.addEventListener('click', (e) => {
       const fix = e.target.closest('[data-fix]');
@@ -236,14 +226,23 @@
       if (i >= 0 && i !== active) { active = i; syncActive(); }
     });
     clear.addEventListener('click', () => { input.value = ''; input.focus(); render(); });
-    document.addEventListener('pointerdown', (e) => {
-      if (!e.target.closest('#search')) setOpen(false);
-    });
+    // A click on the dimmed page (the dialog's own backdrop) closes it.
+    dialog.addEventListener('mousedown', (e) => { if (e.target === dialog) dialog.close(); });
+    dialog.addEventListener('close', () => input.removeAttribute('aria-activedescendant'));
+    $('#searchBtn').addEventListener('click', open);
+
+    function open() {
+      if (!dialog.open) dialog.showModal();
+      active = 0;
+      render();
+      input.focus();
+      input.select();
+    }
 
     return {
-      focus() { input.focus(); input.select(); },
+      open,
       // The language changed: the list shows titles in the new language.
-      render() { if (!list.hidden) render(); },
+      render() { if (dialog.open) render(); },
     };
   };
 })(window.Gomoku = window.Gomoku || {});
