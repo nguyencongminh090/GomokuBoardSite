@@ -395,7 +395,7 @@ kbd {
 .eval-bar span { display: block; height: 100%; background: var(--p0); transition: width .3s; }
 .graph-legend { display: flex; align-items: center; gap: 14px; font-size: 13px; }
 .graph-legend .gl { display: inline-flex; align-items: center; gap: 6px; }
-.graph-legend .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.graph-legend .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; box-shadow: inset 0 0 0 1px var(--muted); }
 .graph-legend .gv { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 600; }
 .eval-graph { display: block; width: 100%; margin-top: 8px; cursor: pointer; overflow: visible; }
 .eval-graph .plot { fill: var(--surface-2); }
@@ -405,9 +405,10 @@ kbd {
 .eval-graph .s0 { stop-color: var(--p0); }
 .eval-graph .s1 { stop-color: var(--p1); }
 .eval-graph .area { stroke: none; }
+.eval-graph .lnb { fill: none; stroke: var(--muted); stroke-width: 4.5; stroke-linejoin: round; stroke-linecap: round; opacity: .55; }
 .eval-graph .ln { fill: none; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
-.eval-graph .dot0 { fill: var(--p0); stroke: var(--surface-2); stroke-width: 1.5; }
-.eval-graph .dot1 { fill: var(--p1); stroke: var(--surface-2); stroke-width: 1.5; }
+.eval-graph .dot0 { fill: var(--p0); stroke: var(--muted); stroke-width: 1.5; }
+.eval-graph .dot1 { fill: var(--p1); stroke: var(--muted); stroke-width: 1.5; }
 .eval-graph .halo { fill: none; stroke: var(--text); stroke-width: 1.5; opacity: .5; }
 .eval-graph .guide { stroke: var(--muted); stroke-width: 1; opacity: 0; }
 .eval-graph .guide.on, .eval-graph g:hover .guide { opacity: .5; }

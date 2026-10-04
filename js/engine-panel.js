@@ -482,7 +482,7 @@
         const xy = run.map((p) => [x(p.i), y(p.w)]);
         const d = smooth(xy);
         areas += `<path class="area" fill="url(#gArea)" d="${d}L${f(xy[xy.length - 1][0])} ${f(mid)}L${f(xy[0][0])} ${f(mid)}Z"/>`;
-        lines += `<path class="ln" stroke="url(#gLine)" d="${d}"/>`;
+        lines += `<path class="lnb" d="${d}"/><path class="ln" stroke="url(#gLine)" d="${d}"/>`;
       }
       const dense = pts.length > 30; // too many points: show only the one under the cursor
       const colW = Math.max((W - L - R) / n, 12);
