@@ -69,6 +69,8 @@
     let lastEngine = null; // engine settings at the previous settingsChanged(), to react to changes
     let wasReady = false; // true once loaded; stays true while the single-threaded build restarts after a stop
     let frame = 0;
+    const evals = new Map(); // position key -> first player's win chance, for the graph
+    let evalsCtx = ''; // board setup the evals belong to (size, walls, portals, torus)
 
     const engineSettings = () => app.settings().engine;
     const tooBig = () => app.game().size > P.MAX_SIZE;
@@ -387,20 +389,86 @@
 
     // Win chance bar from the first player's side, plus search statistics.
     function renderEval(best) {
+      const game = app.game();
+      if (best && best.winrate !== undefined) remember(result.toMove === 0 ? best.winrate : 1 - best.winrate);
+      renderGraph();
+      const known = context(game) === evalsCtx ? evals.get(nodeKey(game, game.cur)) : undefined;
       const box = $('#engEval');
-      box.hidden = !best || best.winrate === undefined;
+      box.hidden = known === undefined && $('#engGraph').hidden;
       if (box.hidden) return;
-      const w0 = result.toMove === 0 ? best.winrate : 1 - best.winrate;
+      const w0 = known === undefined ? 0.5 : known;
       $('#engEvalFill').style.width = `${(w0 * 100).toFixed(1)}%`;
-      $('#engEvalP0').textContent = `${app.playerName(0)} ${pct(w0)}`;
-      $('#engEvalP1').textContent = `${pct(1 - w0)} ${app.playerName(1)}`;
-      $('#engEvalText').textContent = t('eng.stats', {
+      $('#engEvalP0').textContent = known === undefined ? '' : `${app.playerName(0)} ${pct(w0)}`;
+      $('#engEvalP1').textContent = known === undefined ? '' : `${pct(1 - w0)} ${app.playerName(1)}`;
+      const shown = best && best.winrate !== undefined;
+      $('#engEvalText').textContent = shown ? t('eng.stats', {
         depth: `${best.depth}-${best.selDepth}`,
         nodes: compact(best.totalNodes),
         speed: compact(best.speed),
         time: ((best.time || 0) / 1000).toFixed(1),
-      });
+      }) : '';
     }
+
+    // ---------- win chance graph ----------
+
+    // Evals stay valid while walls, portals and torus stay as they were, so the context is part of the key.
+    function context(game) {
+      return `${game.size}|${game.torus ? 1 : 0}|${[...game.walls].sort((a, b) => a - b)}|${game.portals}|${engineSettings().rule}`;
+    }
+
+    const nodeKey = (game, id) => game.path(id).map((i) => `${game.nodes[i].x},${game.nodes[i].y}`).join(';');
+
+    function remember(w0) {
+      const game = app.game();
+      const ctx = context(game);
+      if (ctx !== evalsCtx) {
+        evals.clear();
+        evalsCtx = ctx;
+      }
+      evals.set(nodeKey(game, game.cur), w0);
+    }
+
+    // First player's win chance after each move of the current line, drawn as a polyline; click jumps to that move.
+    function renderGraph() {
+      const svg = $('#engGraph');
+      const game = app.game();
+      const ids = game.line();
+      const pts = [];
+      if (context(game) === evalsCtx) {
+        ids.forEach((id, i) => {
+          const w = evals.get(nodeKey(game, id));
+          if (w !== undefined) pts.push({ id, i, w });
+        });
+      }
+      const root = evals.get('');
+      if (context(game) === evalsCtx && root !== undefined) pts.unshift({ id: 0, i: -1, w: root });
+      svg.hidden = pts.length < 2;
+      if (svg.hidden) return;
+      const W = svg.clientWidth || 300, H = 64, pad = 8;
+      const n = Math.max(ids.length, 1);
+      const x = (i) => pad + ((i + 1) / n) * (W - 2 * pad);
+      const y = (w) => pad + (1 - w) * (H - 2 * pad);
+      let path = '';
+      let prev = null;
+      for (const p of pts) {
+        path += `${prev && p.i - prev.i === 1 ? 'L' : 'M'}${x(p.i).toFixed(1)} ${y(p.w).toFixed(1)}`;
+        prev = p;
+      }
+      const hitW = Math.max((W - 2 * pad) / n, 10);
+      const marks = pts.map((p) => {
+        const label = p.id === 0 ? '' : t('eng.graphPoint', { n: p.i + 1, move: app.cellText(game.nodes[p.id].x, game.nodes[p.id].y), p0: `${app.playerName(0)} ${pct(p.w)}`, p1: `${pct(1 - p.w)} ${app.playerName(1)}` });
+        return `<g data-node="${p.id}">${label ? `<title>${esc(label)}</title>` : ''}` +
+          `<rect class="hit" x="${(x(p.i) - hitW / 2).toFixed(1)}" y="0" width="${hitW.toFixed(1)}" height="${H}"/>` +
+          `<circle class="${p.id === game.cur ? 'cur' : 'dot'}" cx="${x(p.i).toFixed(1)}" cy="${y(p.w).toFixed(1)}" r="${p.id === game.cur ? 4 : 2.5}"/></g>`;
+      }).join('');
+      svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+      svg.innerHTML = `<line class="mid" x1="${pad}" x2="${W - pad}" y1="${H / 2}" y2="${H / 2}"/><path class="ln" d="${path}"/>${marks}`;
+    }
+
+    $('#engGraph').addEventListener('click', (e) => {
+      const g = e.target.closest('[data-node]');
+      if (g) app.goTo(Number(g.dataset.node));
+    });
 
     // Short text of a winning combination: 'open4' -> localised, '4-3' stays as is, five and '' give nothing.
     const finishText = (f) => (f === 'open4' ? t('eng.openFour') : f === 'five' ? '' : f);

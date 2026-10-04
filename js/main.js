@@ -28,6 +28,7 @@
     play(x, y, byHost) {
       if (mode === 'play' && game.play(x, y)) update(byHost);
     },
+    goTo: (id) => nav(() => game.goTo(id)),
     cellText: (x, y) => cellText(x, y),
     playerName: (p) => playerName(p),
     toast: (msg) => toast(msg),
