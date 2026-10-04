@@ -2,7 +2,7 @@
   "id": "./",
   "name": "MCaro",
   "short_name": "MCaro",
-  "description": "Bàn cờ caro cho livestream: nhánh nước đi, ô tường, giao diện tuỳ chỉnh và lưu ván trong trình duyệt.",
+  "description": "Bàn cờ caro (gomoku, five in a row) online miễn phí cho livestream: ô tường, cổng dịch chuyển, bàn vòng, nhánh nước đi, phân tích engine, đánh bằng giọng nói.",
   "lang": "vi",
   "start_url": "./",
   "scope": "./",

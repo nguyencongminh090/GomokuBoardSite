@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /engine/
+Disallow: /gate/
+
+Sitemap: https://nguyencongminh090.github.io/GomokuBoardSite/sitemap.xml
