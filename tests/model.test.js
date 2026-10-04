@@ -8,7 +8,7 @@ const path = require('path');
 const assert = require('assert');
 
 global.window = {};
-for (const f of ['js/i18n.js', 'js/contrast.js', 'js/coords.js', 'js/voice.js', 'js/settings.js', 'js/game.js', 'js/security.js', 'js/explain.js', 'js/engine.js', 'js/search.js', 'js/commands.js', 'js/search-panel.js']) {
+for (const f of ['js/i18n.js', 'js/contrast.js', 'js/coords.js', 'js/voice-lexicon.js', 'js/voice.js', 'js/settings.js', 'js/game.js', 'js/security.js', 'js/explain.js', 'js/engine.js', 'js/search.js', 'js/commands.js', 'js/search-panel.js']) {
   eval(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'));
 }
 const G = window.Gomoku;
@@ -690,6 +690,9 @@ test('voice: a phrase names a cell by label or by spiral number, on any board si
   assert.equal(G.voice.parseCell('nước đi ba mươi bảy', 15).kind, 'number');
   // off the board, or not a cell at all
   for (const text of ['P8', 'H16', 'H0', 'hai trăm hai mươi sáu', 'không', 'bạn ngủ rồi', '']) assert.equal(G.voice.parseCell(text, 15), null, text);
+  // a real syllable that only sounds like the number word is recovered, but only when what was heard is no cell
+  for (const [text, same] of [['xáu', 'sáu'], ['hai chăm', 'hai trăm'], ['hai mươi nhăm', 'hai mươi lăm'], ['bóng', 'bốn']]) assert.deepEqual(G.voice.parseCell(text, 15), G.voice.parseCell(same, 15), text);
+  assert.equal(G.voice.parseCell('hơn', 15), null);
   assert.notEqual(G.voice.parseCell('một trăm', 10), null); // 100 is the last cell of a 10x10 board
   assert.equal(G.voice.parseCell('một trăm lẻ một', 10), null);
 });

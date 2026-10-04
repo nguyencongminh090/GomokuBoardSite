@@ -3,7 +3,7 @@
   'use strict';
 
   // Spoken digits, tone marks removed ("bảy" -> "bay"). "tu" and "lam" only occur after a tens word.
-  const DIGIT = { khong: 0, mot: 1, hai: 2, ba: 3, bon: 4, tu: 4, nam: 5, lam: 5, sau: 6, bay: 7, tam: 8, chin: 9 };
+  const DIGIT = { khong: 0, mot: 1, hai: 2, ba: 3, bon: 4, tu: 4, nam: 5, lam: 5, nham: 5, sau: 6, bay: 7, tam: 8, chin: 9 };
 
   // Spoken names of the column letters. Whisper often writes the letter itself ("H8"), which is handled first.
   const LETTER_NAMES = {
@@ -15,13 +15,26 @@
     v: ['vi', 've', 'vo', 'v'], w: ['dup', 'w'], x: ['ich', 'ics', 'x'], y: ['y', 'ioc'], z: ['zet', 'det', 'z'],
   };
 
+  const LETTER_INDEX = {};
+  for (const names of Object.values(LETTER_NAMES)) for (const n of names) for (const w of n.split(' ')) LETTER_INDEX[w] = true;
+
   // Words people put in front of the cell ("đánh ba mươi bảy", "nước đi H8"; the "đi" is not read as the letter D).
+  // Number words that are not digits.
+  const STRUCTURE = ['tram', 'muoi', 'le', 'linh'];
+
   const FILLER = new Set(['danh', 'nuoc', 'so', 'toi', 'vao', 'toa', 'nhe']);
 
   // Lower-case, drop tone marks and punctuation: "Ba mươi bảy." -> "ba muoi bay".
   function normalize(text) {
     return String(text).toLowerCase().replace(/đ/g, 'd').normalize('NFD').replace(/[̀-ͯ]/g, '')
       .replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  // Whisper often writes a real syllable that only sounds like the number word ("xáu" for "sáu", "chăm" for "trăm").
+  // js/voice-lexicon.js (built from the Vietnamese dictionary) maps those onto the word that was meant.
+  function recover(s) {
+    const lex = G.voiceLexicon || {};
+    return s.split(' ').map((w) => (w in DIGIT || STRUCTURE.includes(w) || FILLER.has(w) || w in LETTER_INDEX ? w : lex[w] || w)).join(' ');
   }
 
   // One spoken digit: a digit word or a single numeral ("bay", "7"), else undefined.
@@ -36,7 +49,7 @@
     const words = s.split(' ').filter(Boolean);
     if (!words.length) return null;
     if (words.every((w) => /^\d+$/.test(w))) return Number(words.join(''));
-    const structural = words.some((w) => w === 'tram' || w === 'muoi' || w === 'le' || w === 'linh');
+    const structural = words.some((w) => STRUCTURE.includes(w));
     if (!structural) { // plain digits: "hai tu" = 24
       return words.every((w) => digitOf(w) !== undefined) ? Number(words.map(digitOf).join('')) : null;
     }
@@ -89,7 +102,12 @@
   // The cell a spoken phrase names on a board of `size`: { x, y, kind: 'label' | 'number' }, or null.
   // Both forms are understood whatever the coordinate setting is: "H8" / "hát tám" and "37" / "ba mươi bảy".
   function parseCell(text, size) {
-    const s = normalize(text).replace(/\bnuoc di\b/, '').split(' ').filter((w) => !FILLER.has(w)).join(' ');
+    const heard = normalize(text).replace(/\bnuoc di\b/, '').split(' ').filter((w) => !FILLER.has(w)).join(' ');
+    // Exactly what was heard comes first; only when that is no cell are real-but-wrong syllables swapped for number words.
+    return cellOf(heard, size) || cellOf(recover(heard), size);
+  }
+
+  function cellOf(s, size) {
     const label = parseLabel(s);
     if (label) {
       const x = G.coords.LETTERS.indexOf(label.letter.toUpperCase());
@@ -102,5 +120,5 @@
     return { x: k % size, y: Math.floor(k / size), kind: 'number' };
   }
 
-  G.voice = { normalize, parseNumber, parseLabel, parseCell };
+  G.voice = { normalize, parseNumber, parseLabel, parseCell, vocabulary: { DIGITS: DIGIT, STRUCTURE } };
 })(window.Gomoku = window.Gomoku || {});
