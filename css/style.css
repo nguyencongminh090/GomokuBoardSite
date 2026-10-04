@@ -248,13 +248,17 @@ body.focus .panel { display: none; }
 .search-ghost { position: absolute; inset: 0; overflow: hidden; color: var(--muted); pointer-events: none; }
 .search-typed { visibility: hidden; }
 .search-box .ghost-btn { border: 0; padding: 4px 8px; border-radius: 999px; color: var(--muted); }
-.search-pop { flex: 1; min-height: 0; overflow-y: auto; padding: 6px; }
+.search-pop { flex: 1; min-height: 4.5rem; overflow-y: auto; padding: 6px; overscroll-behavior: contain; }
+.search-dialog.compact .search-foot, .search-dialog.compact .search-opt-desc, .search-dialog.compact .search-head { display: none; }
 .search-opt {
   display: grid; grid-template-columns: 1fr auto; column-gap: 8px; padding: 7px 10px;
   border-radius: 8px; cursor: pointer;
 }
 .search-opt[aria-selected="true"] { background: var(--accent-soft); }
 .search-opt-title { font-weight: 600; }
+.ghost-btn.on { color: var(--danger); animation: pulse 1.1s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .ghost-btn.on { animation: none; } }
+@keyframes pulse { 50% { opacity: .45; } }
 .search-cmd { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .search-cmd[aria-disabled="true"] { cursor: default; }
 .search-cmd-list { margin: 0; padding: 0; list-style: none; font-weight: 600; }

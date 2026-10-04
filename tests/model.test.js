@@ -838,3 +838,12 @@ test('commands: every action label has a string in every language', () => {
     for (const k of ['cmd.set', 'cmd.size', 'cmd.preset', 'cmd.already', 'cmd.on', 'cmd.off', 'cmd.notSquare', 'cmd.apply', 'cmd.done']) assert(G.i18n.STRINGS[lang][k], `${lang} ${k}`);
   }
 });
+
+test('search auto-correct fixes spelling for commands but never touches numbers', () => {
+  const ix = searchIndex();
+  const ctx = { settings: structuredClone(G.DEFAULT_SETTINGS), size: 15 };
+  const fixed = G.search.correct(ix, 'set bord 17x17');
+  assert(fixed, 'bord is corrected');
+  assert.equal(G.commands.parse(fixed, ctx)[0].size, 17);
+  assert.equal(G.search.correct(ix, 'strength 70'), null, 'digits are left alone');
+});

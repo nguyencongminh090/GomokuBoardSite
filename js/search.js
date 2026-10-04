@@ -173,7 +173,7 @@
     let changed = false;
     const fixed = raw.map((w) => {
       if (index.surface.has(w)) return index.surface.get(w).text;
-      if (STOP.has(w) || index.vocab.includes(stem(w))) return w;
+      if (STOP.has(w) || /\d/.test(w) || index.vocab.includes(stem(w))) return w;
       const max = Math.max(1, typoLimit(w));
       let best = null;
       for (const [key, v] of index.surface) {

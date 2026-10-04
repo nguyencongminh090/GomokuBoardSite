@@ -168,6 +168,11 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
   ("set board 17x17", "bật chế độ tối", "strength 70", "hide last move"). DOM-free: it only returns actions (`set`, `preset`, `newGame`,
   `error`); `applyCommands` in `main.js` applies them through `settingsChanged()` / `startGame()`. Clauses split at "and/và/,"; the first
   matching rule per clause wins. Board size is per game, so a size command starts a new game. A new rule needs `cmd.name.<id>` in both languages.
+- **Voice search and auto-correct** (`#searchMic` in the search dialog): click to record, click again to stop (10 s cap). It reuses the
+  voice panel's Groq key and transcriber through `voice.dictate(lang)` (language = the interface language) and never plays a move.
+  The transcript lands in the box, spelling-corrected by `autocorrect()` when the fixed text matches a command or a feature, and is
+  **never applied without Enter**. Typed queries are corrected the same way (no results -> results for the fixed spelling; a misspelt
+  command -> Enter shows the corrected command first). `G.search.correct` leaves words with digits alone ("70" must not become "50").
 - **Voice moves** (`js/voice.js` model, `js/voice-panel.js` UI): hold the mic button or V, say a cell. The clip goes to Groq's
   `whisper-large-v3` (free tier, `language=vi`, `temperature=0`; 82% right on spoken cell numbers in `tools/voice-proto`, Web Speech
   64%), and `G.voice.parseCell(text, size)` turns the text into a cell: edge labels (`H8`, `hát tám`) or spiral numbers (`ba mươi bảy`),

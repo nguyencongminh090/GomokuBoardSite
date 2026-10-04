@@ -7,7 +7,7 @@
   <!-- Release version. Bump it with `node tools/bump-version.js <version>` before each deploy: it is added to
        every asset URL (?v=), so returning visitors never mix cached old files with new ones. -->
   <meta name="engine-gate" content="https://gomoku-engine-gate.nguyencongminh2247.workers.dev">
-  <meta name="app-version" content="1.11.0">
+  <meta name="app-version" content="1.12.0">
   <meta name="description" content="Bàn cờ caro cho livestream: nhánh nước đi, ô tường, giao diện tuỳ chỉnh và lưu ván trong trình duyệt.">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#dcb35c">
@@ -21,7 +21,7 @@
       document.documentElement.dataset.ui = dark ? 'dark' : 'light';
     } catch (e) { /* storage unavailable: CSS default applies */ }
   </script>
-  <link rel="stylesheet" href="css/style.css?v=1.11.0">
+  <link rel="stylesheet" href="css/style.css?v=1.12.0">
 </head>
 <body>
   <header class="topbar">
@@ -509,8 +509,10 @@
                autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="80"
                data-i18n-attr="placeholder:find.placeholder;aria-label:find.label">
       </div>
+      <button type="button" id="searchMic" class="ghost-btn" data-i18n-attr="aria-label:find.mic;title:find.mic" aria-pressed="false" hidden><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
       <button type="button" id="searchClear" class="ghost-btn" data-i18n-attr="aria-label:find.clear;title:find.clear" hidden>&#x2715;</button>
     </div>
+    <p id="searchVoice" class="search-msg" role="status" hidden></p>
     <div id="searchList" class="search-pop" role="listbox" data-i18n-attr="aria-label:find.label"></div>
   </dialog>
 
@@ -522,25 +524,25 @@
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="js/i18n.js?v=1.11.0"></script>
-  <script src="js/contrast.js?v=1.11.0"></script>
-  <script src="js/coords.js?v=1.11.0"></script>
-  <script src="js/settings.js?v=1.11.0"></script>
-  <script src="js/game.js?v=1.11.0"></script>
-  <script src="js/security.js?v=1.11.0"></script>
-  <script src="js/storage.js?v=1.11.0"></script>
-  <script src="js/explain.js?v=1.11.0"></script>
-  <script src="js/board.js?v=1.11.0"></script>
-  <script src="js/engine.js?v=1.11.0"></script>
-  <script src="js/engine-panel.js?v=1.11.0"></script>
-  <script src="js/explain-panel.js?v=1.11.0"></script>
-  <script src="js/security-panel.js?v=1.11.0"></script>
-  <script src="js/voice.js?v=1.11.0"></script>
-  <script src="js/voice-panel.js?v=1.11.0"></script>
-  <script src="js/search.js?v=1.11.0"></script>
-  <script src="js/commands.js?v=1.11.0"></script>
-  <script src="js/search-panel.js?v=1.11.0"></script>
-  <script src="js/install.js?v=1.11.0"></script>
-  <script src="js/main.js?v=1.11.0"></script>
+  <script src="js/i18n.js?v=1.12.0"></script>
+  <script src="js/contrast.js?v=1.12.0"></script>
+  <script src="js/coords.js?v=1.12.0"></script>
+  <script src="js/settings.js?v=1.12.0"></script>
+  <script src="js/game.js?v=1.12.0"></script>
+  <script src="js/security.js?v=1.12.0"></script>
+  <script src="js/storage.js?v=1.12.0"></script>
+  <script src="js/explain.js?v=1.12.0"></script>
+  <script src="js/board.js?v=1.12.0"></script>
+  <script src="js/engine.js?v=1.12.0"></script>
+  <script src="js/engine-panel.js?v=1.12.0"></script>
+  <script src="js/explain-panel.js?v=1.12.0"></script>
+  <script src="js/security-panel.js?v=1.12.0"></script>
+  <script src="js/voice.js?v=1.12.0"></script>
+  <script src="js/voice-panel.js?v=1.12.0"></script>
+  <script src="js/search.js?v=1.12.0"></script>
+  <script src="js/commands.js?v=1.12.0"></script>
+  <script src="js/search-panel.js?v=1.12.0"></script>
+  <script src="js/install.js?v=1.12.0"></script>
+  <script src="js/main.js?v=1.12.0"></script>
 </body>
 </html>

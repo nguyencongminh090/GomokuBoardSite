@@ -69,6 +69,7 @@
     settings: () => settings,
     size: () => game.size,
     apply: (actions) => applyCommands(actions),
+    voice,
   });
 
   const security = G.createSecurityPanel({ esc, toast, settings: () => settings, engineStop: () => engine.unload() });

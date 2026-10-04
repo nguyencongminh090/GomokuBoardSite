@@ -13,6 +13,7 @@
   const MIN_CLIP_MS = 500; // shorter clips make Whisper invent words
   const TAIL_MS = 500; // keep recording a moment after release so the last syllable is not cut
   const CONFIRM_MS = 1500;
+  const DICTATE_MAX_MS = 10000; // a search phrase is short: stop by itself
   const IDLE_RELEASE_MS = 30000; // let go of the microphone when it has not been used for a while
 
   G.createVoicePanel = function (deps) {
@@ -120,12 +121,12 @@
 
     // ---------- transcription ----------
 
-    async function transcribe(blob) {
+    async function transcribe(blob, lang = 'vi') {
       const ext = /mp4/.test(blob.type) ? 'mp4' : /ogg/.test(blob.type) ? 'ogg' : 'webm';
       const form = new FormData();
       form.append('file', blob, `clip.${ext}`);
       form.append('model', MODEL);
-      form.append('language', 'vi');
+      form.append('language', lang);
       form.append('temperature', '0');
       const res = await fetch(ENDPOINT, {
         method: 'POST',
@@ -139,13 +140,54 @@
       return String((await res.json()).text || '').trim();
     }
 
+    function errorText(err) {
+      return err.name === 'TimeoutError' || err.name === 'TypeError' ? t('voice.network') : err.message;
+    }
+
+    // One-shot dictation for the search box. Resolves to { stop, text } once the microphone is recording (it throws a
+    // readable Error when there is no key or microphone); `text` is a promise of the transcript, which `stop()` (or the
+    // time limit) triggers. Independent of the move recorder above, so it never plays a move.
+    async function dictate(lang) {
+      if (!apiKey) throw new Error(t('voice.noKey'));
+      if (state !== 'idle') throw new Error(t('voice.busy'));
+      clearTimeout(idleTimer);
+      try {
+        if (!stream) stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false } });
+      } catch (err) {
+        throw new Error(t('voice.noMic'));
+      }
+      const rec = new MediaRecorder(stream);
+      const parts = [];
+      const began = Date.now();
+      let limit = 0;
+      rec.ondataavailable = (e) => parts.push(e.data);
+      const text = new Promise((resolve, reject) => {
+        rec.onstop = async () => {
+          clearTimeout(limit);
+          scheduleRelease();
+          if (Date.now() - began < MIN_CLIP_MS) return reject(new Error(t('voice.tooShort')));
+          try {
+            resolve(await transcribe(new Blob(parts, { type: rec.mimeType }), lang));
+          } catch (err) {
+            reject(new Error(errorText(err)));
+          }
+        };
+      });
+      const stop = () => {
+        if (rec.state === 'recording') setTimeout(() => rec.state === 'recording' && rec.stop(), TAIL_MS);
+      };
+      rec.start();
+      limit = setTimeout(stop, DICTATE_MAX_MS);
+      return { stop, text };
+    }
+
     async function send(blob) {
       let text;
       try {
         text = await transcribe(blob);
       } catch (err) {
         setState('idle');
-        say(err.name === 'TimeoutError' || err.name === 'TypeError' ? t('voice.network') : err.message);
+        say(errorText(err));
         return;
       }
       const g = game();
@@ -270,6 +312,6 @@
       renderKey();
     }
 
-    return { start, cancel, renderKey };
+    return { start, cancel, renderKey, dictate, supported, hasKey: () => !!apiKey };
   };
 })(window.Gomoku = window.Gomoku || {});

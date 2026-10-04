@@ -52,9 +52,9 @@
   G.SEARCH_FEATURES = FEATURES; // read by the tests
 
   const POPULAR = ['cell', 'voice', 'walls', 'colors', 'engine', 'export'];
-  const WHERE = { play: 'find.where.play', analyze: 'find.where.analyze', games: 'find.where.games', settings: 'find.where.settings' };
+  const WHERE = { play: 'find.where.play', versus: 'find.where.versus', analyze: 'find.where.analyze', games: 'find.where.games', settings: 'find.where.settings' };
 
-  // deps: { t, esc, openTab(name), setMode(m), mode(), settings(), size(), apply(actions) }
+  // deps: { t, esc, openTab(name), setMode(m), mode(), settings(), size(), apply(actions), voice }  (voice: createVoicePanel's API)
   G.createSearchPanel = function (deps) {
     const $ = (sel) => document.querySelector(sel);
     const { t, esc } = deps;
@@ -63,6 +63,8 @@
     const dialog = $('#searchDialog');
     const list = $('#searchList');
     const clear = $('#searchClear');
+    const mic = $('#searchMic');
+    const voiceMsg = $('#searchVoice');
     const byId = new Map(FEATURES.map((f) => [f.id, f]));
 
     let index = null;
@@ -71,6 +73,7 @@
     let completion = '';
     let commands = []; // actions parsed from the query (js/commands.js); one card at the top applies them all
     let hitTimer = 0;
+    let dictation = null; // the running voice capture, if any
 
     function buildIndex() {
       const text = (lang, key) => G.i18n.STRINGS[lang][`find.${key}`] || '';
@@ -104,6 +107,14 @@
         `<span class="search-opt-desc">${highlight(t(`find.${id}.d`), hits)}</span></div>`;
     }
 
+    // The query with its misspelt words fixed, but only when the fixed text means something (a command or a feature).
+    function autocorrect(text) {
+      const fix = G.search.correct(index, text);
+      if (!fix) return null;
+      const ctx = { settings: deps.settings(), size: deps.size() };
+      return G.commands.parse(fix, ctx).length || G.search.query(index, fix, { typing: false }).length ? fix : null;
+    }
+
     // What an action does, in words: "Chế độ trang: Tối".
     function commandLabel(a) {
       if (a.type === 'newGame') return t('cmd.size', { n: a.size });
@@ -131,7 +142,12 @@
       const text = input.value;
       const hasText = text.trim().length > 0;
       clear.hidden = !hasText;
-      const results = hasText ? G.search.query(index, text) : [];
+      let results = hasText ? G.search.query(index, text) : [];
+      let corrected = '';
+      if (hasText && !results.length) { // auto-correct: show what the fixed spelling finds
+        corrected = autocorrect(text) || '';
+        if (corrected) results = G.search.query(index, corrected, { typing: false });
+      }
       commands = hasText ? G.commands.parse(text, { settings: deps.settings(), size: deps.size() }) : [];
       const cmdRows = commands.length ? 1 : 0; // the card is option 0 and counts as one entry of `shown`
       let html = cmdRows ? commandCard() : '';
@@ -139,6 +155,7 @@
         shown = [...(cmdRows ? ['cmd'] : []), ...results.map((r) => r.id)];
         active = Math.min(Math.max(active, 0), shown.length - 1);
         if (cmdRows) html = commandCard();
+        if (corrected) html += `<p class="search-msg">${esc(t('find.showingFor', { q: corrected }))}</p>`;
         html += results.map((r, i) => option(r.id, i + cmdRows, r.hits)).join('');
       } else if (cmdRows) {
         shown = ['cmd'];
@@ -231,6 +248,14 @@
         syncActive();
       } else if (e.key === 'Enter') {
         e.preventDefault();
+        if (!commands.length) { // a misspelt command ("set bord 17x17"): show the corrected one first, a second Enter applies it
+          const fix = input.value.trim() && autocorrect(input.value);
+          if (fix && G.commands.parse(fix, { settings: deps.settings(), size: deps.size() }).length) {
+            input.value = fix;
+            active = 0;
+            return render();
+          }
+        }
         const id = shown[active >= 0 ? active : 0];
         if (id && (input.value.trim() || active >= 0)) jump(id);
       } else if (e.key === 'Tab' && completion && !e.shiftKey) {
@@ -266,12 +291,94 @@
     clear.addEventListener('click', () => { input.value = ''; input.focus(); render(); });
     // A click on the dimmed page (the dialog's own backdrop) closes it.
     dialog.addEventListener('mousedown', (e) => { if (e.target === dialog) dialog.close(); });
-    dialog.addEventListener('close', () => input.removeAttribute('aria-activedescendant'));
+    dialog.addEventListener('close', () => {
+      input.removeAttribute('aria-activedescendant');
+      if (dictation) dictation.stop();
+      say('');
+    });
     $('#searchBtn').addEventListener('click', open);
+
+    // ---------- fit to the visible screen ----------
+
+    const MIN_BODY = 96; // search box + one option must stay visible above the on-screen keyboard
+    const COMPACT_BELOW = 420; // visible height under which the hint line and option descriptions are dropped
+
+    // The on-screen keyboard shrinks the visual viewport but not `vh`, so the box is placed and sized from the visual
+    // viewport: it sits near the top, and when little room is left it moves up and hides the extras.
+    function fit() {
+      if (!dialog.open) return;
+      const vv = window.visualViewport;
+      const h = vv ? vv.height : window.innerHeight;
+      const top = (vv ? vv.offsetTop : 0) + Math.min(h * 0.1, Math.max(8, h - MIN_BODY - 130));
+      dialog.style.marginTop = `${Math.round(top)}px`;
+      dialog.style.maxHeight = `${Math.max(MIN_BODY + 52, Math.round(h - (top - (vv ? vv.offsetTop : 0)) - 8))}px`;
+      dialog.classList.toggle('compact', h < COMPACT_BELOW);
+      if (active >= 0) syncActive();
+    }
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', fit);
+      window.visualViewport.addEventListener('scroll', fit);
+    }
+    window.addEventListener('resize', fit);
+
+    // ---------- voice ----------
+
+    function say(text) {
+      voiceMsg.hidden = !text;
+      voiceMsg.textContent = text;
+    }
+
+    function setMic(on) {
+      mic.setAttribute('aria-pressed', String(on));
+      mic.classList.toggle('on', on);
+    }
+
+    // Click to start, click again to stop (it also stops by itself after a few seconds). The transcript goes into the
+    // box, spelling-corrected when needed, and is never applied without Enter.
+    async function toggleMic() {
+      if (dictation) return dictation.stop();
+      say(t('find.listening'));
+      let cap;
+      try {
+        cap = await deps.voice.dictate(deps.settings().lang);
+      } catch (err) {
+        return say(err.message);
+      }
+      dictation = cap;
+      setMic(true);
+      try {
+        const heard = await cap.text;
+        setMic(false);
+        say(t('find.transcribing'));
+        useTranscript(heard);
+      } catch (err) {
+        say(err.message);
+      } finally {
+        dictation = null;
+        setMic(false);
+      }
+    }
+
+    function useTranscript(heard) {
+      const text = heard.replace(/[.!?。…]+$/, '').trim();
+      if (!text) return say(t('voice.tooShort'));
+      if (!index) buildIndex();
+      const asIs = G.commands.parse(text, { settings: deps.settings(), size: deps.size() }).length;
+      input.value = asIs ? text : autocorrect(text) || text;
+      say(t('find.heard', { text }));
+      active = 0;
+      render();
+      input.focus();
+    }
+
+    mic.addEventListener('click', toggleMic);
 
     function open() {
       if (!dialog.open) dialog.showModal();
+      mic.hidden = !deps.voice.supported;
       active = 0;
+      fit();
       render();
       input.focus();
       input.select();
