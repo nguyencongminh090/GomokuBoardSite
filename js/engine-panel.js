@@ -429,7 +429,8 @@
 
     function renderOverlay() {
       const lines = result ? shownLines(result.lines) : [];
-      if (!lines.length) {
+      // Livestream view: no candidate markers or lines over the board, viewers must not see the engine's ideas.
+      if (!lines.length || app.view() === 'live') {
         app.board.setAnalysis(null);
         return;
       }

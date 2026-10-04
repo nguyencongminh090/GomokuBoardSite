@@ -22,6 +22,7 @@
     settings: () => settings,
     mode: () => mode,
     tab: () => tab,
+    view: () => settings.view,
     explainShown: () => explain.shown(),
     // Plays a stone for the side to move; `byHost` is false for the engine's own moves.
     play(x, y, byHost) {
@@ -101,8 +102,13 @@
     return cellText(n.x, n.y, g);
   }
 
-  function playerName(p) {
+  // The host's name for the player when one is set, else the symbol or colour (X / O, Black / White).
+  function defaultPlayerName(p) {
     return t(`player.${settings.theme}${p}`);
+  }
+
+  function playerName(p) {
+    return (game && game.players[p]) || defaultPlayerName(p);
   }
 
   // ---------- persistence ----------
@@ -234,9 +240,11 @@
     applyThemeVars();
     board.tool = tool;
     board.pending = pending;
-    board.render(game, settings, mode);
+    // The threat map is an analysis aid: viewers of a livestream never see it.
+    board.render(game, settings.view === 'live' ? { ...settings, threatMap: false } : settings, mode);
     document.body.classList.toggle('setup', mode === 'setup');
     renderPlayPanel();
+    renderPlayers();
     renderHeader();
     engine.render();
     explain.positionChanged();
@@ -256,6 +264,32 @@
     const input = $('#gameName');
     if (document.activeElement !== input) input.value = game.name;
     $('#sizeTag').textContent = `${game.size} × ${game.size}`;
+  }
+
+  // Name cards beside the board: the side to move is highlighted. A field being typed in is left alone.
+  function renderPlayers() {
+    const toMove = game.toMove();
+    for (const p of [0, 1]) {
+      const input = $(`#playerName${p}`);
+      input.placeholder = defaultPlayerName(p);
+      input.setAttribute('aria-label', t('players.nameOf', { name: defaultPlayerName(p) }));
+      if (document.activeElement !== input) input.value = game.players[p];
+      $(`#playerPiece${p}`).innerHTML = G.pieceIcon(p, settings);
+      input.closest('.player').classList.toggle('active', mode === 'play' && toMove === p);
+    }
+  }
+
+  for (const p of [0, 1]) {
+    const input = $(`#playerName${p}`);
+    input.addEventListener('input', () => {
+      game.players[p] = input.value.trim().slice(0, G.Game.MAX_PLAYER_NAME);
+      persist();
+      renderPlayPanel();
+      engine.render();
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === 'Escape') input.blur();
+    });
   }
 
   function renderPlayPanel() {
@@ -494,10 +528,21 @@
     }
   }
 
+  const ENGINE_TABS = ['versus', 'analyze'];
+
+  // Live shows board controls only; Analyse view adds the engine tabs and a wider panel (css/style.css).
+  function applyView() {
+    const live = settings.view === 'live';
+    document.body.classList.toggle('view-live', live);
+    document.body.classList.toggle('view-analyze', !live);
+    if (live && ENGINE_TABS.includes(tab)) selectTab('play');
+  }
+
   function settingsChanged() {
     store.saveSettings(settings);
     applyPageTheme();
     applyLanguage();
+    applyView();
     syncSettingsUI();
     refresh();
     engine.settingsChanged();
@@ -598,6 +643,7 @@
       return;
     }
     const next = G.Game.create(size, $('#newName').value.trim() || defaultName());
+    next.players = [...game.players]; // the same two people usually play the next game
     if ($('#newKeepWalls').checked) {
       for (const k of game.walls) next.walls.add(k);
       next.torus = game.torus;
@@ -712,16 +758,28 @@
     if (document.body.classList.contains('focus')) toggleFocus();
     selectTab('settings');
   });
+  // An engine tab is only visible in the Analyse view: switch to it first when something jumps there from Live.
+  function revealTab(name) {
+    if (!ENGINE_TABS.includes(name) || settings.view === 'analyze') return;
+    settings.view = 'analyze';
+    store.saveSettings(settings);
+    applyView();
+    syncSettingsUI();
+  }
+
   // Opens a panel from code (search jumps): the side panel is shown again if it was hidden.
   function openTab(name) {
     if (name === 'settings' && tab !== 'settings') tabBeforeSettings = tab;
+    revealTab(name);
     if (document.body.classList.contains('focus')) toggleFocus();
     selectTab(name);
   }
 
   document.addEventListener('click', (e) => {
     const b = e.target.closest('[data-goto-tab]');
-    if (b) selectTab(b.dataset.gotoTab);
+    if (!b) return;
+    revealTab(b.dataset.gotoTab);
+    selectTab(b.dataset.gotoTab);
   });
 
   for (const t of $$('[data-tab]')) t.addEventListener('click', () => selectTab(t.dataset.tab));
@@ -832,6 +890,7 @@
     $('#aboutVersion').textContent = G.VERSION;
     applyPageTheme();
     applyLanguage();
+    applyView();
     syncSettingsUI();
     openInitialGame();
     engine.start();

@@ -19,6 +19,10 @@
 
       'tab.play': 'Chơi',
       'tab.versus': 'Đấu máy',
+      'view.label': 'Chế độ giao diện',
+      'players.nameOf': ({ name }) => `Tên người chơi ${name}`,
+      'view.live': 'Live',
+      'view.analyze': 'Phân tích',
       'tab.analyze': 'Phân tích',
       'header.settings': 'Cài đặt và giới thiệu',
       'about.section': 'Giới thiệu',
@@ -537,6 +541,10 @@
 
       'tab.play': 'Play',
       'tab.versus': 'Vs engine',
+      'view.label': 'Interface mode',
+      'players.nameOf': ({ name }) => `Player name for ${name}`,
+      'view.live': 'Live',
+      'view.analyze': 'Analyse',
       'tab.analyze': 'Analyse',
       'header.settings': 'Settings and about',
       'about.section': 'About',

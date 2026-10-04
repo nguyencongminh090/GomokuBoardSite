@@ -391,9 +391,13 @@
         out.push(`<rect x="${m + last.x * P + 1}" y="${m + last.y * P + 1}" width="${P - 2}" height="${P - 2}" fill="${color}" opacity=".14"/>`);
       }
 
-      // Pieces
+      // Pieces. The piece that has just become the current move drops in (not again on a plain redraw).
+      const dropKey = game.cur > 0 ? `${game.id}:${game.cur}` : '';
+      const drop = dropKey !== '' && dropKey !== this.lastDrop;
+      this.lastDrop = dropKey;
       for (const [k, id] of pos) {
-        out.push(piece(game.player(id), c(k % n), c(Math.floor(k / n)), s, k));
+        const p = piece(game.player(id), c(k % n), c(Math.floor(k / n)), s, k);
+        out.push(drop && id === game.cur ? `<g class="drop">${p}</g>` : p);
       }
 
       // Move order numbers

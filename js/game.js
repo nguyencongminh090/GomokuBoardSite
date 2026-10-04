@@ -23,6 +23,9 @@
       this.size = size;
       this.id = typeof data.id === 'string' && data.id ? data.id : newId();
       this.name = typeof data.name === 'string' ? data.name.slice(0, 80) : '';
+      // Optional names of the two players (first player, second player), shown beside the board in Live view.
+      const names = Array.isArray(data.players) ? data.players : [];
+      this.players = [0, 1].map((i) => (typeof names[i] === 'string' ? names[i].trim().slice(0, Game.MAX_PLAYER_NAME) : ''));
       this.createdAt = Number(data.createdAt) || Date.now();
       this.updatedAt = Number(data.updatedAt) || this.createdAt;
 
@@ -74,6 +77,7 @@
         createdAt: this.createdAt,
         updatedAt: this.updatedAt,
         ...(this.torus ? { torus: true } : {}),
+        ...(this.players.some(Boolean) ? { players: [...this.players] } : {}),
         walls: [...this.walls].map((k) => [k % s, Math.floor(k / s)]),
         portals: this.portals.map(([a, b]) => [a % s, Math.floor(a / s), b % s, Math.floor(b / s)]),
         nodes: this.nodes.slice(1).map((n) => [n.parent, n.x, n.y]),
@@ -352,6 +356,7 @@
 
   Game.MIN_SIZE = MIN_SIZE;
   Game.MAX_SIZE = MAX_SIZE;
+  Game.MAX_PLAYER_NAME = 24;
   Game.MIN_PORTAL_DISTANCE = MIN_PORTAL_DISTANCE;
   G.Game = Game;
 })(window.Gomoku = window.Gomoku || {});

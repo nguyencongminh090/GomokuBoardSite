@@ -4,6 +4,7 @@
 
   G.DEFAULT_SETTINGS = {
     lang: 'vi', // 'vi' | 'en'
+    view: 'live', // 'live' (livestream: board controls only, no engine UI) | 'analyze' (engine tabs, wider panel)
     ui: 'light', // page theme: 'light' | 'dark' | 'auto' (follow the system)
     theme: 'paper', // board theme: 'paper' (cross & circle) | 'stone' (black & white)
     paper: {

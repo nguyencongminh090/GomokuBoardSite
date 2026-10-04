@@ -7,7 +7,7 @@
   <!-- Release version. Bump it with `node tools/bump-version.js <version>` before each deploy: it is added to
        every asset URL (?v=), so returning visitors never mix cached old files with new ones. -->
   <meta name="engine-gate" content="https://gomoku-engine-gate.nguyencongminh2247.workers.dev">
-  <meta name="app-version" content="1.10.2">
+  <meta name="app-version" content="1.10.3">
   <meta name="description" content="Bàn cờ caro cho livestream: nhánh nước đi, ô tường, giao diện tuỳ chỉnh và lưu ván trong trình duyệt.">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#dcb35c">
@@ -21,7 +21,7 @@
       document.documentElement.dataset.ui = dark ? 'dark' : 'light';
     } catch (e) { /* storage unavailable: CSS default applies */ }
   </script>
-  <link rel="stylesheet" href="css/style.css?v=1.10.2">
+  <link rel="stylesheet" href="css/style.css?v=1.10.3">
 </head>
 <body>
   <header class="topbar">
@@ -29,6 +29,10 @@
     <input id="gameName" class="game-name" data-i18n-attr="aria-label:header.gameName" maxlength="80" spellcheck="false">
     <span id="sizeTag" class="tag"></span>
     <div class="spacer"></div>
+    <div class="seg view-seg" role="group" data-i18n-attr="aria-label:view.label">
+      <button data-set="view:live" data-i18n="view.live"></button>
+      <button data-set="view:analyze" data-i18n="view.analyze"></button>
+    </div>
     <button id="searchBtn" class="ghost-btn icon-btn" aria-haspopup="dialog" data-i18n-attr="title:find.open;aria-label:find.open"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg></button>
     <button id="langBtn" class="ghost-btn icon-btn" title="Tiếng Việt / English">VI</button>
     <button id="settingsBtn" class="ghost-btn icon-btn" aria-pressed="false" data-i18n-attr="title:header.settings;aria-label:header.settings"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></button>
@@ -36,11 +40,24 @@
   </header>
 
   <main class="layout">
-    <section class="board-wrap" id="boardWrap">
-      <svg id="board" role="img" data-i18n-attr="aria-label:app.board"></svg>
-    </section>
+    <div class="stage">
+      <!-- Player names, shown in Live view (also when the panel is hidden): the side to move is highlighted -->
+      <div class="players" id="players">
+        <label class="player" data-player="0"><span class="player-piece" id="playerPiece0"></span><input id="playerName0" maxlength="24" spellcheck="false" autocomplete="off"></label>
+        <label class="player" data-player="1"><span class="player-piece" id="playerPiece1"></span><input id="playerName1" maxlength="24" spellcheck="false" autocomplete="off"></label>
+      </div>
+      <section class="board-wrap" id="boardWrap">
+        <svg id="board" role="img" data-i18n-attr="aria-label:app.board"></svg>
+      </section>
+    </div>
 
     <aside class="panel" id="panel">
+      <!-- Win chance bar: above the tabs so it stays visible on every Analyse-view tab -->
+      <div class="eval panel-eval" id="engEval" hidden>
+        <div class="eval-sides"><span id="engEvalP0"></span><span id="engEvalP1"></span></div>
+        <div class="eval-bar" aria-hidden="true"><span id="engEvalFill"></span></div>
+        <div class="muted small-text" id="engEvalText"></div>
+      </div>
       <nav class="tabs" role="tablist">
         <button role="tab" data-tab="play" aria-selected="true" data-i18n="tab.play"></button>
         <button role="tab" data-tab="versus" aria-selected="false" data-i18n="tab.versus"></button>
@@ -208,11 +225,6 @@
             <span><span data-i18n="eng.auto"></span><small data-i18n="eng.autoHelp"></small></span>
             <input type="checkbox" role="switch" class="switch" data-key="engine.auto">
           </label>
-          <div class="eval" id="engEval" hidden>
-            <div class="eval-sides"><span id="engEvalP0"></span><span id="engEvalP1"></span></div>
-            <div class="eval-bar" aria-hidden="true"><span id="engEvalFill"></span></div>
-            <div class="muted small-text" id="engEvalText"></div>
-          </div>
         </section>
 
         <section class="card">
@@ -510,24 +522,24 @@
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="js/i18n.js?v=1.10.2"></script>
-  <script src="js/contrast.js?v=1.10.2"></script>
-  <script src="js/coords.js?v=1.10.2"></script>
-  <script src="js/settings.js?v=1.10.2"></script>
-  <script src="js/game.js?v=1.10.2"></script>
-  <script src="js/security.js?v=1.10.2"></script>
-  <script src="js/storage.js?v=1.10.2"></script>
-  <script src="js/explain.js?v=1.10.2"></script>
-  <script src="js/board.js?v=1.10.2"></script>
-  <script src="js/engine.js?v=1.10.2"></script>
-  <script src="js/engine-panel.js?v=1.10.2"></script>
-  <script src="js/explain-panel.js?v=1.10.2"></script>
-  <script src="js/security-panel.js?v=1.10.2"></script>
-  <script src="js/voice.js?v=1.10.2"></script>
-  <script src="js/voice-panel.js?v=1.10.2"></script>
-  <script src="js/search.js?v=1.10.2"></script>
-  <script src="js/search-panel.js?v=1.10.2"></script>
-  <script src="js/install.js?v=1.10.2"></script>
-  <script src="js/main.js?v=1.10.2"></script>
+  <script src="js/i18n.js?v=1.10.3"></script>
+  <script src="js/contrast.js?v=1.10.3"></script>
+  <script src="js/coords.js?v=1.10.3"></script>
+  <script src="js/settings.js?v=1.10.3"></script>
+  <script src="js/game.js?v=1.10.3"></script>
+  <script src="js/security.js?v=1.10.3"></script>
+  <script src="js/storage.js?v=1.10.3"></script>
+  <script src="js/explain.js?v=1.10.3"></script>
+  <script src="js/board.js?v=1.10.3"></script>
+  <script src="js/engine.js?v=1.10.3"></script>
+  <script src="js/engine-panel.js?v=1.10.3"></script>
+  <script src="js/explain-panel.js?v=1.10.3"></script>
+  <script src="js/security-panel.js?v=1.10.3"></script>
+  <script src="js/voice.js?v=1.10.3"></script>
+  <script src="js/voice-panel.js?v=1.10.3"></script>
+  <script src="js/search.js?v=1.10.3"></script>
+  <script src="js/search-panel.js?v=1.10.3"></script>
+  <script src="js/install.js?v=1.10.3"></script>
+  <script src="js/main.js?v=1.10.3"></script>
 </body>
 </html>

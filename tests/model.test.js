@@ -524,6 +524,17 @@ test('a second pair can be placed once the first exists, cell by cell', () => {
   assert.equal(g.portals.length, 2);
 });
 
+test('player names are optional, trimmed, capped and survive a JSON round trip', () => {
+  const g = G.Game.create(15, 'x');
+  assert.equal('players' in g.toJSON(), false);
+  g.players = ['  An  ', 'B'.repeat(40)];
+  const j = JSON.parse(JSON.stringify(g.toJSON()));
+  const back = new G.Game(j);
+  assert.deepEqual(back.players, ['An', 'B'.repeat(24)]);
+  assert.deepEqual(new G.Game({ size: 15, players: [5, null] }).players, ['', '']);
+  assert.deepEqual(new G.Game({ size: 15, players: 'junk' }).players, ['', '']);
+});
+
 test('portals survive a JSON round trip and bad pairs in stored data are dropped', () => {
   const g = G.Game.create(15, 't');
   g.addPortal(2, 2, 10, 10);

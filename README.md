@@ -104,6 +104,7 @@ new release at once instead of a mix of old and new files. The current version i
   "walls": [[3, 3], [11, 11]],
   "portals": [[2, 2, 10, 11]],
   "torus": true,
+  "players": ["An", "Binh"],
   "nodes": [[0, 7, 7], [1, 8, 7], [1, 6, 6]],
   "prefs": [1, 2, -1, -1],
   "cur": 2
@@ -111,7 +112,7 @@ new release at once instead of a mix of old and new files. The current version i
 ```
 
 `x` and `y` are 0-based with the origin at the top-left. `portals` entries are `[ax, ay, bx, by]`
-(optional: older saves have none; pairs that break the placement rules are dropped on load). `torus` is optional
+(optional: older saves have none; pairs that break the placement rules are dropped on load). `players` (first and second player names, up to 24 characters) is optional and written only when a name is set. `torus` is optional
 and written only when `true`; portal distances are then measured across the seam. `nodes[i]` is node `i + 1` as
 `[parent, x, y]`; node 0 is the empty board. `prefs[n]` is the child that Forward follows from
 node `n` (`-1` when there is none). `cur` is the node currently shown.
