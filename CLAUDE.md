@@ -51,7 +51,7 @@ Use a scratch `--user-data-dir` so the test run doesn't share localStorage with 
 
 ## Architecture
 
-The scripts are classic `<script>` tags, loaded in dependency order in `index.html`: `i18n → contrast → coords → settings → game → security → storage → explain → board → engine → engine-panel → explain-panel → security-panel → voice → voice-panel → search → search-panel → install → main`.
+The scripts are classic `<script>` tags, loaded in dependency order in `index.html`: `i18n → contrast → coords → settings → game → security → storage → explain → board → engine → engine-panel → explain-panel → security-panel → voice → voice-panel → search → commands → search-panel → install → main`.
 Each is an IIFE that attaches to the global namespace `window.Gomoku` (`G`). Keep it that way: ES modules would break
 `file://` use, and `tests/model.test.js` loads `coords.js`/`game.js`/`security.js`/`explain.js`/`engine.js` by `eval` with a stub `window`, so
 those files must stay free of DOM access at load time (`engine.js` touches `Worker` only when a load is requested).
@@ -164,6 +164,10 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
   (`complete`) and "did you mean" (`correct`). `FEATURES` in `search-panel.js` maps each id to a tab and `targets` (first visible
   selector wins; `before: 'setup'` enters Setup mode first). A new feature needs a row there plus `find.<id>`, `.d` and `.k`
   (`;`-separated keywords and synonyms) in **both** languages; a test checks the strings and that `#id` / `data-*` targets exist.
+- **Search commands** (`js/commands.js`, `G.commands.parse(text, { settings, size })`): the same search box also applies settings
+  ("set board 17x17", "bật chế độ tối", "strength 70", "hide last move"). DOM-free: it only returns actions (`set`, `preset`, `newGame`,
+  `error`); `applyCommands` in `main.js` applies them through `settingsChanged()` / `startGame()`. Clauses split at "and/và/,"; the first
+  matching rule per clause wins. Board size is per game, so a size command starts a new game. A new rule needs `cmd.name.<id>` in both languages.
 - **Voice moves** (`js/voice.js` model, `js/voice-panel.js` UI): hold the mic button or V, say a cell. The clip goes to Groq's
   `whisper-large-v3` (free tier, `language=vi`, `temperature=0`; 82% right on spoken cell numbers in `tools/voice-proto`, Web Speech
   64%), and `G.voice.parseCell(text, size)` turns the text into a cell: edge labels (`H8`, `hát tám`) or spiral numbers (`ba mươi bảy`),

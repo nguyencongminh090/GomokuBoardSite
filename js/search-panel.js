@@ -54,7 +54,7 @@
   const POPULAR = ['cell', 'voice', 'walls', 'colors', 'engine', 'export'];
   const WHERE = { play: 'find.where.play', analyze: 'find.where.analyze', games: 'find.where.games', settings: 'find.where.settings' };
 
-  // deps: { t, esc, openTab(name), setMode(m), mode() }
+  // deps: { t, esc, openTab(name), setMode(m), mode(), settings(), size(), apply(actions) }
   G.createSearchPanel = function (deps) {
     const $ = (sel) => document.querySelector(sel);
     const { t, esc } = deps;
@@ -69,6 +69,7 @@
     let shown = []; // feature ids in the list, in order
     let active = -1;
     let completion = '';
+    let commands = []; // actions parsed from the query (js/commands.js); one card at the top applies them all
     let hitTimer = 0;
 
     function buildIndex() {
@@ -103,17 +104,46 @@
         `<span class="search-opt-desc">${highlight(t(`find.${id}.d`), hits)}</span></div>`;
     }
 
+    // What an action does, in words: "Chế độ trang: Tối".
+    function commandLabel(a) {
+      if (a.type === 'newGame') return t('cmd.size', { n: a.size });
+      if (a.type === 'preset') return t('cmd.preset', { name: t(`preset.${a.name}`) });
+      if (a.type === 'error') return t(a.key, a.params);
+      const v = a.valueKey ? t(a.valueKey) : typeof a.value === 'boolean' ? t(a.value ? 'cmd.on' : 'cmd.off') : a.text || String(a.value);
+      return t('cmd.set', { name: t(`cmd.name.${a.id}`), v });
+    }
+
+    function commandCard() {
+      const rows = commands.map((a) => {
+        const bad = a.type === 'error';
+        const note = a.same ? ` <span class="search-opt-where">${esc(t('cmd.already'))}</span>` : '';
+        return `<li class="${bad ? 'cmd-bad' : ''}">${esc(commandLabel(a))}${note}</li>`;
+      }).join('');
+      const doable = commands.some((a) => !a.same && a.type !== 'error');
+      return `<div class="search-head">${esc(t('cmd.head'))}</div>` +
+        `<div class="search-opt search-cmd" role="option" id="searchOpt0" data-id="cmd" aria-selected="${active === 0}" aria-disabled="${!doable}">` +
+        `<ul class="search-cmd-list">${rows}</ul>` +
+        `${doable ? `<span class="search-opt-where">${esc(t('cmd.hint'))}</span>` : ''}</div>`;
+    }
+
     function render() {
       if (!index) buildIndex();
       const text = input.value;
       const hasText = text.trim().length > 0;
       clear.hidden = !hasText;
       const results = hasText ? G.search.query(index, text) : [];
-      let html = '';
+      commands = hasText ? G.commands.parse(text, { settings: deps.settings(), size: deps.size() }) : [];
+      const cmdRows = commands.length ? 1 : 0; // the card is option 0 and counts as one entry of `shown`
+      let html = cmdRows ? commandCard() : '';
       if (hasText && results.length) {
-        shown = results.map((r) => r.id);
+        shown = [...(cmdRows ? ['cmd'] : []), ...results.map((r) => r.id)];
         active = Math.min(Math.max(active, 0), shown.length - 1);
-        html = results.map((r, i) => option(r.id, i, r.hits)).join('');
+        if (cmdRows) html = commandCard();
+        html += results.map((r, i) => option(r.id, i + cmdRows, r.hits)).join('');
+      } else if (cmdRows) {
+        shown = ['cmd'];
+        active = 0;
+        html = commandCard();
       } else {
         shown = POPULAR;
         active = hasText ? -1 : Math.max(active, -1);
@@ -160,7 +190,15 @@
       return el.getClientRects().length > 0;
     }
 
+    // Applies the parsed commands and closes the dialog; with nothing to do the dialog stays (the card says why).
+    function runCommands() {
+      if (!commands.some((a) => !a.same && a.type !== 'error')) return;
+      dialog.close();
+      deps.apply(commands);
+    }
+
     function jump(id) {
+      if (id === 'cmd') return runCommands();
       const f = byId.get(id);
       if (!f) return;
       if (f.before === 'setup' && deps.mode() !== 'setup') deps.setMode('setup');

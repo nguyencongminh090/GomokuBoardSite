@@ -8,7 +8,7 @@ const path = require('path');
 const assert = require('assert');
 
 global.window = {};
-for (const f of ['js/i18n.js', 'js/contrast.js', 'js/coords.js', 'js/voice.js', 'js/settings.js', 'js/game.js', 'js/security.js', 'js/explain.js', 'js/engine.js', 'js/search.js', 'js/search-panel.js']) {
+for (const f of ['js/i18n.js', 'js/contrast.js', 'js/coords.js', 'js/voice.js', 'js/settings.js', 'js/game.js', 'js/security.js', 'js/explain.js', 'js/engine.js', 'js/search.js', 'js/commands.js', 'js/search-panel.js']) {
   eval(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'));
 }
 const G = window.Gomoku;
@@ -764,4 +764,77 @@ test('search returns nothing for gibberish and empty input', () => {
   const ix = searchIndex();
   assert.deepEqual(G.search.query(ix, ''), []);
   assert.deepEqual(G.search.query(ix, 'zzqxj'), []);
+});
+
+// ---------- search commands ----------
+
+const cmd = (text, size = 15, over = {}) => G.commands.parse(text, { settings: { ...structuredClone(G.DEFAULT_SETTINGS), ...over }, size });
+const one = (text, size, over) => {
+  const r = cmd(text, size, over);
+  assert.equal(r.length, 1, `${text}: ${JSON.stringify(r)}`);
+  return r[0];
+};
+
+test('commands: board size from "set board 17x17" in both languages', () => {
+  assert.deepEqual([one('set board 17x17').type, one('set board 17x17').size], ['newGame', 17]);
+  assert.equal(one('đổi cỡ bàn cờ thành 19').size, 19);
+  assert.equal(one('bàn 20 × 20').size, 20);
+  assert.equal(one('board size 15', 15).same, true);
+  assert.equal(one('board 3x3').type, 'error');
+  assert.equal(one('board 17x19').key, 'cmd.notSquare');
+  assert.deepEqual(cmd('cell input'), []);
+});
+
+test('commands: switches take on/off words or flip', () => {
+  assert.equal(one('show move numbers').value, true);
+  assert.equal(one('tắt số nước').value, false);
+  assert.equal(one('hide last move').value, false);
+  assert.equal(one('threat map').value, true, 'no verb flips off -> on');
+  assert.equal(one('threat map', 15, { threatMap: true }).value, false);
+  assert.equal(one('bật xác nhận giọng nói').path, 'voice.confirm');
+});
+
+test('commands: page theme, language, view, coordinates, styles', () => {
+  assert.equal(one('dark mode').value, 'dark');
+  assert.equal(one('bật chế độ tối').value, 'dark');
+  assert.equal(one('tắt chế độ tối').value, 'light');
+  assert.equal(one('chế độ sáng').value, 'light');
+  assert.equal(one('english').value, 'en');
+  assert.equal(one('đổi sang tiếng Việt').value, 'vi');
+  assert.equal(one('switch to analyse mode').value, 'analyze');
+  assert.equal(one('chuyển sang chế độ live').value, 'live');
+  assert.equal(one('coordinates as cell numbers').value, 'cell');
+  assert.equal(one('tọa độ chữ cái').value, 'edge');
+  assert.equal(one('stone board').value, 'stone');
+  assert.equal(one('hand drawn symbols').value, 'hand');
+  assert.equal(one('flat stones').value, 'flat');
+});
+
+test('commands: engine numbers are clamped, rule and strength words work', () => {
+  assert.equal(one('engine strength 70').value, 70);
+  assert.equal(one('strength 500').value, 100);
+  assert.equal(one('độ khó dễ').value, 20);
+  assert.equal(one('engine move time 3 seconds').path, 'engine.moveTime');
+  assert.equal(one('analysis time 0').path, 'engine.analysisTime');
+  assert.equal(one('depth 1').value, 2);
+  assert.equal(one('renju rule').value, '4');
+  assert.equal(one('luật chuẩn').value, '1');
+});
+
+test('commands: presets and several commands in one sentence', () => {
+  const p = one('kraft');
+  assert.deepEqual([p.type, p.theme, p.name], ['preset', 'paper', 'Kraft']);
+  assert.equal(one('slate preset').theme, 'stone');
+  assert.equal(one('đổi sang giấy kraft').name, 'Kraft');
+  const many = cmd('dark mode and board 19x19, show move numbers');
+  assert.deepEqual(many.map((a) => a.id || a.type), ['ui', 'newGame', 'moveNumbers']);
+  assert.deepEqual(cmd('how do I change colours'), []);
+});
+
+test('commands: every action label has a string in every language', () => {
+  const ids = new Set([...'ui theme symbols stones coords lang view rule analysisTime moveTime strength threads nbest depth'.split(' '), 'moveNumbers', 'lastMove', 'threatMap', 'voiceConfirm', 'signExports', 'autoload', 'multi', 'autoAnalyze']);
+  for (const lang of G.i18n.LANGS) {
+    for (const id of ids) assert(G.i18n.STRINGS[lang][`cmd.name.${id}`], `${lang} cmd.name.${id}`);
+    for (const k of ['cmd.set', 'cmd.size', 'cmd.preset', 'cmd.already', 'cmd.on', 'cmd.off', 'cmd.notSquare', 'cmd.apply', 'cmd.done']) assert(G.i18n.STRINGS[lang][k], `${lang} ${k}`);
+  }
 });

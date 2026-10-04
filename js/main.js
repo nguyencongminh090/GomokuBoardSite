@@ -66,6 +66,9 @@
     openTab: (name) => openTab(name),
     setMode: (m) => setMode(m),
     mode: () => mode,
+    settings: () => settings,
+    size: () => game.size,
+    apply: (actions) => applyCommands(actions),
   });
 
   const security = G.createSecurityPanel({ esc, toast, settings: () => settings, engineStop: () => engine.unload() });
@@ -642,9 +645,14 @@
       toast(t('new.badSize', { min: G.Game.MIN_SIZE, max: G.Game.MAX_SIZE }));
       return;
     }
-    const next = G.Game.create(size, $('#newName').value.trim() || defaultName());
+    startGame(size, $('#newName').value.trim() || defaultName(), $('#newKeepWalls').checked);
+  });
+
+  // An empty game of `size`; the names carry over, and so do walls, portals and torus when `keep` (same size only).
+  function startGame(size, name, keep) {
+    const next = G.Game.create(size, name);
     next.players = [...game.players]; // the same two people usually play the next game
-    if ($('#newKeepWalls').checked) {
+    if (keep) {
       for (const k of game.walls) next.walls.add(k);
       next.torus = game.torus;
       next.portals = game.portals.map((p) => [...p]);
@@ -652,7 +660,27 @@
     dropIfEmpty();
     openGame(next);
     toast(t('new.started', { size }));
-  });
+  }
+
+  // Search-bar commands (js/commands.js): `actions` come from G.commands.parse. Returns how many changed something.
+  function applyCommands(actions) {
+    let n = 0;
+    let size = 0;
+    for (const a of actions) {
+      if (a.same || a.type === 'error') continue;
+      n++;
+      if (a.type === 'set') setPath(settings, a.path, a.value);
+      else if (a.type === 'preset') {
+        const { name, ...values } = G.PRESETS[a.theme][a.index];
+        settings.theme = a.theme;
+        Object.assign(settings[a.theme], values);
+      } else if (a.type === 'newGame') size = a.size;
+    }
+    if (n) settingsChanged();
+    if (size) startGame(size, defaultName(), false);
+    else if (n) toast(t('cmd.done', { n }));
+    return n;
+  }
 
   // ---------- games tab ----------
 
