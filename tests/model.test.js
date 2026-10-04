@@ -693,6 +693,13 @@ test('voice: a phrase names a cell by label or by spiral number, on any board si
   // a real syllable that only sounds like the number word is recovered, but only when what was heard is no cell
   for (const [text, same] of [['xáu', 'sáu'], ['hai chăm', 'hai trăm'], ['hai mươi nhăm', 'hai mươi lăm'], ['bóng', 'bốn']]) assert.deepEqual(G.voice.parseCell(text, 15), G.voice.parseCell(same, 15), text);
   assert.equal(G.voice.parseCell('hơn', 15), null);
+  // after a column letter a word one letter off a number word is that number ("hắc tém"), unless it fits two
+  for (const [text, want] of [['Hắc Tém', 'H8'], ['hát bảy', 'H7'], ['bờ mười lăm', 'B15'], ['hờ chin', 'H9']]) assert.equal(cell(text), want, text);
+  // a letter that only sounds like a name counts when it is a column of the board; two-word names ("em mờ") work too
+  for (const [text, want] of [['hắc thăm', 'H8'], ['bơ tám', 'B8'], ['em mờ năm', 'M5'], ['e lờ chín', 'L9'], ['hắt tám', 'H8']]) assert.equal(cell(text), want, text);
+  assert.equal(G.voice.parseCell('ba năm', 15).kind, 'number'); // 35 beats "bê năm" misheard
+  assert.equal(cell('ích xì ba'), null); // X is no column of a 15x15 board
+  for (const text of ['hát ban', 'bạn ngủ rồi']) assert.equal(cell(text), null, text);
   assert.notEqual(G.voice.parseCell('một trăm', 10), null); // 100 is the last cell of a 10x10 board
   assert.equal(G.voice.parseCell('một trăm lẻ một', 10), null);
 });
