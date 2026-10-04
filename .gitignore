@@ -3,3 +3,14 @@ gate/node_modules/
 gate/.wrangler/
 gate/.dev.vars
 engine/rapfi-*
+
+# frontend skills copied from SKILLS_TREE (local only)
+.claude/skills/design/
+.claude/skills/design-system/
+.claude/skills/design-workflow/
+.claude/skills/frontend-design/
+.claude/skills/frontend-design-anthropic/
+.claude/skills/high-end-visual-design/
+.claude/skills/minimalist-ui/
+.claude/skills/ui-ux-pro-max/
+.claude/skills/ux-audit/

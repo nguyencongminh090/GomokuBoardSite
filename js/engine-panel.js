@@ -330,7 +330,16 @@
       $('#engOffText').textContent = G.engineSupport.unsupportedReason()
         ? t(G.engineSupport.unsupportedReason())
         : client.state === 'loading' ? stateText() : t('eng.offText');
-      if (!ready) return;
+      // Play stays free of engine controls; this chip is its only sign that the engine moves for a side.
+      const side = engineSettings().side;
+      $('#engChip').hidden = !ready || side === 'none';
+      if (!$('#engChip').hidden) $('#engChip').textContent = t('eng.chip', { name: app.playerName(Number(side)) });
+      if (!ready) {
+        $('#engAnalyze').disabled = true;
+        $('#engEval').hidden = true;
+        for (const b of document.querySelectorAll('.eng-stop')) b.disabled = true;
+        return;
+      }
 
       $('#engSide0').textContent = t('eng.side.player', { name: app.playerName(0) });
       $('#engSide1').textContent = t('eng.side.player', { name: app.playerName(1) });
@@ -342,7 +351,7 @@
       $('#engMove').disabled = !can;
       $('#engSelfDist').disabled = !can;
       $('#engOppDist').disabled = !can;
-      $('#engStop').disabled = !busy();
+      for (const b of document.querySelectorAll('.eng-stop')) b.disabled = !busy();
       $('#engAnalyze').classList.toggle('on', busy() && client.job && client.job.kind === 'analyze');
       $('#engSelfDistHelp').textContent = t('eng.selfDistHelp', { n: engineSettings().selfDist });
       $('#engOppDistHelp').textContent = t('eng.oppDistHelp', { n: engineSettings().oppDist });
@@ -351,9 +360,7 @@
       renderEval(lines[0]);
       const table = $('#engLines');
       table.hidden = !lines.length;
-      $('#engLegend').hidden = !lines.length;
       $('#engResultsEmpty').hidden = !!lines.length;
-      $('#engMore').hidden = !lines.length || app.tab() === 'analyze';
       // The rows are rebuilt on every search update: keep keyboard focus on the same row's button.
       const focused = table.contains(document.activeElement) ? document.activeElement.dataset.engplay : undefined;
       table.querySelector('tbody').innerHTML = lines.map((l, i) => {
@@ -480,7 +487,7 @@
     $('#engUnload').addEventListener('click', unload);
     $('#engAnalyze').addEventListener('click', analyze);
     $('#engMove').addEventListener('click', engineMove);
-    $('#engStop').addEventListener('click', stop);
+    for (const b of document.querySelectorAll('.eng-stop')) b.addEventListener('click', stop);
     $('#engSelfDist').addEventListener('click', () => search('move', `YXPLAYSELF ${engineSettings().selfDist}`));
     $('#engOppDist').addEventListener('click', () => search('move', `YXOPPDIST ${engineSettings().oppDist}`));
     $('#engClearHash').addEventListener('click', () => client.state === 'idle' && client.send('YXHASHCLEAR'));

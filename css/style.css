@@ -17,7 +17,8 @@
   --danger-soft: rgba(201, 48, 44, .07);
   --ok: #1d7a3e;
   --shadow: 0 1px 2px rgba(20, 24, 32, .06);
-  --radius: 10px;
+  --lift: 0 -6px 18px rgba(20, 24, 32, .08);
+  --radius: 14px;
   --p0: #d6383a;
   --p1: #2764d1;
   color-scheme: light;
@@ -38,6 +39,7 @@
   --danger-soft: rgba(229, 83, 75, .1);
   --ok: #57c27d;
   --shadow: none;
+  --lift: 0 -6px 18px rgba(0, 0, 0, .35);
   color-scheme: dark;
 }
 
@@ -66,13 +68,14 @@ button, .btn {
   gap: 6px;
   padding: 8px 12px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 12px;
   background: var(--surface-2);
   cursor: pointer;
   user-select: none;
-  transition: background .12s, border-color .12s;
+  transition: background .16s, border-color .16s, transform .16s;
 }
 button:hover:not(:disabled), .btn:hover { background: var(--surface-3); }
+button:active:not(:disabled) { transform: scale(.97); }
 button:disabled { opacity: .55; cursor: default; }
 button:focus-visible, .btn:focus-within, input:focus-visible, select:focus-visible {
   outline: 2px solid var(--accent-text);
@@ -81,7 +84,7 @@ button:focus-visible, .btn:focus-within, input:focus-visible, select:focus-visib
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
 button.primary:hover:not(:disabled) { background: var(--accent-hover); }
 button.danger { color: var(--danger); }
-button.small, .btn.small { padding: 5px 10px; font-size: 13px; }
+button.small, .btn.small { padding: 6px 12px; font-size: 13px; }
 button.wide { width: 100%; }
 
 input[type="color"] { width: 44px; height: 30px; padding: 2px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); cursor: pointer; }
@@ -93,7 +96,7 @@ select, input[type="number"], .field input:not([type]) {
 }
 
 .muted { color: var(--muted); }
-.small-text { font-size: 12px; }
+.small-text { font-size: 13px; }
 
 /* Top bar */
 .topbar {
@@ -115,16 +118,20 @@ select, input[type="number"], .field input:not([type]) {
 .game-name {
   min-width: 0;
   width: 280px;
-  padding: 5px 8px;
+  padding: 7px 14px;
   border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
+  border-radius: 999px;
+  background: var(--surface-2);
   font-weight: 600;
 }
-.game-name:hover, .game-name:focus { border-color: var(--border); background: var(--surface-2); }
+.game-name:hover, .game-name:focus { border-color: var(--border); background: var(--surface); }
 .tag { padding: 2px 8px; border-radius: 999px; background: var(--surface-3); color: var(--muted); font-size: 12px; white-space: nowrap; }
 .spacer { flex: 1; }
 .ghost-btn { background: transparent; }
+.icon-btn { width: 40px; height: 40px; padding: 0; border-color: transparent; border-radius: 50%; font-weight: 600; font-size: 13px; }
+.icon-btn:hover:not(:disabled) { background: var(--surface-2); }
+.icon-btn[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-text); }
+.ico { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
 /* Layout */
 .layout {
@@ -217,7 +224,7 @@ body.focus .panel { display: none; }
   border-bottom: 2px solid transparent;
   background: transparent;
   color: var(--muted);
-  padding: 11px 8px;
+  padding: 11px 6px;
   white-space: nowrap;
 }
 .tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
@@ -265,21 +272,21 @@ body.focus .panel { display: none; }
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 10px 14px;
   border-radius: var(--radius);
   background: var(--surface-2);
 }
 .turn-piece {
   flex: none;
   width: 44px; height: 44px;
-  border-radius: 8px;
+  border-radius: 12px;
   background: var(--turn-bg, #fbf8f1);
 }
 .turn-piece svg { width: 100%; height: 100%; display: block; }
 .turn-label { font-size: 17px; font-weight: 700; }
 
-.seg { display: flex; padding: 3px; gap: 3px; border-radius: 9px; background: var(--surface-2); border: 1px solid var(--border); }
-.seg button { flex: 1; border: 0; background: transparent; color: var(--muted); padding: 6px 8px; }
+.seg { display: flex; padding: 3px; gap: 3px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--border); }
+.seg button { flex: 1; border: 0; border-radius: 11px; background: transparent; color: var(--muted); padding: 7px 8px; }
 .seg button.on { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: var(--shadow), 0 0 0 1px var(--border); }
 :root[data-ui="dark"] .seg button.on { background: var(--surface-3); box-shadow: none; }
 
@@ -292,14 +299,34 @@ body.focus .panel { display: none; }
 .setup-help p { margin: 0 0 8px; }
 .row-between { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 
-.nav-row { display: grid; grid-template-columns: auto 1fr 1fr auto; gap: 6px; }
-.nav-row button { padding: 10px 12px; }
+.nav-row { display: grid; grid-template-columns: auto 1fr 1fr auto; gap: 8px; }
+.nav-row button { min-height: 44px; padding: 10px 14px; }
+.nav-row .nav-main { font-size: 15px; font-weight: 600; }
 
-.block h3 { margin: 4px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); font-weight: 600; }
+/* Move dock: cell entry, voice and stepping. Fixed to the bottom of the screen on phones (see the media query). */
+.dock { display: flex; flex-direction: column; gap: 10px; }
+.cell-form, .voice-block { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+.cell-row { display: flex; gap: 8px; }
+.cell-row input { flex: 1; min-width: 0; min-height: 44px; padding: 8px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.cell-row button { min-height: 44px; padding: 8px 20px; }
+.nav-row button.soft, #micBtn.soft { background: var(--surface-2); }
+button.primary:disabled { background: var(--surface-3); border-color: var(--border); color: var(--muted); opacity: 1; }
+button.soft:disabled { opacity: .5; }
+button.quiet { background: transparent; border-style: dashed; color: var(--muted); }
+button.quiet:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+#back::before, #forward::after, #micBtn::before {
+  content: ""; width: 18px; height: 18px; flex: none; background: currentColor;
+  -webkit-mask: var(--glyph) center / contain no-repeat; mask: var(--glyph) center / contain no-repeat;
+}
+#back { --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m15 5-7 7 7 7'/%3E%3C/svg%3E"); }
+#forward { --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 5 7 7-7 7'/%3E%3C/svg%3E"); }
+#micBtn { --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='3' width='6' height='11' rx='3'/%3E%3Cpath d='M5 11a7 7 0 0 0 14 0M12 18v3'/%3E%3C/svg%3E"); }
+
+.block h3 { margin: 4px 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); font-weight: 700; }
 .block h3 .muted { text-transform: none; letter-spacing: 0; font-weight: 400; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chips button { padding: 4px 10px; font-size: 13px; border-radius: 999px; }
+.chips button { padding: 5px 12px; font-size: 13px; border-radius: 999px; }
 .chips button.on { border-color: var(--accent-text); color: var(--accent-text); }
 .chips b { color: var(--accent-text); }
 
@@ -364,7 +391,6 @@ kbd {
 .pv-table tr.on td { background: var(--accent-soft); }
 .atk { display: inline-block; padding: 0 4px; margin-right: 4px; border-radius: 3px; background: #b91c1c; color: #fff; font-size: 10px; font-weight: 700; }
 .atk.VCT { background: #7c3aed; }
-.pv-legend { margin: 6px 0 0; }
 .atk.counter { background: #0f766e; }
 .pvm.pvx { font-style: italic; }
 .pvm { cursor: default; border-radius: 3px; }
@@ -631,7 +657,14 @@ dialog .field input:not([type="checkbox"]) { width: 180px; }
   #board { height: auto; }
   .panel { border-left: 0; border-top: 1px solid var(--border); overflow: visible; }
   .brand { display: none; }
+  .topbar { gap: 4px; padding: 6px 10px; }
   .game-name { width: auto; flex: 1; }
+  /* Keep the move controls on screen while the rest of the panel scrolls under them. */
+  .dock {
+    position: sticky; bottom: 0; z-index: 2;
+    margin: 0 -16px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+    background: var(--surface); box-shadow: var(--lift);
+  }
   /* Panel hidden: exactly one screen tall, with the board centred in the space under the top bar. */
   body.focus { height: 100vh; height: 100dvh; }
   body.focus .board-wrap { padding: 0; }
@@ -657,11 +690,7 @@ dialog .field input:not([type="checkbox"]) { width: 180px; }
 .about-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
 
 /* Voice moves: hold-to-talk button in the Play tab */
-.cell-form { display: grid; gap: 6px; }
-.cell-row { display: flex; gap: 6px; }
-.cell-row input { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
-.voice-block { display: grid; gap: 6px; }
-#micBtn { padding: 12px; touch-action: none; user-select: none; }
+#micBtn { min-height: 44px; padding: 10px 14px; touch-action: none; user-select: none; }
 #micBtn.on { border-color: var(--danger); box-shadow: 0 0 0 3px var(--danger-soft), 0 0 0 2px var(--danger); font-weight: 600; }
 
 /* Panel structure: three tabs, the gear opens Settings, rarely used controls are folded away */
@@ -681,3 +710,8 @@ dialog .field input:not([type="checkbox"]) { width: 180px; }
 #engMore { align-self: flex-start; }
 /* About is folded inside a card: its sections are flat blocks, not cards inside a card. */
 .about-card > .card { margin-top: 12px; padding: 12px 0 0; border: 0; border-top: 1px solid var(--border); border-radius: 0; background: none; box-shadow: none; }
+
+/* Play shows the engine only as this chip; Versus holds the controls. */
+.chip-btn { align-self: flex-start; padding: 5px 12px; border-radius: 999px; border-color: var(--accent-text); background: var(--accent-soft); color: var(--accent-text); font-size: 13px; font-weight: 600; }
+.chip-btn:hover:not(:disabled) { background: var(--accent-soft); filter: brightness(.96); }
+.seg-stack { flex-direction: column; border-radius: 14px; }

@@ -473,7 +473,7 @@
     G.i18n.setLang(settings.lang);
     G.i18n.apply();
     $('#langBtn').textContent = settings.lang === 'vi' ? 'VI' : 'EN';
-    $('#focusBtn').textContent = t(document.body.classList.contains('focus') ? 'header.showPanel' : 'header.hidePanel');
+    renderFocusBtn();
     install.refresh();
     voice.renderKey();
     search.render();
@@ -785,9 +785,16 @@
     if (e.key === 'Enter' || e.key === 'Escape') e.target.blur();
   });
 
+  // The button is an icon: its name (hide or show) lives in aria-label.
+  function renderFocusBtn() {
+    const on = document.body.classList.contains('focus');
+    $('#focusBtn').setAttribute('aria-label', t(on ? 'header.showPanel' : 'header.hidePanel'));
+    $('#focusBtn').setAttribute('aria-pressed', String(on));
+  }
+
   function toggleFocus() {
-    const on = document.body.classList.toggle('focus');
-    $('#focusBtn').textContent = t(on ? 'header.showPanel' : 'header.hidePanel');
+    document.body.classList.toggle('focus');
+    renderFocusBtn();
   }
   $('#focusBtn').addEventListener('click', toggleFocus);
 
