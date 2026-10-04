@@ -71,6 +71,7 @@
     let shown = []; // feature ids in the list, in order
     let active = -1;
     let completion = '';
+    let gathered = false; // Enter on a small screen: the keyboard is closed and all matches are listed
     let commands = []; // actions parsed from the query (js/commands.js); one card at the top applies them all
     let hitTimer = 0;
     let dictation = null; // the running voice capture, if any
@@ -155,6 +156,7 @@
         shown = [...(cmdRows ? ['cmd'] : []), ...results.map((r) => r.id)];
         active = Math.min(Math.max(active, 0), shown.length - 1);
         if (cmdRows) html = commandCard();
+        if (gathered) html += `<div class="search-head">${esc(t('find.gathered', { n: results.length, q: corrected || text.trim() }))}</div>`;
         if (corrected) html += `<p class="search-msg">${esc(t('find.showingFor', { q: corrected }))}</p>`;
         html += results.map((r, i) => option(r.id, i + cmdRows, r.hits)).join('');
       } else if (cmdRows) {
@@ -239,6 +241,27 @@
       hitTimer = setTimeout(() => mark.classList.remove('search-hit'), 2600);
     }
 
+    // Small screens: the on-screen keyboard hides the list, so Enter closes it and shows every match with its description.
+    function canGather() {
+      return !gathered && input.value.trim() && shown.length > 1 && (dialog.classList.contains('compact') || matchMedia('(pointer: coarse)').matches);
+    }
+
+    function setGathered(on) {
+      if (gathered === on) return;
+      gathered = on;
+      dialog.classList.toggle('gathered', on);
+      fit();
+    }
+
+    function gather() {
+      active = -1;
+      setGathered(true);
+      input.blur();
+      render();
+      list.scrollTop = 0;
+    }
+
+    input.addEventListener('focus', () => { if (gathered) { setGathered(false); render(); } });
     input.addEventListener('input', () => { active = 0; render(); });
     input.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -256,6 +279,7 @@
             return render();
           }
         }
+        if (canGather()) return gather();
         const id = shown[active >= 0 ? active : 0];
         if (id && (input.value.trim() || active >= 0)) jump(id);
       } else if (e.key === 'Tab' && completion && !e.shiftKey) {
@@ -292,6 +316,7 @@
     // A click on the dimmed page (the dialog's own backdrop) closes it.
     dialog.addEventListener('mousedown', (e) => { if (e.target === dialog) dialog.close(); });
     dialog.addEventListener('close', () => {
+      setGathered(false);
       input.removeAttribute('aria-activedescendant');
       if (dictation) dictation.stop();
       say('');
@@ -312,7 +337,7 @@
       const top = (vv ? vv.offsetTop : 0) + Math.min(h * 0.1, Math.max(8, h - MIN_BODY - 130));
       dialog.style.marginTop = `${Math.round(top)}px`;
       dialog.style.maxHeight = `${Math.max(MIN_BODY + 52, Math.round(h - (top - (vv ? vv.offsetTop : 0)) - 8))}px`;
-      dialog.classList.toggle('compact', h < COMPACT_BELOW);
+      dialog.classList.toggle('compact', h < COMPACT_BELOW && !gathered);
       if (active >= 0) syncActive();
     }
 
@@ -375,6 +400,7 @@
     mic.addEventListener('click', toggleMic);
 
     function open() {
+      setGathered(false);
       if (!dialog.open) dialog.showModal();
       mic.hidden = !deps.voice.supported;
       active = 0;
