@@ -857,3 +857,33 @@ test('search auto-correct fixes spelling for commands but never touches numbers'
   assert.equal(G.commands.parse(fixed, ctx)[0].size, 17);
   assert.equal(G.search.correct(ix, 'strength 70'), null, 'digits are left alone');
 });
+
+test('generating walls and portals replaces them and respects moves and distances', () => {
+  const g = new G.Game({ size: 19 });
+  g.play(9, 9);
+  assert.equal(g.generatePortals(4), 4);
+  const cells = g.portals.flat();
+  for (let i = 0; i < cells.length; i++) {
+    const k = cells[i];
+    assert(Math.min(k % 19, Math.floor(k / 19), 18 - (k % 19), 18 - Math.floor(k / 19)) >= 4, 'portal keeps 4 from the edge');
+    for (let j = i + 1; j < cells.length; j++) assert(g.distance(k, cells[j]) >= 4, 'portal cells keep 4 apart');
+  }
+  assert(!cells.includes(g.key(9, 9)), 'no portal on a move');
+  assert.equal(g.generatePortals(2), 2);
+  assert.equal(g.portals.length, 2, 'portals are replaced, not accumulated');
+  for (let r = 0; r < 20; r++) {
+    assert.equal(g.generateWalls(3), 3);
+    assert.equal(g.walls.size, 3, 'walls are replaced, not accumulated');
+    const w = [...g.walls];
+    for (const k of w) {
+      assert(Math.min(k % 19, Math.floor(k / 19), 18 - (k % 19), 18 - Math.floor(k / 19)) >= 4, 'wall keeps 4 from the edge');
+      assert(!g.isPortal(k) && k !== g.key(9, 9));
+    }
+    for (let i = 0; i < 3; i++) for (let j = i + 1; j < 3; j++) assert(g.distance(w[i], w[j]) >= 4, 'walls keep 4 apart');
+  }
+  assert(g.generateWalls(1000) < 1000, 'stops when no spot is left');
+  const small = new G.Game({ size: 5 });
+  assert(small.generatePortals(50) < 50, 'a crowded board yields fewer pairs');
+  assert.equal(small.generateWalls(3), 1 - 1 + small.walls.size, 'tiny board still valid');
+  new G.Game(JSON.parse(JSON.stringify(small.toJSON())));
+});

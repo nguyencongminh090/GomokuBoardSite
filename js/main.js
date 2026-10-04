@@ -321,6 +321,8 @@
       b.classList.toggle('on', b.dataset.tool === tool);
       b.setAttribute('aria-pressed', String(b.dataset.tool === tool));
     }
+    $('#generateLabel').textContent = t(tool === 'wall' ? 'setup.genWallLabel' : 'setup.genPortalLabel');
+    $('#generate').textContent = t('setup.generate');
     $('#setupWallHelp').hidden = tool !== 'wall';
     $('#setupPortalHelp').hidden = tool !== 'portal';
 
@@ -851,6 +853,15 @@
   $('#torusToggle').addEventListener('change', (e) => {
     if (!game.setTorus(e.target.checked)) toast(t('setup.torusNear', { d: G.Game.MIN_PORTAL_DISTANCE }));
     pending = null;
+    update();
+  });
+  $('#generate').addEventListener('click', () => {
+    const input = $('#generateCount');
+    const n = Math.min(99, Math.max(1, Math.floor(Number(input.value)) || 1));
+    input.value = n;
+    const added = tool === 'wall' ? game.generateWalls(n) : game.generatePortals(n);
+    pending = null;
+    if (added < n) toast(t(tool === 'wall' ? 'setup.genWallShort' : 'setup.genPortalShort', { n: added, d: G.Game.MIN_GENERATED_GAP }));
     update();
   });
   $('#clearPortals').addEventListener('click', () => {

@@ -339,6 +339,69 @@
       return true;
     }
 
+    // Keys of the cells used by any move in the tree.
+    movedKeys() {
+      return new Set(this.nodes.slice(1).map((n) => this.key(n.x, n.y)));
+    }
+
+    // Shuffled keys of the cells a generated wall or portal may use: at least MIN_GENERATED_GAP from the edge (no
+    // edges on a torus) and free of moves and of `avoid` keys.
+    generationCells(rng, avoid) {
+      const moved = this.movedKeys();
+      const s = this.size;
+      const free = [];
+      for (let k = 0; k < s * s; k++) {
+        const x = k % s;
+        const y = Math.floor(k / s);
+        const inside = this.torus || Math.min(x, y, s - 1 - x, s - 1 - y) >= Game.MIN_GENERATED_GAP;
+        if (inside && !moved.has(k) && !avoid(k)) free.push(k);
+      }
+      for (let i = free.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [free[i], free[j]] = [free[j], free[i]];
+      }
+      return free;
+    }
+
+    // Replaces the walls with up to n random ones, each at least MIN_GENERATED_GAP from the edge and from every
+    // other wall, on cells free of portals and moves. Returns how many were placed.
+    generateWalls(n, rng = Math.random) {
+      const walls = [];
+      for (const k of this.generationCells(rng, (c) => this.isPortal(c))) {
+        if (walls.length >= Math.floor(n)) break;
+        if (walls.every((w) => this.distance(k, w) >= Game.MIN_GENERATED_GAP)) walls.push(k);
+      }
+      this.walls = new Set(walls);
+      this.touch();
+      return walls.length;
+    }
+
+    // Replaces the portals with up to n random pairs; every portal cell keeps MIN_GENERATED_GAP from the edge and
+    // from every other portal cell (the partner included), on cells free of walls and moves. Returns how many
+    // pairs were placed.
+    generatePortals(n, rng = Math.random) {
+      const cells = [];
+      const free = this.generationCells(rng, (c) => this.walls.has(c));
+      const next = () => free.find((k) => !cells.includes(k) && cells.every((c) => this.distance(k, c) >= Game.MIN_GENERATED_GAP));
+      let added = 0;
+      const pairs = [];
+      for (; added < Math.floor(n); added++) {
+        const a = next();
+        if (a === undefined) break;
+        cells.push(a);
+        const b = next();
+        if (b === undefined) {
+          cells.pop();
+          break;
+        }
+        cells.push(b);
+        pairs.push([a, b]);
+      }
+      this.portals = pairs;
+      this.touch();
+      return pairs.length;
+    }
+
     clearPortals() {
       if (!this.portals.length) return false;
       this.portals = [];
@@ -358,5 +421,6 @@
   Game.MAX_SIZE = MAX_SIZE;
   Game.MAX_PLAYER_NAME = 24;
   Game.MIN_PORTAL_DISTANCE = MIN_PORTAL_DISTANCE;
+  Game.MIN_GENERATED_GAP = 4; // generated walls and portals: distance from the edge and from each other
   G.Game = Game;
 })(window.Gomoku = window.Gomoku || {});
