@@ -452,20 +452,21 @@
           if (w !== undefined) pts.push({ id, i, w });
         });
       }
-      const W = svg.clientWidth || 300, H = Math.round(W * 0.6);
-      const L = 32, R = 10, T = 8, B = 20;
+      const W = svg.clientWidth || 300, H = Math.round(W * 0.55);
+      const L = 34, R = 12, T = 12, B = 22;
       const n = Math.max(ids.length - 1, 1);
       const x = (i) => L + (i / n) * (W - L - R);
       const y = (w) => T + (1 - w) * (H - T - B);
+      const f = (v) => v.toFixed(1);
       const mid = y(0.5);
-      let out = '';
-      for (const v of [0, 0.25, 0.5, 0.75, 1]) {
-        out += `<line class="${v === 0.5 ? 'mid' : 'grid'}" x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"/>` +
-          `<text x="${L - 4}" y="${(y(v) + 3).toFixed(1)}" text-anchor="end">${Math.round(v * 100)}</text>`;
+      let out = `<rect class="plot" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" rx="6"/>`;
+      for (const v of [0, 0.5, 1]) {
+        out += `<line class="${v === 0.5 ? 'mid' : 'grid'}" x1="${L}" x2="${W - R}" y1="${f(y(v))}" y2="${f(y(v))}"/>` +
+          `<text x="${L - 6}" y="${f(y(v) + 3.5)}" text-anchor="end">${Math.round(v * 100)}%</text>`;
       }
-      const stepX = Math.max(2, Math.ceil(n / Math.max(1, Math.floor((W - L - R) / 26) )) );
+      const stepX = Math.max(2, Math.ceil(n / Math.max(1, Math.floor((W - L - R) / 30))));
       for (let i = 0; i <= n; i += stepX) {
-        out += `<text x="${x(i).toFixed(1)}" y="${H - 6}" text-anchor="middle">${i}</text>`;
+        out += `<text x="${f(x(i))}" y="${H - 6}" text-anchor="middle">${i}</text>`;
       }
       // Runs of adjacent known moves are drawn as one smooth curve, filled towards the 50 % line.
       const runs = [];
@@ -476,28 +477,36 @@
       }
       let lines = '';
       let areas = '';
-      runs.forEach((run, k) => {
-        if (run.length < 2) return;
+      for (const run of runs) {
+        if (run.length < 2) continue;
         const xy = run.map((p) => [x(p.i), y(p.w)]);
         const d = smooth(xy);
-        const closed = `${d}L${xy[xy.length - 1][0].toFixed(1)} ${mid.toFixed(1)}L${xy[0][0].toFixed(1)} ${mid.toFixed(1)}Z`;
-        areas += `<path class="a0" clip-path="url(#gUp)" d="${closed}"/><path class="a1" clip-path="url(#gDown)" d="${closed}"/>`;
-        lines += `<path class="ln" d="${d}"/>`;
-      });
-      const hitW = Math.max((W - L - R) / n, 12);
+        areas += `<path class="area" fill="url(#gArea)" d="${d}L${f(xy[xy.length - 1][0])} ${f(mid)}L${f(xy[0][0])} ${f(mid)}Z"/>`;
+        lines += `<path class="ln" stroke="url(#gLine)" d="${d}"/>`;
+      }
+      const dense = pts.length > 30; // too many points: show only the one under the cursor
+      const colW = Math.max((W - L - R) / n, 12);
       const marks = pts.map((p) => {
         const node = game.nodes[p.id];
-        const cx = x(p.i).toFixed(1), cy = y(p.w).toFixed(1);
+        const cx = f(x(p.i)), cy = f(y(p.w));
         const label = p.id === 0 ? '' : t('eng.graphPoint', { n: p.i, move: app.cellText(node.x, node.y), p0: `${app.playerName(0)} ${pct(p.w)}`, p1: `${pct(1 - p.w)} ${app.playerName(1)}` });
+        const cur = p.id === game.cur;
+        const side = p.id === 0 ? 0 : game.player(p.id);
         return `<g data-node="${p.id}">${label ? `<title>${esc(label)}</title>` : ''}` +
-          `<rect class="hit" x="${(x(p.i) - hitW / 2).toFixed(1)}" y="${T}" width="${hitW.toFixed(1)}" height="${H - T - B}"/>` +
-          `<circle class="dot${p.id === 0 ? 0 : game.player(p.id)}" cx="${cx}" cy="${cy}" r="3.5"/>` +
-          (p.id === game.cur ? `<circle class="cur" cx="${cx}" cy="${cy}" r="7"/>` : '') + '</g>';
+          `<rect class="hit" x="${f(x(p.i) - colW / 2)}" y="${T}" width="${f(colW)}" height="${H - T - B}"/>` +
+          `<line class="guide${cur ? ' on' : ''}" x1="${cx}" x2="${cx}" y1="${T}" y2="${H - B}"/>` +
+          (dense && !cur ? '' : `<circle class="dot dot${side}" cx="${cx}" cy="${cy}" r="${cur ? 5 : 3}"/>`) +
+          (cur ? `<circle class="halo" cx="${cx}" cy="${cy}" r="9"/><text class="val" x="${cx}" y="${f(Math.max(cy - 13, 10))}" text-anchor="middle">${pct(p.w)}</text>` : '') + '</g>';
       }).join('');
       svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
       svg.setAttribute('height', H);
-      svg.innerHTML = `<clipPath id="gUp"><rect x="0" y="0" width="${W}" height="${mid.toFixed(1)}"/></clipPath>` +
-        `<clipPath id="gDown"><rect x="0" y="${mid.toFixed(1)}" width="${W}" height="${H}"/></clipPath>${out}${areas}${lines}${marks}`;
+      svg.innerHTML = '<defs>' +
+        `<linearGradient id="gLine" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="${T}" y2="${H - B}"><stop offset="0" class="s0"/><stop offset=".5" class="s0"/><stop offset=".5" class="s1"/><stop offset="1" class="s1"/></linearGradient>` +
+        `<linearGradient id="gArea" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="${T}" y2="${H - B}"><stop offset="0" class="s0" stop-opacity=".42"/><stop offset=".5" class="s0" stop-opacity=".04"/><stop offset=".5" class="s1" stop-opacity=".04"/><stop offset="1" class="s1" stop-opacity=".42"/></linearGradient>` +
+        `</defs>${out}${areas}${lines}${marks}`;
+      const names = [0, 1].map((p) => `<span class="gl"><i class="dot p${p}"></i>${esc(app.playerName(p))}</span>`).join('');
+      const cp = pts.find((p) => p.id === game.cur);
+      $('#engGraphLegend').innerHTML = names + (cp ? `<span class="gv">${pct(cp.w)} – ${pct(1 - cp.w)}</span>` : '');
       const ready = client.ready || client.state === 'loading';
       $('#engGraphText').textContent = !ready ? t('eng.graphNeedEngine') : pts.length ? '' : t('eng.graphEmpty');
     }
