@@ -69,8 +69,6 @@
     let lastEngine = null; // engine settings at the previous settingsChanged(), to react to changes
     let wasReady = false; // true once loaded; stays true while the single-threaded build restarts after a stop
     let frame = 0;
-    let sweep = null; // true while the whole-game sweep runs
-    const SWEEP_MS = 2000; // time per position in a sweep
     const evals = new Map(); // position key -> first player's win chance, for the graph
     let evalsCtx = ''; // board setup the evals belong to (size, walls, portals, torus)
 
@@ -247,10 +245,6 @@
     }
 
     function onDone({ job, move, lines }) {
-      if (job.kind === 'sweep') {
-        sweepDone({ job, lines });
-        return;
-      }
       // A stopped search that gave no move line (the single-threaded build restarts to stop, so it never
       // answers) still has its best line so far: use its first move. This is what makes Stop end an engine
       // move that has no time limit.
@@ -289,6 +283,7 @@
 
     function render() {
       renderEngineTab();
+      renderGraph();
       renderPlayBlock();
       renderOverlay();
     }
@@ -356,8 +351,6 @@
       $('#engNote').hidden = !note;
       const can = canSearch();
       $('#engAnalyze').disabled = !can;
-      $('#engSweep').disabled = !can;
-      $('#engSweep').classList.toggle('on', !!sweep);
       $('#engMove').disabled = !can;
       $('#engSelfDist').disabled = !can;
       $('#engOppDist').disabled = !can;
@@ -399,58 +392,20 @@
     function renderEval(best) {
       const game = app.game();
       if (best && best.winrate !== undefined) remember(result.toMove === 0 ? best.winrate : 1 - best.winrate);
-      renderGraph();
       const known = context(game) === evalsCtx ? evals.get(nodeKey(game, game.cur)) : undefined;
-      $('#engEval').hidden = false;
-      const w0 = known === undefined ? 0.5 : known;
+      $('#engEval').hidden = known === undefined;
+      if (known === undefined) return;
+      const w0 = known;
       $('#engEvalFill').style.width = `${(w0 * 100).toFixed(1)}%`;
-      $('#engEvalP0').textContent = known === undefined ? '' : `${app.playerName(0)} ${pct(w0)}`;
-      $('#engEvalP1').textContent = known === undefined ? '' : `${pct(1 - w0)} ${app.playerName(1)}`;
+      $('#engEvalP0').textContent = `${app.playerName(0)} ${pct(w0)}`;
+      $('#engEvalP1').textContent = `${pct(1 - w0)} ${app.playerName(1)}`;
       const shown = best && best.winrate !== undefined;
       $('#engEvalText').textContent = shown ? t('eng.stats', {
         depth: `${best.depth}-${best.selDepth}`,
         nodes: compact(best.totalNodes),
         speed: compact(best.speed),
         time: ((best.time || 0) / 1000).toFixed(1),
-      }) : known === undefined ? t('eng.graphEmpty') : '';
-    }
-
-    // ---------- whole-game sweep ----------
-
-    // Analyses every position of the current line that has no win chance yet, one after the other, for the graph.
-    // The game itself never moves: each search runs on a view of the game with another cursor.
-    function sweepNext() {
-      const game = app.game();
-      const todo = [0, ...game.line()].filter((id) => !evals.has(nodeKey(game, id)));
-      if (!sweep || !todo.length || !canSearch()) {
-        sweep = null;
-        render();
-        return;
-      }
-      const id = todo[0];
-      const view = Object.create(game, { cur: { value: id } });
-      const e = config('analyze');
-      e.timeMs = Math.min(e.timeMs || SWEEP_MS, SWEEP_MS);
-      client.run({ kind: 'sweep', sweep: id, key: P.jobKey(view), block: P.boardBlock(view), portals: P.portalCommands(view), torus: game.torus, size: game.size, config: e, go: 'YXNBEST 1' });
-      render();
-    }
-
-    function startSweep() {
-      if (!canSearch()) return;
-      sweep = true;
-      sweepNext();
-    }
-
-    function sweepDone({ job, lines }) {
-      const best = shownLines(lines)[0];
-      if (!sweep || job.superseded || job.stopped || !best || best.winrate === undefined) {
-        sweep = null;
-        render();
-        return;
-      }
-      const game = app.game();
-      remember(game.nodes[job.sweep].depth % 2 === 0 ? best.winrate : 1 - best.winrate, job.sweep);
-      sweepNext();
+      }) : '';
     }
 
     // ---------- win chance graph ----------
@@ -472,43 +427,82 @@
       evals.set(nodeKey(game, id), w0);
     }
 
-    // First player's win chance after each move of the current line, drawn as a polyline; click jumps to that move.
+    // Smooth path through points (Catmull-Rom as cubic Béziers), the look of gomoku-calculator's chart.
+    function smooth(ps) {
+      const f = (v) => v.toFixed(1);
+      let d = `M${f(ps[0][0])} ${f(ps[0][1])}`;
+      for (let i = 0; i < ps.length - 1; i++) {
+        const [p0, p1, p2, p3] = [ps[i - 1] || ps[i], ps[i], ps[i + 1], ps[i + 2] || ps[i + 1]];
+        d += `C${f(p1[0] + (p2[0] - p0[0]) / 6)} ${f(p1[1] + (p2[1] - p0[1]) / 6)} ${f(p2[0] - (p3[0] - p1[0]) / 6)} ${f(p2[1] - (p3[1] - p1[1]) / 6)} ${f(p2[0])} ${f(p2[1])}`;
+      }
+      return d;
+    }
+
+    // First player's win chance after each move of the current line: y is 0-100 %, x is the move number.
+    // Click a point (or its column) to jump to that move.
     function renderGraph() {
       const svg = $('#engGraph');
       const game = app.game();
-      const ids = game.line();
+      const ids = [0, ...game.line()];
+      const valid = context(game) === evalsCtx;
       const pts = [];
-      if (context(game) === evalsCtx) {
+      if (valid) {
         ids.forEach((id, i) => {
           const w = evals.get(nodeKey(game, id));
           if (w !== undefined) pts.push({ id, i, w });
         });
       }
-      const root = evals.get('');
-      if (context(game) === evalsCtx && root !== undefined) pts.unshift({ id: 0, i: -1, w: root });
-      const W = svg.clientWidth || 300, H = 64, pad = 8;
-      const n = Math.max(ids.length, 1);
-      const x = (i) => pad + ((i + 1) / n) * (W - 2 * pad);
-      const y = (w) => pad + (1 - w) * (H - 2 * pad);
-      svg.hidden = false;
-      let path = '';
-      let prev = null;
-      for (const p of pts) {
-        path += `${prev && p.i - prev.i === 1 ? 'L' : 'M'}${x(p.i).toFixed(1)} ${y(p.w).toFixed(1)}`;
-        prev = p;
+      const W = svg.clientWidth || 300, H = Math.round(W * 0.6);
+      const L = 32, R = 10, T = 8, B = 20;
+      const n = Math.max(ids.length - 1, 1);
+      const x = (i) => L + (i / n) * (W - L - R);
+      const y = (w) => T + (1 - w) * (H - T - B);
+      const mid = y(0.5);
+      let out = '';
+      for (const v of [0, 0.25, 0.5, 0.75, 1]) {
+        out += `<line class="${v === 0.5 ? 'mid' : 'grid'}" x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"/>` +
+          `<text x="${L - 4}" y="${(y(v) + 3).toFixed(1)}" text-anchor="end">${Math.round(v * 100)}</text>`;
       }
-      const hitW = Math.max((W - 2 * pad) / n, 10);
+      const stepX = Math.max(2, Math.ceil(n / Math.max(1, Math.floor((W - L - R) / 26) )) );
+      for (let i = 0; i <= n; i += stepX) {
+        out += `<text x="${x(i).toFixed(1)}" y="${H - 6}" text-anchor="middle">${i}</text>`;
+      }
+      // Runs of adjacent known moves are drawn as one smooth curve, filled towards the 50 % line.
+      const runs = [];
+      for (const p of pts) {
+        const last = runs[runs.length - 1];
+        if (last && p.i - last[last.length - 1].i === 1) last.push(p);
+        else runs.push([p]);
+      }
+      let lines = '';
+      let areas = '';
+      runs.forEach((run, k) => {
+        if (run.length < 2) return;
+        const xy = run.map((p) => [x(p.i), y(p.w)]);
+        const d = smooth(xy);
+        const closed = `${d}L${xy[xy.length - 1][0].toFixed(1)} ${mid.toFixed(1)}L${xy[0][0].toFixed(1)} ${mid.toFixed(1)}Z`;
+        areas += `<path class="a0" clip-path="url(#gUp)" d="${closed}"/><path class="a1" clip-path="url(#gDown)" d="${closed}"/>`;
+        lines += `<path class="ln" d="${d}"/>`;
+      });
+      const hitW = Math.max((W - L - R) / n, 12);
       const marks = pts.map((p) => {
-        const label = p.id === 0 ? '' : t('eng.graphPoint', { n: p.i + 1, move: app.cellText(game.nodes[p.id].x, game.nodes[p.id].y), p0: `${app.playerName(0)} ${pct(p.w)}`, p1: `${pct(1 - p.w)} ${app.playerName(1)}` });
+        const node = game.nodes[p.id];
+        const cx = x(p.i).toFixed(1), cy = y(p.w).toFixed(1);
+        const label = p.id === 0 ? '' : t('eng.graphPoint', { n: p.i, move: app.cellText(node.x, node.y), p0: `${app.playerName(0)} ${pct(p.w)}`, p1: `${pct(1 - p.w)} ${app.playerName(1)}` });
         return `<g data-node="${p.id}">${label ? `<title>${esc(label)}</title>` : ''}` +
-          `<rect class="hit" x="${(x(p.i) - hitW / 2).toFixed(1)}" y="0" width="${hitW.toFixed(1)}" height="${H}"/>` +
-          `<circle class="${p.id === game.cur ? 'cur' : 'dot'}" cx="${x(p.i).toFixed(1)}" cy="${y(p.w).toFixed(1)}" r="${p.id === game.cur ? 4 : 2.5}"/></g>`;
+          `<rect class="hit" x="${(x(p.i) - hitW / 2).toFixed(1)}" y="${T}" width="${hitW.toFixed(1)}" height="${H - T - B}"/>` +
+          `<circle class="dot${p.id === 0 ? 0 : game.player(p.id)}" cx="${cx}" cy="${cy}" r="3.5"/>` +
+          (p.id === game.cur ? `<circle class="cur" cx="${cx}" cy="${cy}" r="7"/>` : '') + '</g>';
       }).join('');
       svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-      svg.innerHTML = `<line class="mid" x1="${pad}" x2="${W - pad}" y1="${H / 2}" y2="${H / 2}"/><path class="ln" d="${path}"/>${marks}`;
+      svg.setAttribute('height', H);
+      svg.innerHTML = `<clipPath id="gUp"><rect x="0" y="0" width="${W}" height="${mid.toFixed(1)}"/></clipPath>` +
+        `<clipPath id="gDown"><rect x="0" y="${mid.toFixed(1)}" width="${W}" height="${H}"/></clipPath>${out}${areas}${lines}${marks}`;
+      const ready = client.ready || client.state === 'loading';
+      $('#engGraphText').textContent = !ready ? t('eng.graphNeedEngine') : pts.length ? '' : t('eng.graphEmpty');
     }
 
-    $('#engSweep').addEventListener('click', () => (sweep ? stop() : startSweep()));
+    if (window.ResizeObserver) new ResizeObserver(() => renderGraph()).observe($('#engGraph'));
 
     $('#engGraph').addEventListener('click', (e) => {
       const g = e.target.closest('[data-node]');
