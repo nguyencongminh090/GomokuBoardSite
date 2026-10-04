@@ -69,6 +69,8 @@
     let lastEngine = null; // engine settings at the previous settingsChanged(), to react to changes
     let wasReady = false; // true once loaded; stays true while the single-threaded build restarts after a stop
     let frame = 0;
+    let sweep = null; // true while the whole-game sweep runs
+    const SWEEP_MS = 2000; // time per position in a sweep
     const evals = new Map(); // position key -> first player's win chance, for the graph
     let evalsCtx = ''; // board setup the evals belong to (size, walls, portals, torus)
 
@@ -245,6 +247,10 @@
     }
 
     function onDone({ job, move, lines }) {
+      if (job.kind === 'sweep') {
+        sweepDone({ job, lines });
+        return;
+      }
       // A stopped search that gave no move line (the single-threaded build restarts to stop, so it never
       // answers) still has its best line so far: use its first move. This is what makes Stop end an engine
       // move that has no time limit.
@@ -350,6 +356,8 @@
       $('#engNote').hidden = !note;
       const can = canSearch();
       $('#engAnalyze').disabled = !can;
+      $('#engSweep').disabled = !can;
+      $('#engSweep').classList.toggle('on', !!sweep);
       $('#engMove').disabled = !can;
       $('#engSelfDist').disabled = !can;
       $('#engOppDist').disabled = !can;
@@ -393,9 +401,7 @@
       if (best && best.winrate !== undefined) remember(result.toMove === 0 ? best.winrate : 1 - best.winrate);
       renderGraph();
       const known = context(game) === evalsCtx ? evals.get(nodeKey(game, game.cur)) : undefined;
-      const box = $('#engEval');
-      box.hidden = known === undefined && $('#engGraph').hidden;
-      if (box.hidden) return;
+      $('#engEval').hidden = false;
       const w0 = known === undefined ? 0.5 : known;
       $('#engEvalFill').style.width = `${(w0 * 100).toFixed(1)}%`;
       $('#engEvalP0').textContent = known === undefined ? '' : `${app.playerName(0)} ${pct(w0)}`;
@@ -406,7 +412,45 @@
         nodes: compact(best.totalNodes),
         speed: compact(best.speed),
         time: ((best.time || 0) / 1000).toFixed(1),
-      }) : '';
+      }) : known === undefined ? t('eng.graphEmpty') : '';
+    }
+
+    // ---------- whole-game sweep ----------
+
+    // Analyses every position of the current line that has no win chance yet, one after the other, for the graph.
+    // The game itself never moves: each search runs on a view of the game with another cursor.
+    function sweepNext() {
+      const game = app.game();
+      const todo = [0, ...game.line()].filter((id) => !evals.has(nodeKey(game, id)));
+      if (!sweep || !todo.length || !canSearch()) {
+        sweep = null;
+        render();
+        return;
+      }
+      const id = todo[0];
+      const view = Object.create(game, { cur: { value: id } });
+      const e = config('analyze');
+      e.timeMs = Math.min(e.timeMs || SWEEP_MS, SWEEP_MS);
+      client.run({ kind: 'sweep', sweep: id, key: P.jobKey(view), block: P.boardBlock(view), portals: P.portalCommands(view), torus: game.torus, size: game.size, config: e, go: 'YXNBEST 1' });
+      render();
+    }
+
+    function startSweep() {
+      if (!canSearch()) return;
+      sweep = true;
+      sweepNext();
+    }
+
+    function sweepDone({ job, lines }) {
+      const best = shownLines(lines)[0];
+      if (!sweep || job.superseded || job.stopped || !best || best.winrate === undefined) {
+        sweep = null;
+        render();
+        return;
+      }
+      const game = app.game();
+      remember(game.nodes[job.sweep].depth % 2 === 0 ? best.winrate : 1 - best.winrate, job.sweep);
+      sweepNext();
     }
 
     // ---------- win chance graph ----------
@@ -418,14 +462,14 @@
 
     const nodeKey = (game, id) => game.path(id).map((i) => `${game.nodes[i].x},${game.nodes[i].y}`).join(';');
 
-    function remember(w0) {
+    function remember(w0, id = app.game().cur) {
       const game = app.game();
       const ctx = context(game);
       if (ctx !== evalsCtx) {
         evals.clear();
         evalsCtx = ctx;
       }
-      evals.set(nodeKey(game, game.cur), w0);
+      evals.set(nodeKey(game, id), w0);
     }
 
     // First player's win chance after each move of the current line, drawn as a polyline; click jumps to that move.
@@ -442,12 +486,11 @@
       }
       const root = evals.get('');
       if (context(game) === evalsCtx && root !== undefined) pts.unshift({ id: 0, i: -1, w: root });
-      svg.hidden = pts.length < 2;
-      if (svg.hidden) return;
       const W = svg.clientWidth || 300, H = 64, pad = 8;
       const n = Math.max(ids.length, 1);
       const x = (i) => pad + ((i + 1) / n) * (W - 2 * pad);
       const y = (w) => pad + (1 - w) * (H - 2 * pad);
+      svg.hidden = false;
       let path = '';
       let prev = null;
       for (const p of pts) {
@@ -464,6 +507,8 @@
       svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
       svg.innerHTML = `<line class="mid" x1="${pad}" x2="${W - pad}" y1="${H / 2}" y2="${H / 2}"/><path class="ln" d="${path}"/>${marks}`;
     }
+
+    $('#engSweep').addEventListener('click', () => (sweep ? stop() : startSweep()));
 
     $('#engGraph').addEventListener('click', (e) => {
       const g = e.target.closest('[data-node]');
