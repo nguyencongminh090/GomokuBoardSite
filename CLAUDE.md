@@ -109,8 +109,8 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
   (`x,y;x,y`, `nodeKey`), not the node id, because ids are re-indexed by `removeSubtree`; the empty board is `''`. `evalsCtx`
   (size, torus, walls, portals, engine rule) guards the map: when it changes the map is cleared. `renderGraph()` draws the
   current line (`game.line()`, so moves after the cursor too): x = move number, y = 0-100 % on a rounded plot with 0/50/100 % guides, a smooth
-  Catmull-Rom curve per run of adjacent known moves whose stroke and fill are gradients (first player's colour above 50 %, second's
-  below, fading towards the 50 % line), points coloured by who moved (only the cursor's above 30 points), and for the cursor move a ring,
+  Catmull-Rom curve per run of adjacent known moves always drawn in the **first player's colour** (`--p0`; the second player never has a line, the graph is one number) with a gradient fill
+  fading towards the 50 % line (on the Stone theme the black line gets a casing in `--text`, class `stone`, so it shows on the dark page), points coloured by who moved (only the cursor's above 30 points), and for the cursor move a ring,
   a vertical guide and its value. A legend above the plot shows both players and the cursor's split. Positions never analysed are gaps.
   Gradients are set as `fill`/`stroke` attributes, not in CSS (a CSS `url(#id)` resolves against the stylesheet). Clicking a point calls
   `app.goTo(id)`. It redraws on every `render()` and on resize.

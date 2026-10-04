@@ -405,8 +405,9 @@ kbd {
 .eval-graph .s0 { stop-color: var(--p0); }
 .eval-graph .s1 { stop-color: var(--p1); }
 .eval-graph .area { stroke: none; }
-.eval-graph .lnb { fill: none; stroke: var(--muted); stroke-width: 4.5; stroke-linejoin: round; stroke-linecap: round; opacity: .55; }
-.eval-graph .ln { fill: none; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.eval-graph .lnb { display: none; fill: none; stroke: var(--text); stroke-width: 5; stroke-linejoin: round; stroke-linecap: round; opacity: .8; }
+.eval-graph.stone .lnb { display: inline; }
+.eval-graph .ln { fill: none; stroke: var(--p0); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
 .eval-graph .dot0 { fill: var(--p0); stroke: var(--muted); stroke-width: 1.5; }
 .eval-graph .dot1 { fill: var(--p1); stroke: var(--muted); stroke-width: 1.5; }
 .eval-graph .halo { fill: none; stroke: var(--text); stroke-width: 1.5; opacity: .5; }

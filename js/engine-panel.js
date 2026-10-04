@@ -482,7 +482,7 @@
         const xy = run.map((p) => [x(p.i), y(p.w)]);
         const d = smooth(xy);
         areas += `<path class="area" fill="url(#gArea)" d="${d}L${f(xy[xy.length - 1][0])} ${f(mid)}L${f(xy[0][0])} ${f(mid)}Z"/>`;
-        lines += `<path class="lnb" d="${d}"/><path class="ln" stroke="url(#gLine)" d="${d}"/>`;
+        lines += `<path class="lnb" d="${d}"/><path class="ln" d="${d}"/>`;
       }
       const dense = pts.length > 30; // too many points: show only the one under the cursor
       const colW = Math.max((W - L - R) / n, 12);
@@ -500,9 +500,9 @@
       }).join('');
       svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
       svg.setAttribute('height', H);
+      svg.classList.toggle('stone', app.settings().theme === 'stone'); // black line: needs a light casing on the dark page
       svg.innerHTML = '<defs>' +
-        `<linearGradient id="gLine" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="${T}" y2="${H - B}"><stop offset="0" class="s0"/><stop offset=".5" class="s0"/><stop offset=".5" class="s1"/><stop offset="1" class="s1"/></linearGradient>` +
-        `<linearGradient id="gArea" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="${T}" y2="${H - B}"><stop offset="0" class="s0" stop-opacity=".42"/><stop offset=".5" class="s0" stop-opacity=".04"/><stop offset=".5" class="s1" stop-opacity=".04"/><stop offset="1" class="s1" stop-opacity=".42"/></linearGradient>` +
+        `<linearGradient id="gArea" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="${T}" y2="${H - B}"><stop offset="0" class="s0" stop-opacity=".4"/><stop offset=".5" class="s0" stop-opacity=".04"/><stop offset="1" class="s0" stop-opacity=".4"/></linearGradient>` +
         `</defs>${out}${areas}${lines}${marks}`;
       const names = [0, 1].map((p) => `<span class="gl"><i class="dot p${p}"></i>${esc(app.playerName(p))}</span>`).join('');
       const cp = pts.find((p) => p.id === game.cur);
