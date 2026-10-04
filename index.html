@@ -7,7 +7,7 @@
   <!-- Release version. Bump it with `node tools/bump-version.js <version>` before each deploy: it is added to
        every asset URL (?v=), so returning visitors never mix cached old files with new ones. -->
   <meta name="engine-gate" content="https://gomoku-engine-gate.nguyencongminh2247.workers.dev">
-  <meta name="app-version" content="1.15.0">
+  <meta name="app-version" content="1.16.0">
   <meta name="description" content="Bàn cờ caro cho livestream: nhánh nước đi, ô tường, giao diện tuỳ chỉnh và lưu ván trong trình duyệt.">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#dcb35c">
@@ -21,7 +21,7 @@
       document.documentElement.dataset.ui = dark ? 'dark' : 'light';
     } catch (e) { /* storage unavailable: CSS default applies */ }
   </script>
-  <link rel="stylesheet" href="css/style.css?v=1.15.0">
+  <link rel="stylesheet" href="css/style.css?v=1.16.0">
 </head>
 <body>
   <header class="topbar">
@@ -198,6 +198,46 @@
           </details>
           <label class="field"><span data-i18n="eng.moveTime"></span><input type="number" min="0" max="3600" step="0.1" data-key="engine.moveTime"></label>
         </section>
+
+        <section class="card">
+          <h3 data-i18n="eng.card.search"></h3>
+          <div class="sub-label" data-i18n="eng.rule"></div>
+          <div class="seg" role="group" data-i18n-attr="aria-label:eng.rule">
+            <button data-set="engine.rule:0" data-i18n="eng.rule.0"></button>
+            <button data-set="engine.rule:1" data-i18n="eng.rule.1"></button>
+            <button data-set="engine.rule:4" data-i18n="eng.rule.4"></button>
+          </div>
+          <p class="muted small-text hint" data-i18n="eng.ruleHelp"></p>
+          <div class="sub-label" data-i18n="eng.limits"></div>
+          <p class="muted small-text hint" data-i18n="eng.limitsHelp"></p>
+          <label class="field"><span data-i18n="eng.analysisTime"></span><input type="number" min="0" max="3600" step="0.1" data-key="engine.analysisTime"></label>
+          <label class="field"><span data-i18n="eng.nbest"></span><input type="number" min="1" max="10" data-key="engine.nbest"></label>
+          <label class="field"><span data-i18n="eng.depth"></span><input type="number" min="2" max="99" data-key="engine.depth"></label>
+          <div class="sub-label" data-i18n="eng.resources"></div>
+          <label class="field"><span data-i18n="eng.threads"></span><input type="number" min="0" max="64" id="engThreads" data-key="engine.threads"></label>
+          <label class="field"><span data-i18n="eng.hash"></span>
+            <select data-key="engine.hash">
+              <option value="32">32</option>
+              <option value="64">64</option>
+              <option value="128">128</option>
+              <option value="256">256</option>
+              <option value="512">512</option>
+            </select>
+          </label>
+        </section>
+        <details class="card engine-dist">
+              <summary data-i18n="eng.dist"></summary>
+              <div class="dist-row">
+                <button id="engSelfDist" class="small" data-i18n="eng.selfDist"></button>
+                <input type="number" min="1" max="21" data-key="engine.selfDist" data-i18n-attr="aria-label:eng.distN">
+              </div>
+              <p class="muted small-text" id="engSelfDistHelp"></p>
+              <div class="dist-row">
+                <button id="engOppDist" class="small" data-i18n="eng.oppDist"></button>
+                <input type="number" min="1" max="21" data-key="engine.oppDist" data-i18n-attr="aria-label:eng.distN">
+              </div>
+              <p class="muted small-text" id="engOppDistHelp"></p>
+            </details>
       </div>
 
       <!-- Analyse: engine and Explain together; engine tuning is folded away (js/engine-panel.js, js/explain-panel.js) -->
@@ -278,32 +318,6 @@
         <details class="adv">
           <summary data-i18n="eng.advanced"></summary>
         <section class="card">
-          <h3 data-i18n="eng.card.search"></h3>
-          <div class="sub-label" data-i18n="eng.rule"></div>
-          <div class="seg" role="group" data-i18n-attr="aria-label:eng.rule">
-            <button data-set="engine.rule:0" data-i18n="eng.rule.0"></button>
-            <button data-set="engine.rule:1" data-i18n="eng.rule.1"></button>
-            <button data-set="engine.rule:4" data-i18n="eng.rule.4"></button>
-          </div>
-          <p class="muted small-text hint" data-i18n="eng.ruleHelp"></p>
-          <div class="sub-label" data-i18n="eng.limits"></div>
-          <p class="muted small-text hint" data-i18n="eng.limitsHelp"></p>
-          <label class="field"><span data-i18n="eng.analysisTime"></span><input type="number" min="0" max="3600" step="0.1" data-key="engine.analysisTime"></label>
-          <label class="field"><span data-i18n="eng.nbest"></span><input type="number" min="1" max="10" data-key="engine.nbest"></label>
-          <label class="field"><span data-i18n="eng.depth"></span><input type="number" min="2" max="99" data-key="engine.depth"></label>
-          <div class="sub-label" data-i18n="eng.resources"></div>
-          <label class="field"><span data-i18n="eng.threads"></span><input type="number" min="0" max="64" id="engThreads" data-key="engine.threads"></label>
-          <label class="field"><span data-i18n="eng.hash"></span>
-            <select data-key="engine.hash">
-              <option value="32">32</option>
-              <option value="64">64</option>
-              <option value="128">128</option>
-              <option value="256">256</option>
-              <option value="512">512</option>
-            </select>
-          </label>
-        </section>
-        <section class="card">
           <h3 data-i18n="eng.card.tools"></h3>
           <div class="engine-actions cols-2">
             <button id="engClearHash" class="small" data-i18n="eng.clearHash"></button>
@@ -314,19 +328,6 @@
             <pre id="engLog" tabindex="0"></pre>
           </details>
         </section>
-        <details class="card engine-dist">
-              <summary data-i18n="eng.dist"></summary>
-              <div class="dist-row">
-                <button id="engSelfDist" class="small" data-i18n="eng.selfDist"></button>
-                <input type="number" min="1" max="21" data-key="engine.selfDist" data-i18n-attr="aria-label:eng.distN">
-              </div>
-              <p class="muted small-text" id="engSelfDistHelp"></p>
-              <div class="dist-row">
-                <button id="engOppDist" class="small" data-i18n="eng.oppDist"></button>
-                <input type="number" min="1" max="21" data-key="engine.oppDist" data-i18n-attr="aria-label:eng.distN">
-              </div>
-              <p class="muted small-text" id="engOppDistHelp"></p>
-            </details>
         </details>
 
         <p class="muted small-text" data-i18n-html="eng.license"></p>
@@ -529,26 +530,26 @@
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="js/i18n.js?v=1.15.0"></script>
-  <script src="js/contrast.js?v=1.15.0"></script>
-  <script src="js/coords.js?v=1.15.0"></script>
-  <script src="js/settings.js?v=1.15.0"></script>
-  <script src="js/game.js?v=1.15.0"></script>
-  <script src="js/security.js?v=1.15.0"></script>
-  <script src="js/storage.js?v=1.15.0"></script>
-  <script src="js/explain.js?v=1.15.0"></script>
-  <script src="js/board.js?v=1.15.0"></script>
-  <script src="js/engine.js?v=1.15.0"></script>
-  <script src="js/engine-panel.js?v=1.15.0"></script>
-  <script src="js/explain-panel.js?v=1.15.0"></script>
-  <script src="js/security-panel.js?v=1.15.0"></script>
-  <script src="js/voice-lexicon.js?v=1.15.0"></script>
-  <script src="js/voice.js?v=1.15.0"></script>
-  <script src="js/voice-panel.js?v=1.15.0"></script>
-  <script src="js/search.js?v=1.15.0"></script>
-  <script src="js/commands.js?v=1.15.0"></script>
-  <script src="js/search-panel.js?v=1.15.0"></script>
-  <script src="js/install.js?v=1.15.0"></script>
-  <script src="js/main.js?v=1.15.0"></script>
+  <script src="js/i18n.js?v=1.16.0"></script>
+  <script src="js/contrast.js?v=1.16.0"></script>
+  <script src="js/coords.js?v=1.16.0"></script>
+  <script src="js/settings.js?v=1.16.0"></script>
+  <script src="js/game.js?v=1.16.0"></script>
+  <script src="js/security.js?v=1.16.0"></script>
+  <script src="js/storage.js?v=1.16.0"></script>
+  <script src="js/explain.js?v=1.16.0"></script>
+  <script src="js/board.js?v=1.16.0"></script>
+  <script src="js/engine.js?v=1.16.0"></script>
+  <script src="js/engine-panel.js?v=1.16.0"></script>
+  <script src="js/explain-panel.js?v=1.16.0"></script>
+  <script src="js/security-panel.js?v=1.16.0"></script>
+  <script src="js/voice-lexicon.js?v=1.16.0"></script>
+  <script src="js/voice.js?v=1.16.0"></script>
+  <script src="js/voice-panel.js?v=1.16.0"></script>
+  <script src="js/search.js?v=1.16.0"></script>
+  <script src="js/commands.js?v=1.16.0"></script>
+  <script src="js/search-panel.js?v=1.16.0"></script>
+  <script src="js/install.js?v=1.16.0"></script>
+  <script src="js/main.js?v=1.16.0"></script>
 </body>
 </html>

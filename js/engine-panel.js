@@ -161,7 +161,7 @@
     }
 
     const analyze = () => search('analyze', `YXNBEST ${engineSettings().nbest}`);
-    const engineMove = () => search('move', 'YXNBEST 1');
+    const engineMove = () => search('move', P.distanceGo(app.game()) || 'YXNBEST 1');
 
     // Stop keeps the answer: an engine move still plays the best move found so far.
     function stop() {

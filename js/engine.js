@@ -12,6 +12,7 @@
   'use strict';
 
   const MAX_SIZE = 22; // Rapfi's MAX_BOARD_SIZE
+  const FORCED_DISTANCE = 4; // YXPLAYSELF / YXOPPDIST distance for the opening moves on boards with walls or portals
   // Release version from index.html, passed on to the worker so the engine files are versioned too.
   const VERSION = typeof document !== 'undefined'
     ? (document.querySelector('meta[name="app-version"]') || {}).content || ''
@@ -41,6 +42,16 @@
     const s = game.size;
     const at = (k) => `${k % s},${Math.floor(k / s)}`;
     return ['INFO CLEARPORTALS', ...game.portals.map(([a, b]) => `INFO YXPORTAL ${at(a)} ${at(b)}`)];
+  }
+
+  // On a board with walls or portals the engine's first moves keep their distance: the second cross move is a
+  // YXPLAYSELF and the first circle move a YXOPPDIST, both 4. Returns that search command, or '' for any other move.
+  function distanceGo(game) {
+    if (!game.walls.size && !game.portals.length) return '';
+    const depth = game.nodes[game.cur].depth;
+    if (depth === 2) return `YXPLAYSELF ${FORCED_DISTANCE}`;
+    if (depth === 1) return `YXOPPDIST ${FORCED_DISTANCE}`;
+    return '';
   }
 
   // Identity of a search position: the block plus the torus setting and portal pairs (a block cannot carry them).
@@ -396,7 +407,7 @@
 
   G.VERSION = VERSION;
   G.serviceWorkerUrl = `coi-serviceworker.js?v=${encodeURIComponent(VERSION || 'dev')}`;
-  G.engineProtocol = { MAX_SIZE, boardBlock, portalCommands, jobKey, configCommands, parseValue, parseLine, InfoCollector };
+  G.engineProtocol = { MAX_SIZE, boardBlock, portalCommands, distanceGo, jobKey, configCommands, parseValue, parseLine, InfoCollector };
   G.engineSupport = { unsupportedReason, canUseThreads };
   G.EngineClient = EngineClient;
 })(window.Gomoku = window.Gomoku || {});

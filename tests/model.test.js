@@ -546,6 +546,18 @@ test('portals survive a JSON round trip and bad pairs in stored data are dropped
   assert.equal(new G.Game({ size: 15 }).portals.length, 0); // older saves have no portals
 });
 
+test('engine moves on boards with walls or portals keep their distance (X 2nd move, O 1st move)', () => {
+  const g = G.Game.create(15, 't');
+  g.play(7, 7);
+  assert.equal(EP.distanceGo(g), '');
+  g.toggleWall(1, 1);
+  assert.equal(EP.distanceGo(g), 'YXOPPDIST 4');
+  g.play(8, 8);
+  assert.equal(EP.distanceGo(g), 'YXPLAYSELF 4');
+  g.play(9, 9);
+  assert.equal(EP.distanceGo(g), '');
+});
+
 test('engine portal commands come before the block and are part of the job key', () => {
   const g = G.Game.create(15, 't');
   assert.deepEqual(EP.portalCommands(g), []);
