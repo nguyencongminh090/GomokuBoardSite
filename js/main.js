@@ -769,7 +769,26 @@
 
   // ---------- tabs, buttons, keyboard ----------
 
+  // The Analyse tab is for key holders: the first visit proves the private key (see security-panel.js), then it stays open.
+  let analyzeUnlocked = false;
+  let unlocking = false;
+
   function selectTab(name) {
+    if (name === 'analyze' && !analyzeUnlocked) {
+      if (!unlocking) {
+        unlocking = true;
+        security.authorizeEngine().then((ok) => {
+          unlocking = false;
+          if (ok) {
+            analyzeUnlocked = true;
+            selectTab('analyze');
+          } else if (tab === 'analyze') {
+            selectTab('play');
+          }
+        });
+      }
+      return;
+    }
     tab = name;
     for (const t of $$('[data-tab]')) {
       t.setAttribute('aria-selected', String(t.dataset.tab === name));
