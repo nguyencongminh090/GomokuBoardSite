@@ -51,6 +51,16 @@
     "x": "EcFWAbjvuIjHhhPTcAlTKnq20RnV8FVvukK6d2ZA7f8",
     "y": "mphoX111OODXBOiL2H_0OS4HtS9BK1O9zmRYBQdOg3o"
    }
+  },
+  {
+   "name": "trungle",
+   "fingerprint": "886F 4CAD EA38 E120 C540 4B03 999F 7762",
+   "publicKey": {
+    "kty": "EC",
+    "crv": "P-256",
+    "x": "rfHM2RX6CQEwIZHjphMz31QCoMJB1H5cAU4KKoXi1-c",
+    "y": "HdhWWfFYtHuM9tVeSm_OtEcc4FDpQnJZRyKpd9j_co0"
+   }
   }
  ]
 }
