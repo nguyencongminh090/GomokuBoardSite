@@ -537,9 +537,36 @@
 
   const ENGINE_TABS = ['versus', 'analyze'];
 
+  // The Analyse view is for key holders: it proves the private key (see security-panel.js) once per page load, and until
+  // then the app stays in Live. A failed check puts the setting back to Live.
+  let unlocked = false;
+  let unlocking = false;
+  let pendingTab = null;
+
+  function requireKey() {
+    if (unlocking) return;
+    unlocking = true;
+    security.authorizeEngine().then((ok) => {
+      unlocking = false;
+      const open = pendingTab;
+      pendingTab = null;
+      if (ok) {
+        unlocked = true;
+        applyView();
+        if (open) selectTab(open);
+      } else {
+        settings.view = 'live';
+        store.saveSettings(settings);
+        applyView();
+        syncSettingsUI();
+      }
+    });
+  }
+
   // Live shows board controls only; Analyse view adds the engine tabs and a wider panel (css/style.css).
   function applyView() {
-    const live = settings.view === 'live';
+    if (settings.view === 'analyze' && !unlocked) requireKey();
+    const live = settings.view === 'live' || !unlocked;
     document.body.classList.toggle('view-live', live);
     document.body.classList.toggle('view-analyze', !live);
     if (live && ENGINE_TABS.includes(tab)) selectTab('play');
@@ -769,24 +796,10 @@
 
   // ---------- tabs, buttons, keyboard ----------
 
-  // The Analyse tab is for key holders: the first visit proves the private key (see security-panel.js), then it stays open.
-  let analyzeUnlocked = false;
-  let unlocking = false;
-
   function selectTab(name) {
-    if (name === 'analyze' && !analyzeUnlocked) {
-      if (!unlocking) {
-        unlocking = true;
-        security.authorizeEngine().then((ok) => {
-          unlocking = false;
-          if (ok) {
-            analyzeUnlocked = true;
-            selectTab('analyze');
-          } else if (tab === 'analyze') {
-            selectTab('play');
-          }
-        });
-      }
+    if (ENGINE_TABS.includes(name) && !unlocked) {
+      pendingTab = name;
+      requireKey();
       return;
     }
     tab = name;
