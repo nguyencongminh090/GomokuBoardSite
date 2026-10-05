@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Luật chơi cờ caro (gomoku) và cách livestream với MCaro</title>
+  <meta name="description" content="Luật cờ caro / gomoku (năm quân liên tiếp), ô tường, cổng dịch chuyển, bàn vòng và cách dùng bàn cờ MCaro để livestream. Gomoku rules and how to use MCaro for livestreams.">
+  <link rel="canonical" href="https://nguyencongminh090.github.io/GomokuBoardSite/huong-dan/">
+  <style>
+    :root { color-scheme: light dark; }
+    body { font: 16px/1.6 system-ui, sans-serif; max-width: 46rem; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+    h1, h2 { line-height: 1.25; }
+    a { color: #9a5200; }
+    @media (prefers-color-scheme: dark) { a { color: #f2a541; } }
+  </style>
+</head>
+<body>
+  <p><a href="../">&larr; MCaro</a></p>
+  <h1>Luật chơi cờ caro (gomoku) và cách livestream với MCaro</h1>
+
+  <h2>Luật cơ bản</h2>
+  <p>Cờ caro (gomoku, five in a row) chơi trên bàn ô vuông giữa hai người. Mỗi người lần lượt đặt một quân, người cầm quân đen/X đi trước. Ai xếp được năm quân liên tiếp theo hàng ngang, hàng dọc hoặc đường chéo trước thì thắng.</p>
+
+  <h2>Bàn cờ MCaro dùng thế nào khi livestream</h2>
+  <p>Một người chủ phòng mở trang và đánh cả hai bên, người xem gọi nước đi qua trò chuyện hoặc giọng nói. Mỗi ô có số thứ tự xoắn ốc từ tâm bàn nên người xem chỉ cần đọc số (ví dụ "ba mươi bảy") hoặc toạ độ như H8. Đi lại một nước khác sẽ tạo nhánh mới, không mất nước cũ. Ván được lưu ngay trong trình duyệt và có thể xuất/nhập tệp JSON.</p>
+
+  <h2>Các biến thể</h2>
+  <ul>
+    <li><b>Ô tường:</b> ô bị khoá, không ai đi vào được và nó chặn đường nối quân.</li>
+    <li><b>Cổng dịch chuyển:</b> hai ô cổng nối với nhau, một hàng quân đi vào cổng này sẽ thoát ra ở cổng kia theo cùng hướng.</li>
+    <li><b>Bàn vòng (torus):</b> bàn không có cạnh, cột cuối nằm cạnh cột đầu và hàng cuối nằm cạnh hàng đầu.</li>
+  </ul>
+
+  <h2>Phân tích bằng engine</h2>
+  <p>Trang có thể chạy engine Rapfi (WebAssembly) để gợi ý nước đi, vẽ biểu đồ tỉ lệ thắng và giải thích các đòn thắng như bốn-bốn, bốn-ba, ba-ba. Chế độ Live ẩn các gợi ý này để buổi phát không lộ nước đi của engine.</p>
+
+  <hr>
+  <h1 lang="en">Gomoku rules and livestreaming with MCaro</h1>
+  <p lang="en">Gomoku (five in a row) is played on a square grid by two players who alternate placing a stone. The first to line up five stones in a row, column or diagonal wins.</p>
+  <p lang="en">MCaro is a free board for livestreams: one host plays both sides while viewers call moves by cell number or coordinate, by chat or voice. It supports wall cells, portal pairs, a torus board with no edges, a variation tree so a different move never overwrites the old one, and optional Rapfi engine analysis with a win chance graph.</p>
+  <p lang="en"><a href="../">Open the board</a></p>
+</body>
+</html>
