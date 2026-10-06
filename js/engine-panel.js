@@ -282,6 +282,16 @@
 
     const busy = () => client.state === 'busy';
 
+    // Search updates arrive many times a second and mostly repeat what is drawn. Rewriting identical markup would
+    // reset hover, tooltips and focus (visible flicker), so the DOM is touched only when the markup changed.
+    const lastHtml = new WeakMap();
+    function setHtml(el, html) {
+      if (lastHtml.get(el) === html) return false;
+      lastHtml.set(el, html);
+      el.innerHTML = html;
+      return true;
+    }
+
     function render() {
       renderEngineTab();
       renderGraph();
@@ -371,7 +381,7 @@
       $('#engResultsEmpty').hidden = !!lines.length;
       // The rows are rebuilt on every search update: keep keyboard focus on the same row's button.
       const focused = table.contains(document.activeElement) ? document.activeElement.dataset.engplay : undefined;
-      table.querySelector('tbody').innerHTML = lines.map((l, i) => {
+      const rows = lines.map((l, i) => {
         const [x, y] = l.line[0] || [-1, -1];
         const move = x >= 0 ? app.cellText(x, y) : '–';
         const chain = attackChain(l.line);
@@ -387,7 +397,8 @@
           `<td>${l.depth === undefined ? '–' : `${l.depth}-${l.selDepth}`}</td>` +
           `<td class="pv">${tag}${rest}</td></tr>`;
       }).join('');
-      if (focused !== undefined) {
+      const changed = setHtml(table.querySelector('tbody'), rows);
+      if (changed && focused !== undefined) {
         const b = table.querySelector(`[data-engplay="${focused}"]`);
         if (b) b.focus({ preventScroll: true });
       }
@@ -506,12 +517,12 @@
       svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
       svg.setAttribute('height', H);
       svg.classList.toggle('stone', app.settings().theme === 'stone'); // black line: needs a light casing on the dark page
-      svg.innerHTML = '<defs>' +
+      setHtml(svg, '<defs>' +
         `<linearGradient id="gArea" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="${T}" y2="${H - B}"><stop offset="0" class="s0" stop-opacity=".4"/><stop offset=".5" class="s0" stop-opacity=".04"/><stop offset="1" class="s0" stop-opacity=".4"/></linearGradient>` +
-        `</defs>${out}${areas}${lines}${marks}`;
+        `</defs>${out}${areas}${lines}${marks}`);
       const names = [0, 1].map((p) => `<span class="gl"><i class="dot p${p}"></i>${esc(app.playerName(p))}</span>`).join('');
       const cp = pts.find((p) => p.id === game.cur);
-      $('#engGraphLegend').innerHTML = names + (cp ? `<span class="gv">${pct(cp.w)} – ${pct(1 - cp.w)}</span>` : '');
+      setHtml($('#engGraphLegend'), names + (cp ? `<span class="gv">${pct(cp.w)} – ${pct(1 - cp.w)}</span>` : ''));
       const ready = client.ready || client.state === 'loading';
       $('#engGraphText').textContent = !ready ? t('eng.graphNeedEngine') : pts.length ? '' : t('eng.graphEmpty');
     }
