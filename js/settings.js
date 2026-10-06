@@ -40,6 +40,7 @@
       nbest: 3, // candidate moves in an analysis
       depth: 99,
       strength: 100, // 0..100
+      style: 'normal', // engine moves: 'normal' | 'aggressive' | 'defensive' (acts on wall/portal/torus boards only)
       threads: 0, // 0 = one per logical CPU
       hash: '128', // transposition table size in MB
       selfDist: 3, // YXPLAYSELF distance

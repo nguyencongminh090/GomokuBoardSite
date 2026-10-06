@@ -232,7 +232,72 @@ test('engine settings defaults have the types their controls produce', () => {
   for (const k of ['moveTime', 'analysisTime', 'nbest', 'depth', 'strength', 'threads', 'selfDist', 'oppDist']) {
     assert.equal(typeof e[k], 'number', k);
   }
-  for (const k of ['side', 'rule', 'hash']) assert.equal(typeof e[k], 'string', k);
+  for (const k of ['side', 'rule', 'hash', 'style']) assert.equal(typeof e[k], 'string', k);
+  assert.equal(e.style, 'normal');
+});
+
+test('engine style: moves get the chosen style and margin, analysis stays normal', () => {
+  const base = { rule: 0, threads: 1, hashMB: 1, depth: 99, strength: 100, timeMs: 0 };
+  const cmds = (kind, style) => new Map(EP.configCommands({ ...base, ...EP.styleConfig(kind, style) }));
+  assert.equal(cmds('move', 'aggressive').get('STYLE'), 1);
+  assert.equal(cmds('move', 'aggressive').get('STYLE_MARGIN'), 60);
+  assert.equal(cmds('move', 'defensive').get('STYLE'), 2);
+  assert.equal(cmds('move', 'defensive').get('STYLE_MARGIN'), 30);
+  assert.equal(cmds('move', 'normal').get('STYLE'), 0);
+  assert.equal(cmds('analyze', 'aggressive').get('STYLE'), 0);
+  assert(!cmds('analyze', 'aggressive').has('STYLE_MARGIN'), 'no margin without a style');
+  assert.equal(cmds('move', 'bogus').get('STYLE'), 0, 'an unknown style plays normal');
+});
+
+test('engine client sends the style only when it changed', () => {
+  const sent = [];
+  const c = new G.EngineClient(() => {});
+  c.worker = { postMessage: (m) => sent.push(m.text) };
+  const base = { rule: 0, threads: 1, hashMB: 1, depth: 99, strength: 100, timeMs: 0 };
+  const run = (kind, style) => {
+    c.state = 'idle';
+    c.next = { kind, key: 'k', block: 'YXBOARD\nDONE', portals: [], size: 15, config: { ...base, ...EP.styleConfig(kind, style) }, go: 'YXNBEST 1' };
+    c.startNext();
+  };
+  const styleLines = () => sent.filter((l) => /^INFO STYLE/.test(l));
+  run('move', 'aggressive');
+  assert.deepEqual(styleLines(), ['INFO STYLE 1', 'INFO STYLE_MARGIN 60']);
+  assert(sent.indexOf('INFO STYLE 1') < sent.indexOf('YXBOARD\nDONE'), 'style goes before the block');
+  run('move', 'aggressive');
+  assert.equal(styleLines().length, 2, 'unchanged: nothing resent');
+  run('analyze', 'aggressive');
+  assert.deepEqual(styleLines().slice(2), ['INFO STYLE 0']);
+  run('move', 'aggressive');
+  assert.deepEqual(styleLines().slice(3), ['INFO STYLE 1'], 'the margin the engine holds is still 60');
+  run('move', 'defensive');
+  assert.deepEqual(styleLines().slice(4), ['INFO STYLE 2', 'INFO STYLE_MARGIN 30']);
+  c.worker.terminate = () => {};
+  c.shutdown(); // a new worker starts with the engine defaults
+  c.worker = { postMessage: (m) => sent.push(m.text) };
+  run('move', 'defensive');
+  assert.deepEqual(styleLines().slice(6), ['INFO STYLE 2', 'INFO STYLE_MARGIN 30']);
+});
+
+test('engine style acts only on wall, portal or torus boards at full strength', () => {
+  const g = G.Game.create(15, 't');
+  assert.equal(EP.styleBlocked(g, 100), 'board');
+  g.toggleWall(3, 3);
+  assert.equal(EP.styleBlocked(g, 100), '');
+  assert.equal(EP.styleBlocked(g, 80), 'strength');
+  const p = G.Game.create(15, 't');
+  p.addPortal(2, 2, 10, 11);
+  assert.equal(EP.styleBlocked(p, 100), '');
+  const t = G.Game.create(15, 't');
+  t.setTorus(true);
+  assert.equal(EP.styleBlocked(t, 100), '');
+});
+
+test('engine style strings exist in every language', () => {
+  for (const lang of G.i18n.LANGS) {
+    for (const k of ['eng.style', 'eng.style.normal', 'eng.style.aggressive', 'eng.style.defensive', 'eng.styleHelp', 'eng.styleNote.board', 'eng.styleNote.strength', 'cmd.name.style']) {
+      assert(G.i18n.STRINGS[lang][k], `${lang} ${k}`);
+    }
+  }
 });
 
 (async () => {
@@ -841,6 +906,10 @@ test('commands: engine numbers are clamped, rule and strength words work', () =>
   assert.equal(one('depth 1').value, 2);
   assert.equal(one('renju rule').value, '4');
   assert.equal(one('luật chuẩn').value, '1');
+  assert.equal(one('máy chơi tấn công').value, 'aggressive');
+  assert.equal(one('defensive style').value, 'defensive');
+  assert.equal(one('lối chơi phòng thủ').path, 'engine.style');
+  assert.equal(one('normal play style').value, 'normal');
 });
 
 test('commands: presets and several commands in one sentence', () => {
@@ -854,7 +923,7 @@ test('commands: presets and several commands in one sentence', () => {
 });
 
 test('commands: every action label has a string in every language', () => {
-  const ids = new Set([...'ui theme symbols stones coords lang view rule analysisTime moveTime strength threads nbest depth'.split(' '), 'moveNumbers', 'lastMove', 'threatMap', 'voiceConfirm', 'signExports', 'autoload', 'multi', 'autoAnalyze']);
+  const ids = new Set([...'ui theme symbols stones coords lang view rule style analysisTime moveTime strength threads nbest depth'.split(' '), 'moveNumbers', 'lastMove', 'threatMap', 'voiceConfirm', 'signExports', 'autoload', 'multi', 'autoAnalyze']);
   for (const lang of G.i18n.LANGS) {
     for (const id of ids) assert(G.i18n.STRINGS[lang][`cmd.name.${id}`], `${lang} cmd.name.${id}`);
     for (const k of ['cmd.set', 'cmd.size', 'cmd.preset', 'cmd.already', 'cmd.on', 'cmd.off', 'cmd.notSquare', 'cmd.apply', 'cmd.done']) assert(G.i18n.STRINGS[lang][k], `${lang} ${k}`);

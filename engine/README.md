@@ -5,7 +5,8 @@ and the site loads them from the engine gate, a Cloudflare Worker (`gate/`) that
 Back that folder up: it is the only copy besides the Worker. `gate/deploy.sh` uploads it.
 
 The analysis engine is **Rapfi**, compiled to WebAssembly from the MINT-P fork, which adds the WALL rule:
-<https://github.com/nguyencongminh090/MINT-P> (built from commit `4a0e8bc`).
+<https://github.com/nguyencongminh090/MINT-P> (built from the local `Rapfi_V3_PTR/dev/rapfi` source, not a git checkout, on 2026-10-07: commit `4a0e8bc`
+plus the playing style, STYLE-01, `docs/protocol-style.md`).
 
 Rapfi is free software under the **GNU General Public License v3**. The engine files are
 built from that source without changes, and the upstream project is <https://github.com/dhbloo/rapfi>.

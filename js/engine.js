@@ -69,7 +69,29 @@
       ['STRENGTH', c.strength],
       ['TIMEOUT_MATCH', 0],
       ['TIMEOUT_TURN', c.timeMs], // 0 with no match time = no time limit: think until stopped (or max depth)
+      ['STYLE', c.style || 0], // a changed style clears the engine's hash; START does not reset it
+      ...(c.style ? [['STYLE_MARGIN', c.styleMargin]] : []), // the margin matters only while a style is on
     ];
+  }
+
+  // Playing styles (Rapfi INFO STYLE): engine id and the value loss the style may accept (eval units).
+  const STYLES = {
+    normal: { id: 0, margin: 0 },
+    aggressive: { id: 1, margin: 60 },
+    defensive: { id: 2, margin: 30 },
+  };
+
+  // Style part of a search configuration: analysis stays neutral, moves play the chosen style.
+  function styleConfig(kind, name) {
+    const s = kind === 'move' && STYLES[name] || STYLES.normal;
+    return { style: s.id, styleMargin: s.margin };
+  }
+
+  // Why a style would not act (the engine then plays normal): '' | 'board' | 'strength'.
+  // It needs the classical evaluator (walls, portals or torus) and full strength.
+  function styleBlocked(game, strength) {
+    if (!game.walls.size && !game.portals.length && !game.torus) return 'board';
+    return strength < 100 ? 'strength' : '';
   }
 
   // Engine value text: "123", "+M5" (mate in 5 plies), "-M4", "+M*" (mate from a database).
@@ -407,7 +429,7 @@
 
   G.VERSION = VERSION;
   G.serviceWorkerUrl = `coi-serviceworker.js?v=${encodeURIComponent(VERSION || 'dev')}`;
-  G.engineProtocol = { MAX_SIZE, boardBlock, portalCommands, distanceGo, jobKey, configCommands, parseValue, parseLine, InfoCollector };
+  G.engineProtocol = { MAX_SIZE, boardBlock, portalCommands, distanceGo, jobKey, configCommands, STYLES, styleConfig, styleBlocked, parseValue, parseLine, InfoCollector };
   G.engineSupport = { unsupportedReason, canUseThreads };
   G.EngineClient = EngineClient;
 })(window.Gomoku = window.Gomoku || {});

@@ -144,6 +144,7 @@
         depth: e.depth,
         strength: kind === 'analyze' ? 100 : e.strength, // the handicap applies to moves only
         timeMs: Math.round(secs * 1000),
+        ...P.styleConfig(kind, e.style), // so does the playing style
       };
     }
 
@@ -337,6 +338,10 @@
       const side = engineSettings().side;
       $('#engChip').hidden = !ready || side === 'none';
       if (!$('#engChip').hidden) $('#engChip').textContent = t('eng.chip', { name: app.playerName(Number(side)) });
+      // The style card is shown whether or not the engine is loaded, so its note is too.
+      const blocked = engineSettings().style !== 'normal' && P.styleBlocked(app.game(), engineSettings().strength);
+      $('#engStyleNote').textContent = blocked ? t(`eng.styleNote.${blocked}`) : '';
+      $('#engStyleNote').hidden = !blocked;
       if (!ready) {
         $('#engAnalyze').disabled = true;
         $('#engEval').hidden = true;

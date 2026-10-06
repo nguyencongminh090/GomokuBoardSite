@@ -25,6 +25,7 @@
     { id: 'enganalyze', tab: 'analyze', targets: ['#engAnalyze'] },
     { id: 'engresults', tab: 'analyze', targets: ['#engResults'] },
     { id: 'engstrength', tab: 'versus', targets: ['[data-set="engine.strength:50"]'] },
+    { id: 'engstyle', tab: 'versus', targets: ['[data-set="engine.style:aggressive"]'] },
     { id: 'engrule', tab: 'versus', targets: ['[data-set="engine.rule:0"]'] },
     { id: 'engtime', tab: 'versus', targets: ['[data-key="engine.moveTime"]'] },
     { id: 'engthreads', tab: 'versus', targets: ['#engThreads'] },

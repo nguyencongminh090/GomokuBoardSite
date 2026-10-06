@@ -208,6 +208,12 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
   - When loaded inside a worker, Emscripten starts pthreads from the worker's own URL, which is why
     `engine.worker.js` checks `self.name === 'em-pthread'`.
   - Rapfi's board limit is 22×22 (`G.engineProtocol.MAX_SIZE`); the site allows 26, so the engine disables itself above 22.
+  - **Playing style** (`settings.engine.style`: `normal` | `aggressive` | `defensive`, Versus tab, Level card): `INFO STYLE 0|1|2`
+    plus `INFO STYLE_MARGIN` (60 / 30, `G.engineProtocol.STYLES`) go through `configCommands` like every INFO value. Only move jobs
+    carry the style (`styleConfig(kind, style)`); analysis jobs send `STYLE 0`, as they force strength 100. A changed STYLE clears the
+    engine's hash and START does not reset it (the `applied` map is cleared only with the worker). The engine applies a style only on
+    wall/portal/torus boards at strength 100 and silently plays normal otherwise; `styleBlocked()` drives the `#engStyleNote` hint.
+    With a style on, the move played may not be the first PV line. Protocol: `Rapfi/docs/protocol-style.md` in the engine source.
   - Threads need COOP/COEP; `coi-serviceworker.js` adds them and `engine-panel.js` reloads once (guarded per tab by
     sessionStorage). Engine settings live under `settings.engine`; number fields commit on `change` and are clamped.
   - The overlay is a separate SVG layer (`BoardView.setAnalysis`), redrawn without re-rendering the board. A previewed line is
