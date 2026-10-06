@@ -748,7 +748,7 @@ body.view-live #langBtn, body.view-live .panel-eval { display: none; }
 .view-seg button { padding: 5px 12px; border-radius: 999px; font-size: 13px; white-space: nowrap; }
 .panel-eval { margin: 12px 16px 0; padding: 10px 12px; border-radius: var(--radius); background: var(--surface-2); }
 @media (min-width: 861px) {
-  body.view-analyze .layout { grid-template-columns: minmax(0, 1fr) 480px; }
+  body.view-analyze:not(.focus) .layout { grid-template-columns: minmax(0, 1fr) 480px; }
 }
 @media (max-width: 860px) {
   .tag { display: none; }
