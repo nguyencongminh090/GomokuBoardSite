@@ -30,8 +30,8 @@ for variant in multi single; do
   [ "$variant" = single ] && extra=(-DNO_MULTI_THREADING=ON)
   emcmake cmake -S "$RAPFI/Rapfi" -B "$build" -G Ninja -DCMAKE_BUILD_TYPE=Release \
     -DNO_COMMAND_MODULES=ON -DUSE_WASM_SIMD=ON -DUSE_WASM_SIMD_RELAXED=OFF "${extra[@]}"
-  cmake --build "$build" --target rapfi # only the engine; the test targets do not build for wasm
+  cmake --build "$build" --target rapfi --clean-first # only the engine; the test targets do not build for wasm
   cp "$build/rapfi-$variant-simd128."{js,wasm,data} "$OUT/"
 done
 
-echo "Engine rebuilt from $(git -C "$RAPFI" rev-parse --short HEAD) into $OUT"
+echo "Engine rebuilt from $(git -C "$RAPFI" rev-parse --short HEAD 2>/dev/null || echo "$RAPFI") into $OUT"
