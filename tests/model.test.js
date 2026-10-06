@@ -927,6 +927,8 @@ test('commands: engine numbers are clamped, rule and strength words work', () =>
   assert.equal(one('defensive style').value, 'defensive');
   assert.equal(one('lối chơi phòng thủ').path, 'engine.style');
   assert.equal(one('normal play style').value, 'normal');
+  assert.equal(one('phong cách cân bằng').value, 'normal');
+  assert.equal(one('máy đánh phong cách phòng thủ').value, 'defensive');
 });
 
 test('commands: presets and several commands in one sentence', () => {

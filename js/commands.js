@@ -86,10 +86,10 @@
       { value: '1', re: /\b(standard|chuan)\b/, valueKey: 'eng.rule.1' },
       { value: '0', re: /\b(freestyle|free|tu do)\b/, valueKey: 'eng.rule.0' },
     ] },
-    { id: 'style', path: 'engine.style', need: /(style|loi choi|phong cach|cach choi|choi|play|engine|may)/, options: [
+    { id: 'style', path: 'engine.style', need: /(style|loi choi|loi danh|phong cach|cach choi|cach danh|choi|play|engine|may)/, options: [
       { value: 'aggressive', re: /\b(aggressive\w*|attack\w*|tan cong|hung hang)\b/, valueKey: 'eng.style.aggressive' },
       { value: 'defensive', re: /\b(defensive\w*|defen[cs]e|defend\w*|phong thu)\b/, valueKey: 'eng.style.defensive' },
-      { value: 'normal', re: /\b(normal|binh thuong)\b/, valueKey: 'eng.style.normal' },
+      { value: 'normal', re: /\b(normal|balanced?|binh thuong|can bang)\b/, valueKey: 'eng.style.normal' },
     ] },
   ];
 
