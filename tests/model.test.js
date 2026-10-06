@@ -234,11 +234,14 @@ test('engine settings defaults have the types their controls produce', () => {
   }
   for (const k of ['side', 'rule', 'hash', 'style']) assert.equal(typeof e[k], 'string', k);
   assert.equal(e.style, 'normal');
+  assert.deepEqual([e.styleMarginAggressive, e.styleMarginDefensive, e.styleContempt], [60, 30, 30]);
+  for (const k of ['styleMarginAggressive', 'styleMarginDefensive', 'styleContempt']) assert.equal(typeof e[k], 'number', k);
 });
 
 test('engine style: moves get the chosen style and margin, analysis stays normal', () => {
   const base = { rule: 0, threads: 1, hashMB: 1, depth: 99, strength: 100, timeMs: 0 };
-  const cmds = (kind, style) => new Map(EP.configCommands({ ...base, ...EP.styleConfig(kind, style) }));
+  const D = G.DEFAULT_SETTINGS.engine;
+  const cmds = (kind, style, over = {}) => new Map(EP.configCommands({ ...base, ...EP.styleConfig(kind, { ...D, style, ...over }) }));
   assert.equal(cmds('move', 'aggressive').get('STYLE'), 1);
   assert.equal(cmds('move', 'aggressive').get('STYLE_MARGIN'), 60);
   assert.equal(cmds('move', 'defensive').get('STYLE'), 2);
@@ -247,6 +250,18 @@ test('engine style: moves get the chosen style and margin, analysis stays normal
   assert.equal(cmds('analyze', 'aggressive').get('STYLE'), 0);
   assert(!cmds('analyze', 'aggressive').has('STYLE_MARGIN'), 'no margin without a style');
   assert.equal(cmds('move', 'bogus').get('STYLE'), 0, 'an unknown style plays normal');
+  assert.equal(cmds('move', 'aggressive').get('STYLE_CONTEMPT'), 30);
+  assert(!cmds('analyze', 'aggressive').has('STYLE_CONTEMPT'));
+  assert(!cmds('move', 'normal').has('STYLE_CONTEMPT'));
+  // Margins are per style; the settings are clamped to the limits and 0 is a valid margin.
+  const o = { styleMarginAggressive: 90, styleMarginDefensive: 10, styleContempt: 45 };
+  assert.equal(cmds('move', 'aggressive', o).get('STYLE_MARGIN'), 90);
+  assert.equal(cmds('move', 'defensive', o).get('STYLE_MARGIN'), 10);
+  assert.equal(cmds('move', 'defensive', o).get('STYLE_CONTEMPT'), 45);
+  assert.equal(cmds('move', 'aggressive', { styleMarginAggressive: 0 }).get('STYLE_MARGIN'), 0);
+  assert.equal(cmds('move', 'aggressive', { styleMarginAggressive: 9999 }).get('STYLE_MARGIN'), EP.STYLE_LIMITS.margin[1]);
+  assert.equal(cmds('move', 'aggressive', { styleContempt: -5 }).get('STYLE_CONTEMPT'), 0);
+  assert.equal(cmds('move', 'aggressive', { styleMarginAggressive: 'x' }).get('STYLE_MARGIN'), 60, 'garbage falls back to the default');
 });
 
 test('engine client sends the style only when it changed', () => {
@@ -254,28 +269,30 @@ test('engine client sends the style only when it changed', () => {
   const c = new G.EngineClient(() => {});
   c.worker = { postMessage: (m) => sent.push(m.text) };
   const base = { rule: 0, threads: 1, hashMB: 1, depth: 99, strength: 100, timeMs: 0 };
-  const run = (kind, style) => {
+  const run = (kind, style, over = {}) => {
     c.state = 'idle';
-    c.next = { kind, key: 'k', block: 'YXBOARD\nDONE', portals: [], size: 15, config: { ...base, ...EP.styleConfig(kind, style) }, go: 'YXNBEST 1' };
+    c.next = { kind, key: 'k', block: 'YXBOARD\nDONE', portals: [], size: 15, config: { ...base, ...EP.styleConfig(kind, { ...G.DEFAULT_SETTINGS.engine, style, ...over }) }, go: 'YXNBEST 1' };
     c.startNext();
   };
   const styleLines = () => sent.filter((l) => /^INFO STYLE/.test(l));
   run('move', 'aggressive');
-  assert.deepEqual(styleLines(), ['INFO STYLE 1', 'INFO STYLE_MARGIN 60']);
+  assert.deepEqual(styleLines(), ['INFO STYLE 1', 'INFO STYLE_MARGIN 60', 'INFO STYLE_CONTEMPT 30']);
   assert(sent.indexOf('INFO STYLE 1') < sent.indexOf('YXBOARD\nDONE'), 'style goes before the block');
   run('move', 'aggressive');
-  assert.equal(styleLines().length, 2, 'unchanged: nothing resent');
+  assert.equal(styleLines().length, 3, 'unchanged: nothing resent');
   run('analyze', 'aggressive');
-  assert.deepEqual(styleLines().slice(2), ['INFO STYLE 0']);
+  assert.deepEqual(styleLines().slice(3), ['INFO STYLE 0']);
   run('move', 'aggressive');
-  assert.deepEqual(styleLines().slice(3), ['INFO STYLE 1'], 'the margin the engine holds is still 60');
+  assert.deepEqual(styleLines().slice(4), ['INFO STYLE 1'], 'the margin and contempt the engine holds are unchanged');
   run('move', 'defensive');
-  assert.deepEqual(styleLines().slice(4), ['INFO STYLE 2', 'INFO STYLE_MARGIN 30']);
+  assert.deepEqual(styleLines().slice(5), ['INFO STYLE 2', 'INFO STYLE_MARGIN 30']);
+  run('move', 'defensive', { styleMarginDefensive: 45, styleContempt: 50 });
+  assert.deepEqual(styleLines().slice(7), ['INFO STYLE_MARGIN 45', 'INFO STYLE_CONTEMPT 50'], 'a changed number is sent alone');
   c.worker.terminate = () => {};
   c.shutdown(); // a new worker starts with the engine defaults
   c.worker = { postMessage: (m) => sent.push(m.text) };
   run('move', 'defensive');
-  assert.deepEqual(styleLines().slice(6), ['INFO STYLE 2', 'INFO STYLE_MARGIN 30']);
+  assert.deepEqual(styleLines().slice(9), ['INFO STYLE 2', 'INFO STYLE_MARGIN 30', 'INFO STYLE_CONTEMPT 30'], 'a new worker gets everything again');
 });
 
 test('engine style acts only on wall, portal or torus boards at full strength', () => {
@@ -294,7 +311,7 @@ test('engine style acts only on wall, portal or torus boards at full strength', 
 
 test('engine style strings exist in every language', () => {
   for (const lang of G.i18n.LANGS) {
-    for (const k of ['eng.style', 'eng.style.normal', 'eng.style.aggressive', 'eng.style.defensive', 'eng.styleHelp', 'eng.styleNote.board', 'eng.styleNote.strength', 'cmd.name.style']) {
+    for (const k of ['eng.style', 'eng.style.normal', 'eng.style.aggressive', 'eng.style.defensive', 'eng.styleHelp', 'eng.styleCustom', 'eng.styleMarginAggressive', 'eng.styleMarginDefensive', 'eng.styleContempt', 'eng.styleCustomHelp', 'eng.styleNote.board', 'eng.styleNote.strength', 'cmd.name.style']) {
       assert(G.i18n.STRINGS[lang][k], `${lang} ${k}`);
     }
   }

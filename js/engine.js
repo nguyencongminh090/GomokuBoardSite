@@ -70,21 +70,33 @@
       ['TIMEOUT_MATCH', 0],
       ['TIMEOUT_TURN', c.timeMs], // 0 with no match time = no time limit: think until stopped (or max depth)
       ['STYLE', c.style || 0], // a changed style clears the engine's hash; START does not reset it
-      ...(c.style ? [['STYLE_MARGIN', c.styleMargin]] : []), // the margin matters only while a style is on
+      ...(c.style ? [['STYLE_MARGIN', c.styleMargin], ['STYLE_CONTEMPT', c.styleContempt]] : []), // only while a style is on
     ];
   }
 
-  // Playing styles (Rapfi INFO STYLE): engine id and the value loss the style may accept (eval units).
+  // Playing styles (Rapfi INFO STYLE): the engine id and the setting that holds the style's margin.
   const STYLES = {
-    normal: { id: 0, margin: 0 },
-    aggressive: { id: 1, margin: 60 },
-    defensive: { id: 2, margin: 30 },
+    normal: { id: 0 },
+    aggressive: { id: 1, marginKey: 'styleMarginAggressive' },
+    defensive: { id: 2, marginKey: 'styleMarginDefensive' },
   };
 
-  // Style part of a search configuration: analysis stays neutral, moves play the chosen style.
-  function styleConfig(kind, name) {
-    const s = kind === 'move' && STYLES[name] || STYLES.normal;
-    return { style: s.id, styleMargin: s.margin };
+  // Limits of the style numbers, in eval units (the win chance is sigmoid(value / 200): 60 is about 7 points near
+  // an even position, 400 about 38). The engine accepts 0..6000, but past 400 any move that is not losing qualifies.
+  const STYLE_LIMITS = { margin: [0, 400], contempt: [0, 200] };
+
+  const clampTo = ([min, max], v, fallback) => Math.min(max, Math.max(min, Math.round(Number(v)) || (v === 0 ? 0 : fallback)));
+
+  // Style part of a search configuration from the engine settings `e`: analysis stays neutral, moves play
+  // the chosen style. Margin and contempt are sent only while a style is on.
+  function styleConfig(kind, e) {
+    const s = kind === 'move' && STYLES[e.style] || STYLES.normal;
+    if (!s.id) return { style: 0 };
+    return {
+      style: s.id,
+      styleMargin: clampTo(STYLE_LIMITS.margin, e[s.marginKey], 60),
+      styleContempt: clampTo(STYLE_LIMITS.contempt, e.styleContempt, 30),
+    };
   }
 
   // Why a style would not act (the engine then plays normal): '' | 'board' | 'strength'.
@@ -429,7 +441,7 @@
 
   G.VERSION = VERSION;
   G.serviceWorkerUrl = `coi-serviceworker.js?v=${encodeURIComponent(VERSION || 'dev')}`;
-  G.engineProtocol = { MAX_SIZE, boardBlock, portalCommands, distanceGo, jobKey, configCommands, STYLES, styleConfig, styleBlocked, parseValue, parseLine, InfoCollector };
+  G.engineProtocol = { MAX_SIZE, boardBlock, portalCommands, distanceGo, jobKey, configCommands, STYLES, STYLE_LIMITS, styleConfig, styleBlocked, parseValue, parseLine, InfoCollector };
   G.engineSupport = { unsupportedReason, canUseThreads };
   G.EngineClient = EngineClient;
 })(window.Gomoku = window.Gomoku || {});

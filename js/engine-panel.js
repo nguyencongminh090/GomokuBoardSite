@@ -144,7 +144,7 @@
         depth: e.depth,
         strength: kind === 'analyze' ? 100 : e.strength, // the handicap applies to moves only
         timeMs: Math.round(secs * 1000),
-        ...P.styleConfig(kind, e.style), // so does the playing style
+        ...P.styleConfig(kind, e), // so does the playing style
       };
     }
 

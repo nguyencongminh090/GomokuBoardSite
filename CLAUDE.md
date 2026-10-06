@@ -209,10 +209,13 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
     `engine.worker.js` checks `self.name === 'em-pthread'`.
   - Rapfi's board limit is 22×22 (`G.engineProtocol.MAX_SIZE`); the site allows 26, so the engine disables itself above 22.
   - **Playing style** (`settings.engine.style`: `normal` | `aggressive` | `defensive`, Versus tab, Level card): `INFO STYLE 0|1|2`
-    plus `INFO STYLE_MARGIN` (60 / 30, `G.engineProtocol.STYLES`) go through `configCommands` like every INFO value. Only move jobs
+    plus `INFO STYLE_MARGIN` and `INFO STYLE_CONTEMPT` go through `configCommands` like every INFO value. Only move jobs
     carry the style (`styleConfig(kind, style)`); analysis jobs send `STYLE 0`, as they force strength 100. A changed STYLE clears the
     engine's hash and START does not reset it (the `applied` map is cleared only with the worker). The engine applies a style only on
     wall/portal/torus boards at strength 100 and silently plays normal otherwise; `styleBlocked()` drives the `#engStyleNote` hint.
+    Margin is per style (`styleMarginAggressive` 60, `styleMarginDefensive` 30) and contempt shared (`styleContempt` 30), in a "Style tuning"
+    `<details>`; `G.engineProtocol.STYLE_LIMITS` (margin 0..400, contempt 0..200; the engine allows 0..6000, but the win chance is
+    sigmoid(value/200) and past 400 any non-losing move qualifies) clamps what is sent, and the inputs carry the same min/max.
     With a style on, the move played may not be the first PV line. Protocol: `Rapfi/docs/protocol-style.md` in the engine source.
   - Threads need COOP/COEP; `coi-serviceworker.js` adds them and `engine-panel.js` reloads once (guarded per tab by
     sessionStorage). Engine settings live under `settings.engine`; number fields commit on `change` and are clamped.
