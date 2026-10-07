@@ -6,7 +6,7 @@ Back that folder up: it is the only copy besides the Worker. `gate/deploy.sh` up
 
 The analysis engine is **Rapfi**, compiled to WebAssembly from the MINT-P fork, which adds the WALL rule:
 <https://github.com/nguyencongminh090/MINT-P> (built from the local `Rapfi_V3_PTR/dev/rapfi` source, not a git checkout, on 2026-10-07: commit `4a0e8bc`
-+ STYLE-01/02, 2026-10-07: the playing styles including Troll, `docs/protocol-style.md`).
++ STYLE-01/02, 2026-10-07: the playing styles including Troll, `docs/protocol-style.md`; rebuilt the same day with the Troll fix: a five is played when the opponent makes a four instead of blocking it).
 
 Rapfi is free software under the **GNU General Public License v3**. The engine files are
 built from that source without changes, and the upstream project is <https://github.com/dhbloo/rapfi>.
