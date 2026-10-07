@@ -1,5 +1,6 @@
 // "Install the app" banner for phones. Android Chrome fires `beforeinstallprompt`, which is kept and replayed from the
-// banner's button; iOS Safari has no such event, so the banner only explains Share -> Add to Home Screen.
+// banner's button; iOS has no such event, so the banner explains Add to Home Screen for the browser in use. In-app
+// browsers (TikTok, Facebook, Zalo...) cannot add to the Home Screen at all: there the button copies the link for Safari.
 // Never shown inside the installed app, on desktop, or for DISMISS_DAYS after the host closed it.
 (function (G) {
   'use strict';
@@ -13,6 +14,9 @@
     const ua = navigator.userAgent;
     const ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     const phone = ios || /Android/.test(ua) || matchMedia('(max-width: 860px) and (pointer: coarse)').matches;
+    // iOS flavour: 'inapp' (an app's own web view), 'other' (Chrome, Edge, Firefox: Share is in their own menu) or 'safari'.
+    const iosKind = !ios ? '' : /BytedanceWebview|musical_ly|TikTok|FBAN|FBAV|FB_IAB|Instagram|Zalo|Messenger|Line\/|LinkedInApp|Snapchat/i.test(ua)
+      ? 'inapp' : /CriOS|EdgiOS|FxiOS|OPiOS/.test(ua) ? 'other' : 'safari';
     let deferred = null;
     let timer = 0;
 
@@ -32,8 +36,10 @@
     function show() {
       if (installed() || suppressed()) return;
       const canPrompt = !!deferred;
-      $('#installText').textContent = t(canPrompt ? 'install.android' : 'install.ios');
-      $('#installBtn').hidden = !canPrompt;
+      const copy = iosKind === 'inapp';
+      $('#installText').textContent = t(canPrompt ? 'install.android' : copy ? 'install.iosInApp' : iosKind === 'other' ? 'install.iosOther' : 'install.ios');
+      $('#installBtn').textContent = t(copy ? 'install.copy' : 'install.button');
+      $('#installBtn').hidden = !canPrompt && !copy;
       $('#installBanner').hidden = false;
     }
 
@@ -65,6 +71,15 @@
         hide();
       });
       $('#installBtn').addEventListener('click', async () => {
+        if (iosKind === 'inapp') {
+          try {
+            await navigator.clipboard.writeText(location.href.split('#')[0]);
+            $('#installText').textContent = t('install.copied');
+          } catch (err) {
+            $('#installText').textContent = t('install.copyFailed', { url: location.href.split('#')[0] });
+          }
+          return;
+        }
         if (!deferred) return;
         const ev = deferred;
         deferred = null;
