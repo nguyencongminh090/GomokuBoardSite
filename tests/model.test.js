@@ -236,6 +236,7 @@ test('engine settings defaults have the types their controls produce', () => {
   assert.equal(e.style, 'normal');
   assert.deepEqual([e.styleMarginAggressive, e.styleMarginDefensive, e.styleContempt], [60, 30, 30]);
   for (const k of ['styleMarginAggressive', 'styleMarginDefensive', 'styleContempt']) assert.equal(typeof e[k], 'number', k);
+  assert.deepEqual([e.styleMarginTroll, e.trollTarget], [60, 500]);
 });
 
 test('engine style: moves get the chosen style and margin, analysis stays normal', () => {
@@ -262,6 +263,28 @@ test('engine style: moves get the chosen style and margin, analysis stays normal
   assert.equal(cmds('move', 'aggressive', { styleMarginAggressive: 9999 }).get('STYLE_MARGIN'), EP.STYLE_LIMITS.margin[1]);
   assert.equal(cmds('move', 'aggressive', { styleContempt: -5 }).get('STYLE_CONTEMPT'), 0);
   assert.equal(cmds('move', 'aggressive', { styleMarginAggressive: 'x' }).get('STYLE_MARGIN'), 60, 'garbage falls back to the default');
+});
+
+test('engine style: troll sends its target, the other styles and analysis never do', () => {
+  const base = { rule: 0, threads: 1, hashMB: 1, depth: 99, strength: 100, timeMs: 0 };
+  const D = G.DEFAULT_SETTINGS.engine;
+  const cmds = (kind, style, over = {}) => new Map(EP.configCommands({ ...base, ...EP.styleConfig(kind, { ...D, style, ...over }) }));
+  const troll = cmds('move', 'troll');
+  assert.equal(troll.get('STYLE'), 3);
+  assert.equal(troll.get('STYLE_MARGIN'), 60);
+  assert.equal(troll.get('STYLE_TROLL_TARGET'), 500);
+  for (const style of ['normal', 'aggressive', 'defensive', 'bogus']) assert(!cmds('move', style).has('STYLE_TROLL_TARGET'), style);
+  assert.equal(cmds('analyze', 'troll').get('STYLE'), 0, 'analysis stays neutral');
+  assert(!cmds('analyze', 'troll').has('STYLE_TROLL_TARGET'));
+  assert(!cmds('analyze', 'troll').has('STYLE_MARGIN'));
+  // The margin is the troll's own; the target is clamped to the engine's 0..1000 and 0 is valid.
+  assert.equal(cmds('move', 'troll', { styleMarginTroll: 120, styleMarginAggressive: 90 }).get('STYLE_MARGIN'), 120);
+  assert.deepEqual(EP.STYLE_LIMITS.target, [0, 1000]);
+  assert.equal(cmds('move', 'troll', { trollTarget: 0 }).get('STYLE_TROLL_TARGET'), 0);
+  assert.equal(cmds('move', 'troll', { trollTarget: 250 }).get('STYLE_TROLL_TARGET'), 250);
+  assert.equal(cmds('move', 'troll', { trollTarget: 5000 }).get('STYLE_TROLL_TARGET'), 1000);
+  assert.equal(cmds('move', 'troll', { trollTarget: -3 }).get('STYLE_TROLL_TARGET'), 0);
+  assert.equal(cmds('move', 'troll', { trollTarget: 'x' }).get('STYLE_TROLL_TARGET'), 500, 'garbage falls back to the default');
 });
 
 test('engine client sends the style only when it changed', () => {
@@ -295,6 +318,37 @@ test('engine client sends the style only when it changed', () => {
   assert.deepEqual(styleLines().slice(9), ['INFO STYLE 2', 'INFO STYLE_MARGIN 30', 'INFO STYLE_CONTEMPT 30'], 'a new worker gets everything again');
 });
 
+test('engine client sends the troll target only when it changed', () => {
+  const sent = [];
+  const c = new G.EngineClient(() => {});
+  c.worker = { postMessage: (m) => sent.push(m.text) };
+  const base = { rule: 0, threads: 1, hashMB: 1, depth: 99, strength: 100, timeMs: 0 };
+  const run = (kind, style, over = {}) => {
+    c.state = 'idle';
+    c.next = { kind, key: 'k', block: 'YXBOARD\nDONE', portals: [], size: 15, config: { ...base, ...EP.styleConfig(kind, { ...G.DEFAULT_SETTINGS.engine, style, ...over }) }, go: 'YXNBEST 1' };
+    c.startNext();
+  };
+  const styleLines = () => sent.filter((l) => /^INFO STYLE/.test(l));
+  run('move', 'troll');
+  assert.deepEqual(styleLines(), ['INFO STYLE 3', 'INFO STYLE_MARGIN 60', 'INFO STYLE_CONTEMPT 30', 'INFO STYLE_TROLL_TARGET 500']);
+  assert(sent.indexOf('INFO STYLE_TROLL_TARGET 500') < sent.indexOf('YXBOARD\nDONE'), 'the target goes before the block');
+  run('move', 'defensive');
+  assert.deepEqual(styleLines().slice(4), ['INFO STYLE 2', 'INFO STYLE_MARGIN 30'], 'no target for another style');
+  run('move', 'troll');
+  assert.deepEqual(styleLines().slice(6), ['INFO STYLE 3', 'INFO STYLE_MARGIN 60'], 'the target the engine holds is unchanged');
+  run('analyze', 'troll');
+  assert.deepEqual(styleLines().slice(8), ['INFO STYLE 0']);
+  run('move', 'troll', { trollTarget: 300 });
+  assert.deepEqual(styleLines().slice(9), ['INFO STYLE 3', 'INFO STYLE_TROLL_TARGET 300']);
+  run('move', 'troll', { trollTarget: 200 });
+  assert.deepEqual(styleLines().slice(11), ['INFO STYLE_TROLL_TARGET 200'], 'a changed target is sent alone');
+  c.worker.terminate = () => {};
+  c.shutdown();
+  c.worker = { postMessage: (m) => sent.push(m.text) };
+  run('move', 'troll');
+  assert.deepEqual(styleLines().slice(12), ['INFO STYLE 3', 'INFO STYLE_MARGIN 60', 'INFO STYLE_CONTEMPT 30', 'INFO STYLE_TROLL_TARGET 500'], 'a new worker gets everything again');
+});
+
 test('engine style acts only on wall, portal or torus boards at full strength', () => {
   const g = G.Game.create(15, 't');
   assert.equal(EP.styleBlocked(g, 100), 'board');
@@ -311,7 +365,7 @@ test('engine style acts only on wall, portal or torus boards at full strength', 
 
 test('engine style strings exist in every language', () => {
   for (const lang of G.i18n.LANGS) {
-    for (const k of ['eng.style', 'eng.style.normal', 'eng.style.aggressive', 'eng.style.defensive', 'eng.styleHelp', 'eng.styleCustom', 'eng.styleMarginAggressive', 'eng.styleMarginDefensive', 'eng.styleContempt', 'eng.styleCustomHelp', 'eng.styleNote.board', 'eng.styleNote.strength', 'cmd.name.style']) {
+    for (const k of ['eng.style', 'eng.style.normal', 'eng.style.aggressive', 'eng.style.defensive', 'eng.style.troll', 'eng.styleHelp', 'eng.styleCustom', 'eng.styleMarginAggressive', 'eng.styleMarginDefensive', 'eng.styleContempt', 'eng.styleMarginTroll', 'eng.styleTrollTarget', 'eng.styleCustomHelp', 'eng.styleNote.board', 'eng.styleNote.strength', 'cmd.name.style']) {
       assert(G.i18n.STRINGS[lang][k], `${lang} ${k}`);
     }
   }
@@ -929,6 +983,12 @@ test('commands: engine numbers are clamped, rule and strength words work', () =>
   assert.equal(one('normal play style').value, 'normal');
   assert.equal(one('phong cách cân bằng').value, 'normal');
   assert.equal(one('máy đánh phong cách phòng thủ').value, 'defensive');
+  assert.equal(one('troll style').value, 'troll');
+  assert.equal(one('troll').value, 'troll');
+  assert.equal(one('cầu hoà').path, 'engine.style');
+  assert.equal(one('máy chơi cầu hòa').value, 'troll');
+  assert.equal(one('draw seeking engine').value, 'troll');
+  assert.equal(one('máy chơi cân bằng').value, 'normal');
 });
 
 test('commands: presets and several commands in one sentence', () => {

@@ -757,6 +757,7 @@ body.view-live #langBtn, body.view-live .panel-eval { display: none; }
   #langBtn { display: none; } /* the language is also in Settings; this keeps room for the game name */
   .icon-btn { width: 36px; height: 36px; }
   .view-seg button { padding: 5px 9px; }
+  .seg-wrap button { flex-basis: calc(50% - 2px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -804,3 +805,6 @@ body.view-live #langBtn, body.view-live .panel-eval { display: none; }
 .chip-btn { align-self: flex-start; padding: 5px 12px; border-radius: 999px; border-color: var(--accent-text); background: var(--accent-soft); color: var(--accent-text); font-size: 13px; font-weight: 600; }
 .chip-btn:hover:not(:disabled) { background: var(--accent-soft); filter: brightness(.96); }
 .seg-stack { flex-direction: column; border-radius: 14px; }
+/* Four options: on a phone they wrap into two rows instead of squeezing the labels. */
+.seg-wrap { flex-wrap: wrap; }
+.seg-wrap button { white-space: nowrap; }

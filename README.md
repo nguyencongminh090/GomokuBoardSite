@@ -30,7 +30,7 @@ while players call their moves over voice (TikTok live, video calls, ...). No se
   chance, depth and line, marked on the board; hover a line to preview it), auto-analysis on every
   position change, *Engine move*, *Engine plays X / O* (answers each host move), and distance moves
   (`YXPLAYSELF` / `YXOPPDIST`). Walls are sent to the engine, which treats them as line blockers.
-  The *Engine* tab loads it and sets rule, time, suggestions, depth, strength, playing style, threads and hash.
+  The *Engine* tab loads it and sets rule, time, suggestions, depth, strength, playing style (normal, aggressive, defensive or troll), threads and hash.
   Boards up to 22×22 (Rapfi's limit). The board itself still enforces no rules.
 
 Keyboard: `←` `→` back/forward · `↑` `↓` switch branch · `Home` `End` · `S` setup · `N` new game ·

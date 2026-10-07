@@ -7,7 +7,7 @@
   <!-- Release version. Bump it with `node tools/bump-version.js <version>` before each deploy: it is added to
        every asset URL (?v=), so returning visitors never mix cached old files with new ones. -->
   <meta name="engine-gate" content="https://gomoku-engine-gate.nguyencongminh2247.workers.dev">
-  <meta name="app-version" content="1.20.3">
+  <meta name="app-version" content="1.21.0">
   <meta name="description" content="Bàn cờ caro (gomoku, five in a row) online miễn phí cho livestream: ô tường, cổng dịch chuyển, bàn vòng, nhánh nước đi, phân tích engine, đánh bằng giọng nói.">
   <meta name="robots" content="index, follow, max-image-preview:large">
   <link rel="canonical" href="https://nguyencongminh090.github.io/GomokuBoardSite/">
@@ -38,7 +38,7 @@
       document.documentElement.dataset.ui = dark ? 'dark' : 'light';
     } catch (e) { /* storage unavailable: CSS default applies */ }
   </script>
-  <link rel="stylesheet" href="css/style.css?v=1.20.3">
+  <link rel="stylesheet" href="css/style.css?v=1.21.0">
 </head>
 <body>
   <noscript><h1>MCaro - Bàn cờ Caro Gomoku online</h1><p>Bàn cờ caro (gomoku, five in a row) online miễn phí cho livestream: ô tường, cổng dịch chuyển, bàn vòng, nhánh nước đi, phân tích engine, đánh bằng giọng nói. Cần bật JavaScript để dùng bàn cờ. / A free online gomoku (five in a row) board for livestreams, with walls, portals, torus board and engine analysis. It needs JavaScript.</p></noscript>
@@ -211,10 +211,11 @@
           </div>
           <p class="muted small-text hint" data-i18n="eng.levelHelp"></p>
           <div class="sub-label" data-i18n="eng.style"></div>
-          <div class="seg" role="group" data-i18n-attr="aria-label:eng.style">
+          <div class="seg seg-wrap" role="group" data-i18n-attr="aria-label:eng.style">
             <button data-set="engine.style:normal" data-i18n="eng.style.normal"></button>
             <button data-set="engine.style:aggressive" data-i18n="eng.style.aggressive"></button>
             <button data-set="engine.style:defensive" data-i18n="eng.style.defensive"></button>
+            <button data-set="engine.style:troll" data-i18n="eng.style.troll"></button>
           </div>
           <p class="muted small-text engine-note" id="engStyleNote" hidden></p>
           <p class="muted small-text hint" data-i18n="eng.styleHelp"></p>
@@ -223,6 +224,8 @@
             <label class="field"><span data-i18n="eng.styleMarginAggressive"></span><input type="number" min="0" max="400" step="5" data-key="engine.styleMarginAggressive"></label>
             <label class="field"><span data-i18n="eng.styleMarginDefensive"></span><input type="number" min="0" max="400" step="5" data-key="engine.styleMarginDefensive"></label>
             <label class="field"><span data-i18n="eng.styleContempt"></span><input type="number" min="0" max="200" step="5" data-key="engine.styleContempt"></label>
+            <label class="field"><span data-i18n="eng.styleMarginTroll"></span><input type="number" min="0" max="400" step="5" data-key="engine.styleMarginTroll"></label>
+            <label class="field"><span data-i18n="eng.styleTrollTarget"></span><input type="number" min="0" max="1000" step="50" data-key="engine.trollTarget"></label>
             <p class="muted small-text hint" data-i18n="eng.styleCustomHelp"></p>
           </details>
           <details class="engine-dist">
@@ -571,26 +574,26 @@
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="js/i18n.js?v=1.20.3"></script>
-  <script src="js/contrast.js?v=1.20.3"></script>
-  <script src="js/coords.js?v=1.20.3"></script>
-  <script src="js/settings.js?v=1.20.3"></script>
-  <script src="js/game.js?v=1.20.3"></script>
-  <script src="js/security.js?v=1.20.3"></script>
-  <script src="js/storage.js?v=1.20.3"></script>
-  <script src="js/explain.js?v=1.20.3"></script>
-  <script src="js/board.js?v=1.20.3"></script>
-  <script src="js/engine.js?v=1.20.3"></script>
-  <script src="js/engine-panel.js?v=1.20.3"></script>
-  <script src="js/explain-panel.js?v=1.20.3"></script>
-  <script src="js/security-panel.js?v=1.20.3"></script>
-  <script src="js/voice-lexicon.js?v=1.20.3"></script>
-  <script src="js/voice.js?v=1.20.3"></script>
-  <script src="js/voice-panel.js?v=1.20.3"></script>
-  <script src="js/search.js?v=1.20.3"></script>
-  <script src="js/commands.js?v=1.20.3"></script>
-  <script src="js/search-panel.js?v=1.20.3"></script>
-  <script src="js/install.js?v=1.20.3"></script>
-  <script src="js/main.js?v=1.20.3"></script>
+  <script src="js/i18n.js?v=1.21.0"></script>
+  <script src="js/contrast.js?v=1.21.0"></script>
+  <script src="js/coords.js?v=1.21.0"></script>
+  <script src="js/settings.js?v=1.21.0"></script>
+  <script src="js/game.js?v=1.21.0"></script>
+  <script src="js/security.js?v=1.21.0"></script>
+  <script src="js/storage.js?v=1.21.0"></script>
+  <script src="js/explain.js?v=1.21.0"></script>
+  <script src="js/board.js?v=1.21.0"></script>
+  <script src="js/engine.js?v=1.21.0"></script>
+  <script src="js/engine-panel.js?v=1.21.0"></script>
+  <script src="js/explain-panel.js?v=1.21.0"></script>
+  <script src="js/security-panel.js?v=1.21.0"></script>
+  <script src="js/voice-lexicon.js?v=1.21.0"></script>
+  <script src="js/voice.js?v=1.21.0"></script>
+  <script src="js/voice-panel.js?v=1.21.0"></script>
+  <script src="js/search.js?v=1.21.0"></script>
+  <script src="js/commands.js?v=1.21.0"></script>
+  <script src="js/search-panel.js?v=1.21.0"></script>
+  <script src="js/install.js?v=1.21.0"></script>
+  <script src="js/main.js?v=1.21.0"></script>
 </body>
 </html>

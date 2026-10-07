@@ -40,10 +40,12 @@
       nbest: 3, // candidate moves in an analysis
       depth: 99,
       strength: 100, // 0..100
-      style: 'normal', // engine moves: 'normal' | 'aggressive' | 'defensive' (acts on wall/portal/torus boards only)
+      style: 'normal', // engine moves: 'normal' | 'aggressive' | 'defensive' | 'troll' (acts on wall/portal/torus boards only)
       styleMarginAggressive: 60, // 0..400: value the engine may give up to play a more aggressive move
       styleMarginDefensive: 30, // 0..400: the same for the defensive style
       styleContempt: 30, // 0..200: draw value for the engine's side with a style on (aggressive avoids draws, defensive accepts)
+      styleMarginTroll: 60, // 0..400: the margin of the troll style, on its own scale (distance to the target)
+      trollTarget: 500, // 0..1000: the eval the troll style aims at and never cashes in (0 = an even position)
       threads: 0, // 0 = one per logical CPU
       hash: '128', // transposition table size in MB
       selfDist: 3, // YXPLAYSELF distance

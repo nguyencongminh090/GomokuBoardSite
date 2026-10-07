@@ -71,6 +71,7 @@
       ['TIMEOUT_TURN', c.timeMs], // 0 with no match time = no time limit: think until stopped (or max depth)
       ['STYLE', c.style || 0], // a changed style clears the engine's hash; START does not reset it
       ...(c.style ? [['STYLE_MARGIN', c.styleMargin], ['STYLE_CONTEMPT', c.styleContempt]] : []), // only while a style is on
+      ...(c.style === STYLES.troll.id ? [['STYLE_TROLL_TARGET', c.trollTarget]] : []), // only Troll reads it; no hash clear
     ];
   }
 
@@ -79,16 +80,18 @@
     normal: { id: 0 },
     aggressive: { id: 1, marginKey: 'styleMarginAggressive' },
     defensive: { id: 2, marginKey: 'styleMarginDefensive' },
+    troll: { id: 3, marginKey: 'styleMarginTroll' }, // draw-seeking: keeps a small edge, never wins unless forced
   };
 
   // Limits of the style numbers, in eval units (the win chance is sigmoid(value / 200): 60 is about 7 points near
   // an even position, 400 about 38). The engine accepts 0..6000, but past 400 any move that is not losing qualifies.
-  const STYLE_LIMITS = { margin: [0, 400], contempt: [0, 200] };
+  // The Troll target is the eval Troll aims at (the engine's own range; 0 = an even position).
+  const STYLE_LIMITS = { margin: [0, 400], contempt: [0, 200], target: [0, 1000] };
 
   const clampTo = ([min, max], v, fallback) => Math.min(max, Math.max(min, Math.round(Number(v)) || (v === 0 ? 0 : fallback)));
 
   // Style part of a search configuration from the engine settings `e`: analysis stays neutral, moves play
-  // the chosen style. Margin and contempt are sent only while a style is on.
+  // the chosen style. Margin and contempt are sent only while a style is on, the Troll target only with Troll.
   function styleConfig(kind, e) {
     const s = kind === 'move' && STYLES[e.style] || STYLES.normal;
     if (!s.id) return { style: 0 };
@@ -96,6 +99,7 @@
       style: s.id,
       styleMargin: clampTo(STYLE_LIMITS.margin, e[s.marginKey], 60),
       styleContempt: clampTo(STYLE_LIMITS.contempt, e.styleContempt, 30),
+      ...(s === STYLES.troll && { trollTarget: clampTo(STYLE_LIMITS.target, e.trollTarget, 500) }),
     };
   }
 
