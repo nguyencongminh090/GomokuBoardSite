@@ -436,14 +436,16 @@
 
       this.tagCells = null;
       if (s.threatMap && mode === 'play' && !game.bendsLines()) out.push(this.threatMap(game, m));
-      out.push('<g class="explain"></g><g class="analysis"></g><g class="ghost"></g>');
+      out.push('<g class="explain"></g><g class="analysis"></g><g class="branch"></g><g class="ghost"></g>');
       this.svg.innerHTML = out.join('');
       this.analysisLayer = this.svg.querySelector('.analysis');
       this.explainLayer = this.svg.querySelector('.explain');
+      this.branchLayer = this.svg.querySelector('.branch');
       this.analysisHtml = '';
       this.ghost = this.svg.querySelector('.ghost');
       this.drawExplain();
       this.drawAnalysis();
+      this.drawBranch();
       this.drawGhost();
     }
 
@@ -532,7 +534,8 @@
       layer.innerHTML = html;
     }
 
-    // Markup of a previewed line (a.line, first mover a.first, optional victory chain a.chain and stressed move a.mark).
+    // Markup of a previewed line (a.line, first mover a.first, optional victory chain a.chain and stressed move a.mark;
+    // a.from offsets the move numbers, so a game variation shows its real move numbers).
     lineMarkup(a, st) {
       const { game, s, m } = st;
       const c = (i) => m + (i + 0.5) * P;
@@ -564,7 +567,7 @@
         }
         const fill = paper ? ink : player ? '#1a1a1a' : '#f4f4f4';
         const halo = paper ? ` stroke="${bg}" stroke-width="4" paint-order="stroke"` : '';
-        out.push(`<text class="pvnum${i === a.mark ? ' cur' : ''}${ch && i >= ch.added ? ' solver' : ''}" x="${c(x)}" y="${c(y)}" dy=".36em" fill="${fill}"${halo}>${i + 1}</text>`);
+        out.push(`<text class="pvnum${i === a.mark ? ' cur' : ''}${ch && i >= ch.added ? ' solver' : ''}" x="${c(x)}" y="${c(y)}" dy=".36em" fill="${fill}"${halo}>${(a.from || 0) + i + 1}</text>`);
       });
       return out;
     }
@@ -581,6 +584,31 @@
       if (!layer || !st) return;
       const a = this.explain;
       layer.innerHTML = a && a.line && a.line.length ? this.lineMarkup(a, st).join('') : '';
+    }
+
+    // Variation preview while a branch chip is hovered: { line, first, from, mark, hide: [x, y] | null } or null.
+    // `hide` is a stone on the board that the variation replaces (an alternative to the current move): it is faded out.
+    // The engine and Explain layers and the branch letters are hidden meanwhile (`.previewing`), so only the variation shows.
+    setBranch(overlay) {
+      this.branch = overlay;
+      this.drawBranch();
+    }
+
+    drawBranch() {
+      const layer = this.branchLayer;
+      const st = this.state;
+      if (!layer || !st) return;
+      const a = this.branch;
+      const on = !!(a && a.line && a.line.length);
+      this.svg.classList.toggle('previewing', on);
+      if (!on) {
+        layer.innerHTML = '';
+        return;
+      }
+      const { s, m } = st;
+      const bg = s.theme === 'paper' ? s.paper.bg : s.stone.bg;
+      const hide = a.hide ? `<circle cx="${m + (a.hide[0] + 0.5) * P}" cy="${m + (a.hide[1] + 0.5) * P}" r="${f(P * 0.47)}" fill="${bg}" opacity=".8"/>` : '';
+      layer.innerHTML = hide + this.lineMarkup(a, st).join('');
     }
 
     setHover(cell) {

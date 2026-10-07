@@ -165,7 +165,8 @@ select, input[type="number"], .field input:not([type]) {
 #board .hint circle { fill: var(--accent); stroke: #fff; stroke-width: 1.5; }
 #board .hint text { fill: #1d1305; font-size: 13px; font-weight: 700; }
 #board .ghost { pointer-events: none; }
-#board .analysis, #board .explain { pointer-events: none; }
+#board .analysis, #board .explain, #board .branch { pointer-events: none; }
+#board.previewing .analysis, #board.previewing .explain, #board.previewing .hint { display: none; }
 #board .cand circle { fill: #334155; stroke: #fff; stroke-width: 1.5; }
 #board .cand text { dominant-baseline: alphabetic; fill: #fff; font-size: 12px; font-weight: 700; }
 #board .cand.t1 circle { fill: #15803d; }

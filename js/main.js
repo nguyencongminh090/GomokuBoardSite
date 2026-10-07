@@ -243,6 +243,7 @@
 
   function refresh() {
     applyThemeVars();
+    board.branch = null; // a branch preview belongs to the chips of the previous position
     board.tool = tool;
     board.pending = pending;
     // The threat map is an analysis aid: viewers of a livestream never see it.
@@ -869,6 +870,32 @@
     const b = e.target.closest('[data-goto]');
     if (b) nav(() => game.goTo(Number(b.dataset.goto)));
   });
+
+  // Hovering (or focusing) a branch chip previews that variation on the board: the chip's move and the line Forward
+  // would follow from it, numbered with the real move numbers. An alternative to the current move fades that stone out.
+  function previewBranch(id) {
+    if (id === game.cur) id = game.nodes[id].children.length ? game.nextOf(id) : -1;
+    if (id < 0) return board.setBranch(null);
+    const ids = [id];
+    while (game.nodes[ids[ids.length - 1]].children.length) ids.push(game.nextOf(ids[ids.length - 1]));
+    const n = game.nodes[id];
+    const cur = game.nodes[game.cur];
+    const hide = game.cur && n.parent === cur.parent ? [cur.x, cur.y] : null;
+    board.setBranch({ line: ids.map((i) => [game.nodes[i].x, game.nodes[i].y]), first: game.player(id), from: n.depth - 1, mark: 0, hide });
+  }
+  for (const box of [$('#branches'), $('#alternatives')]) {
+    const show = (e) => {
+      const b = e.target.closest('[data-goto]');
+      if (b) previewBranch(Number(b.dataset.goto));
+    };
+    const hide = (e) => {
+      if (!e.relatedTarget || !box.contains(e.relatedTarget)) board.setBranch(null);
+    };
+    box.addEventListener('pointerover', show);
+    box.addEventListener('focusin', show);
+    box.addEventListener('pointerout', hide);
+    box.addEventListener('focusout', hide);
+  }
 
   $('#toStart').addEventListener('click', () => nav(() => game.toStart()));
   $('#back').addEventListener('click', () => nav(() => game.back()));
