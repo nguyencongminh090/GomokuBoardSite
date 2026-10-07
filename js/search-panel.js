@@ -5,12 +5,13 @@
 
   // Where each feature lives. `targets` are tried in order and the first visible one wins (a control can be hidden by
   // state, e.g. engine buttons before the engine is loaded). `before: 'setup'` switches to Setup mode first.
+  // `where` labels a control outside the panel (default: the top bar).
   // Texts are the STRINGS keys `find.<id>`, `.d` (description) and `.k` (keywords).
   const FEATURES = [
     { id: 'cell', tab: 'play', targets: ['#cellInput'] },
     { id: 'voice', tab: 'play', targets: ['#micBtn', '#voiceSettings'] },
     { id: 'voicekey', tab: 'settings', targets: ['#groqKey', '#securityCard'] },
-    { id: 'undo', tab: 'play', targets: ['.nav-row'] },
+    { id: 'undo', tab: null, where: 'find.where.board', targets: ['#boardNav'] },
     { id: 'new', tab: 'play', targets: ['#newGame'] },
     { id: 'size', tab: 'play', targets: ['#newGame'] },
     { id: 'walls', tab: 'play', targets: ['[data-tool="wall"]'], before: 'setup' },
@@ -102,7 +103,7 @@
 
     function option(id, i, hits) {
       const f = byId.get(id);
-      const where = f.tab ? t(WHERE[f.tab]) : t('find.where.top');
+      const where = f.tab ? t(WHERE[f.tab]) : t(f.where || 'find.where.top');
       return `<div class="search-opt" role="option" id="searchOpt${i}" data-id="${id}" aria-selected="${i === active}">` +
         `<span class="search-opt-title">${highlight(t(`find.${id}`), hits)}</span>` +
         `<span class="search-opt-where">${esc(where)}</span>` +

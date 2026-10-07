@@ -315,6 +315,8 @@ body.focus .panel { display: none; }
 .nav-row { display: grid; grid-template-columns: auto 1fr 1fr auto; gap: 8px; }
 .nav-row button { min-height: 44px; padding: 10px 14px; }
 .nav-row .nav-main { font-size: 15px; font-weight: 600; }
+/* Under the board, outside the tabs, so stepping back works from Versus and Analyse too. */
+.board-nav { align-self: center; width: 100%; max-width: 480px; padding: 0 16px 14px; }
 
 /* Move dock: cell entry, voice and stepping. Fixed to the bottom of the screen on phones (see the media query). */
 .dock { display: flex; flex-direction: column; gap: 10px; }
@@ -694,12 +696,22 @@ dialog .field input:not([type="checkbox"]) { width: 180px; }
   .brand { display: none; }
   .topbar { gap: 4px; padding: 6px 10px; }
   .game-name { width: auto; flex: 1; }
-  /* Keep the move controls on screen while the rest of the panel scrolls under them. */
+  /* Back/forward stay fixed at the bottom on every tab; the layout reserves their height. */
+  :root { --nav-h: calc(61px + env(safe-area-inset-bottom)); }
+  .layout { padding-bottom: var(--nav-h); }
+  .board-nav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; max-width: none;
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--border); background: var(--surface); box-shadow: var(--lift);
+  }
+  /* Keep the cell entry on screen, just above the nav, while the rest of the panel scrolls under it. */
   .dock {
-    position: sticky; bottom: 0; z-index: 2;
-    margin: 0 -16px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+    position: sticky; bottom: var(--nav-h); z-index: 2;
+    margin: 0 -16px; padding: 10px 16px;
     background: var(--surface); box-shadow: var(--lift);
   }
+  .toast { bottom: calc(var(--nav-h) + 12px); }
+  .install-banner { bottom: calc(var(--nav-h) + 8px); }
   /* Panel hidden: exactly one screen tall, with the board centred in the space under the top bar. */
   body.focus { height: 100vh; height: 100dvh; }
   body.focus .board-wrap { padding: 0; }

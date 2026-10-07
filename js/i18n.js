@@ -114,6 +114,7 @@
       'setup.blocked': 'Ô này đã có nước đi trong ván, không thể đặt tường.',
 
       'nav.first': 'Nước đầu (Home)',
+      'nav.label': 'Lùi và tiến nước đi',
       'nav.back': 'Lùi',
       'nav.backTitle': 'Lùi (←)',
       'nav.forward': 'Tiến',
@@ -474,6 +475,7 @@
       'find.where.games': 'Tab Ván cờ',
       'find.where.settings': 'Cài đặt',
       'find.where.top': 'Thanh trên',
+      'find.where.board': 'Dưới bàn cờ',
       'find.none': ({ q }) => `Không tìm thấy “${q}”.`,
       'find.cell': 'Đi quân bằng cách gõ ô',
       'find.cell.d': 'Gõ H8 hoặc số ô rồi bấm Đi.',
@@ -707,6 +709,7 @@
       'setup.blocked': 'A move in this game uses that cell, so it cannot be a wall.',
 
       'nav.first': 'First move (Home)',
+      'nav.label': 'Step through the moves',
       'nav.back': 'Back',
       'nav.backTitle': 'Back (←)',
       'nav.forward': 'Forward',
@@ -1067,6 +1070,7 @@
       'find.where.games': 'Games tab',
       'find.where.settings': 'Settings',
       'find.where.top': 'Top bar',
+      'find.where.board': 'Under the board',
       'find.none': ({ q }) => `Nothing found for “${q}”.`,
       'find.cell': 'Play a move by typing a cell',
       'find.cell.d': 'Type H8 or a cell number, then press Play.',
