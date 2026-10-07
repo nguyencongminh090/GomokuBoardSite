@@ -61,6 +61,16 @@
     "x": "rfHM2RX6CQEwIZHjphMz31QCoMJB1H5cAU4KKoXi1-c",
     "y": "HdhWWfFYtHuM9tVeSm_OtEcc4FDpQnJZRyKpd9j_co0"
    }
+  },
+  {
+   "name": "trunglele",
+   "fingerprint": "B6FF 684E 0B40 1924 DDAD F53C 4AE7 2D5D",
+   "publicKey": {
+    "kty": "EC",
+    "crv": "P-256",
+    "x": "Vj2VNcGjahJX01s8cxidgDRWrwE3H_9IpHGqT-6LFSA",
+    "y": "I1vAxNpZixyUhJhu-eN50NPulxg-9SGgmRDKtdApMCQ"
+   }
   }
  ]
 }
