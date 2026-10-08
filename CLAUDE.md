@@ -180,8 +180,11 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
   always 19x19, X first -> `players = [X, O]`; `cheDo` `vocuc` = torus, `xuyenkhong` = portal pairs; dates carry no zone and are read as +07:00. The game id is
   `vncaro-<id>`, so importing twice finds the first copy. **playok.com**: `/p/?g=gm<id>` embeds a PGN-like record (also `...gm<id>.txt`): headers
   `Black`/`White`/`Date`/`Time` and `GameType "61,15"` (second number = board size), moves `1. d11 e13 2. e14 white 3. -- d10 ...` (letter = column, number counts
-  from the bottom; `white`/`black` = the second player's colour choice and `--` an empty slot are skipped; stones alternate black first, and the headers name
-  the final colours). playok.com sends **no CORS headers**, so the page fetches it through the engine gate Worker (`GET /import/playok/gm<id>` in `gate/src/index.js`,
+  from the bottom; `white`/`black` = the colour choice of the opening swap and `--` an empty slot are skipped, but they count as tokens). Stones alternate black,
+  white by order; every token alternates between the two seats, and the headers name the **seats** (Black = first seat), not always the final colours (the opening swap
+  can give white to either seat), so `toGame` takes the last stone's seat and colour to decide who is black (`players = [black, white]`). Three ways in:
+  the `.txt` (relay below), `?g=gm.<base64 of the record>` (`inline()`, no fetch; url-safe and percent-encoded forms too) and `?g=gm+c3l7f8...` (moves only: board 15,
+  no names; the `#22` fragment is ignored). playok.com sends **no CORS headers**, so the page fetches it through the engine gate Worker (`GET /import/playok/gm<id>` in `gate/src/index.js`,
   a fixed address only; `G.importers.config.proxy` = the `engine-gate` meta). Without the Worker deployed, the person pastes the record text instead
   (`looksLike`/`recognises`; the link box is a `<textarea>` so newlines survive) and the error says where to copy it from. Dates have no zone and are read as UTC.
   The Worker route needs `gate/deploy.sh` to go live.

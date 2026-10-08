@@ -87,9 +87,12 @@
   // The page embeds a PGN-like record, also served as https://www.playok.com/p/?g=gm<id>.txt:
   //   [Black "a"] [White "b"] [Date "2026.06.22"] [Time "17:06:43"] [GameType "61,15"]   (GameType = "<kind>,<board size>")
   //   1. d11 e13 2. e14 white 3. -- d10 4. e9 f9 ... 19. a10 1-0
-  // Columns are letters from the left, rows count up from the bottom. `white`/`black` is the second player's colour choice after
-  // the opening stones and `--` an empty slot; neither is a move. Stones then alternate black, white, black... and the headers
-  // already name the final colours. The site sends no CORS headers, so the file comes through `config.proxy`.
+  // Columns are letters from the left, rows count up from the bottom. `white`/`black` is the colour choice after the opening
+  // stones and `--` an empty slot; neither is a move. Every token (stones and markers) alternates between the two seats, and the
+  // headers name the seats (Black = the first seat), not always the final colours: stones alternate black, white, black... by
+  // order, so the last stone's seat tells who ended up black (the opening swap can hand white to either seat).
+  // The same record can come three ways: the .txt file (through `config.proxy`, because the site sends no CORS headers),
+  // a link that carries it as Base64 (`?g=gm.<base64>`) and a link with only the moves (`?g=gm+c3l7f8...`, no names, board 15).
   const PLAYOK_DEFAULT_SIZE = 15;
 
   function hash(text) { // FNV-1a, for a stable id when the record names no date or players
@@ -105,6 +108,25 @@
       if (!/^(www\.)?playok\.com$/i.test(url.hostname) || url.pathname !== '/p/') return null;
       const m = /^(gm\d{1,12})(\.txt)?$/.exec(url.searchParams.get('g') || '');
       return m ? m[1] : null;
+    },
+    // A link that carries the game itself: the record text, or null. Read from the raw query (a `+` must stay a `+`).
+    inline(url) {
+      if (!/^(www\.)?playok\.com$/i.test(url.hostname) || url.pathname !== '/p/') return null;
+      const m = /[?&]g=gm([.+])([^&#]*)/.exec(url.search);
+      if (!m) return null;
+      let data = m[2];
+      try {
+        data = decodeURIComponent(data);
+      } catch (e) {
+        // not percent-encoded after all
+      }
+      if (m[1] === '+') return data; // moves only: the fragment (#22) only says which move the site shows
+      try {
+        const bin = atob(data.replace(/\s/g, '').replace(/-/g, '+').replace(/_/g, '/').replace(/=+$/, ''));
+        return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
+      } catch (e) {
+        throw fail('badData');
+      }
     },
     looksLike(text) {
       return /\[GameType\s+"/.test(text) || /^\s*1\.\s+[a-z]\d{1,2}\b/i.test(text);
@@ -122,20 +144,27 @@
       const size = Number((head.GameType || '').split(',')[1]) || PLAYOK_DEFAULT_SIZE;
       if (size < 5 || size > 26) throw fail('badData');
       const body = String(text).replace(/^\s*\[.*\]\s*$/gm, ' ');
+      // Stones and the markers between them, in order; move numbers and the result are not matched.
+      const tokens = body.match(/--|white|black|[a-z]\d{1,2}/gi) || [];
       const nodes = [];
       const seen = new Set();
-      for (const tok of body.split(/\s+/)) {
+      let lastSeat = 0;
+      tokens.forEach((tok, i) => {
         const m = /^([a-z])(\d{1,2})$/i.exec(tok);
-        if (!m) continue; // move numbers, the result, `white`/`black`, `--`
+        if (!m) return;
         const x = m[1].toLowerCase().charCodeAt(0) - 97;
         const y = size - Number(m[2]);
         if (x >= size || y < 0 || y >= size || seen.has(y * size + x)) throw fail('badData');
         seen.add(y * size + x);
         nodes.push([nodes.length, x, y]);
-      }
+        lastSeat = i % 2; // tokens alternate between the first seat (0) and the second (1)
+      });
       if (!nodes.length) throw fail('badData');
 
-      const names = [head.Black, head.White].map((n) => (n || '').trim());
+      // Stone n is black when n is odd; the seat that played the last stone has that stone's colour.
+      const blackSeat = (nodes.length - 1) % 2 === 0 ? lastSeat : 1 - lastSeat;
+      const seats = [head.Black, head.White].map((n) => (n || '').trim());
+      const names = blackSeat === 0 ? seats : [seats[1], seats[0]];
       const when = Date.parse(`${(head.Date || '').replace(/\./g, '-')}T${head.Time || '00:00:00'}Z`);
       const createdAt = Number.isFinite(when) ? when : Date.now();
       const key = [head.Date, head.Time, names[0], names[1]].filter(Boolean).join('-').toLowerCase().replace(/[^a-z0-9]+/g, '-');
@@ -168,6 +197,13 @@
     }
     if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
     for (const site of SITES) {
+      let inline = null;
+      try {
+        inline = site.inline ? site.inline(url) : null;
+      } catch (e) {
+        inline = ''; // a link that should carry a game but does not decode: reported as unreadable data later
+      }
+      if (inline != null) return { site, id: null, text: inline };
       const id = site.match(url);
       if (id) return { site, id };
     }
@@ -185,6 +221,7 @@
       if (!site) throw fail('link');
       return { site: site.name, game: site.toGame(String(text), null) };
     }
+    if (hit.text != null) return { site: hit.site.name, game: hit.site.toGame(hit.text, null) }; // the link carries the game
     let data;
     try {
       data = await hit.site.load(hit.id, fetchFn || ((u) => fetch(u)));

@@ -1200,3 +1200,55 @@ test('playok: a pasted record and its link give the same game id; bad records re
   assert.deepEqual(urls, ['https://relay.example/import/playok/gm171801662']);
   assert.equal(res.site, 'PlayOK');
 });
+
+// Second PlayOK sample: an opening swap where the FIRST seat (header "Black") takes white, so the header sides are reversed.
+const PLAYOK_SWAP = `[Event "?"]
+[Site "PlayOK"]
+[Date "2026.10.08"]
+[Round "-"]
+[Black "monroe10"]
+[White "laney"]
+[Result "1-0"]
+[Time "10:38:14"]
+[TimeControl "60"]
+[GameType "61,15"]
+[BlackElo "1721"]
+[WhiteElo "1848"]
+
+1. c3 l7 2. f8 h8 3. j7 -- 4. white -- 5. k8 j9 6. i9 i8 7. j10 k11 8. h7 h6 9.
+k6 j5 10. j8 k7 11. l8 k9 12. l6 1-0
+`;
+const PLAYOK_B64 = 'W0V2ZW50ICI/Il0KW1NpdGUgIlBsYXlPSyJdCltEYXRlICIyMDI2LjEwLjA4Il0KW1JvdW5kICItIl0KW0JsYWNrICJtb25yb2UxMCJdCltXaGl0ZSAibGFuZXkiXQpbUmVzdWx0ICIxLTAiXQpbVGltZSAiMTA6Mzg6MTQiXQpbVGltZUNvbnRyb2wgIjYwIl0KW0dhbWVUeXBlICI2MSwxNSJdCltCbGFja0VsbyAiMTcyMSJdCltXaGl0ZUVsbyAiMTg0OCJdCgoxLiBjMyBsNyAyLiBmOCBoOCAzLiBqNyAtLSA0LiB3aGl0ZSAtLSA1LiBrOCBqOSA2LiBpOSBpOCA3LiBqMTAgazExIDguIGg3IGg2IDkuCms2IGo1IDEwLiBqOCBrNyAxMS4gbDggazkgMTIuIGw2IDEtMAoK';
+
+test('playok opening swap: sides follow who plays after the colour choice, not the header order', () => {
+  const site = G.importers.SITES[1];
+  // sample 1: the second seat took white, so the header order holds
+  assert.deepEqual(new G.Game(site.toGame(PLAYOK_SAMPLE, null)).players, ['laney', 'faztnweaker5']);
+  // sample 2: the first seat (monroe10) took white, so laney is black
+  const g = new G.Game(site.toGame(PLAYOK_SWAP, null));
+  assert.deepEqual(g.players, ['laney', 'monroe10']);
+  assert.equal(g.nodes.length, 21); // 20 stones: `--` and `white` are not moves
+  assert.deepEqual([g.nodes[1].x, g.nodes[1].y], [2, 12]); // c3
+  assert.deepEqual([g.nodes[20].x, g.nodes[20].y], [11, 9]); // l6
+});
+
+test('playok links that carry the game: Base64 record and the moves-only form', async () => {
+  const b64 = (await G.importers.fromLink(`https://www.playok.com/p/?g=gm.${PLAYOK_B64}`)).game; // no fetch needed
+  assert.deepEqual(b64.players, ['laney', 'monroe10']);
+  assert.equal(b64.nodes.length, 20);
+  assert.equal(b64.id, G.importers.SITES[1].toGame(PLAYOK_SWAP, 'gm1').id); // same game as the pasted record
+  // url-safe alphabet, no padding and percent-encoded characters also decode
+  const safe = PLAYOK_B64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  assert.equal((await G.importers.fromLink(`https://www.playok.com/p/?g=gm.${safe}`)).game.nodes.length, 20);
+  assert.equal((await G.importers.fromLink(`https://www.playok.com/p/?g=gm.${encodeURIComponent(PLAYOK_B64)}`)).game.nodes.length, 20);
+
+  const raw = (await G.importers.fromLink('https://www.playok.com/p/?g=gm+c3l7f8h8j7--white--k8j9i9i8j10k11h7h6k6j5j8k7l8k9l6#22')).game;
+  assert.equal(raw.nodes.length, 20);
+  assert.equal(raw.size, 15);
+  assert.deepEqual(raw.players, ['', '']); // the moves alone name nobody
+  assert.deepEqual(raw.nodes.slice(0, 3), [[0, 2, 12], [1, 11, 8], [2, 5, 7]]); // c3 l7 f8
+
+  assert.equal(G.importers.recognises('https://www.playok.com/p/?g=gm.!!!not-base64!!!'), true);
+  await assert.rejects(G.importers.fromLink('https://www.playok.com/p/?g=gm.!!!not-base64!!!'), (e) => e.code === 'badData');
+  await assert.rejects(G.importers.fromLink('https://www.playok.com/p/?g=gm+'), (e) => e.code === 'badData');
+});
