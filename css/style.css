@@ -642,7 +642,11 @@ input:disabled, select:disabled { opacity: .45; }
 .games-bar { display: flex; gap: 6px; align-items: center; }
 .games-search { flex: 1; min-width: 0; padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); }
 .games-bar select { max-width: 130px; }
-.games-bar .icon-only { padding: 6px 10px; }
+.icon-only { display: inline-flex; align-items: center; justify-content: center; padding: 0; width: 32px; height: 32px; }
+.icon-only .ico { width: 16px; height: 16px; }
+.game-list .group-toggle { display: flex; align-items: center; gap: 6px; }
+.game-list .group-toggle .ico { width: 16px; height: 16px; }
+.game-list .group-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .games-bar .icon-only[aria-pressed="true"] { background: var(--accent-soft); }
 .game-list li { display: grid; grid-template-columns: 80px minmax(0, 1fr); align-items: start; column-gap: 10px; row-gap: 6px; }
 .game-list li.empty { display: flex; }

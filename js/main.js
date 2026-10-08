@@ -374,6 +374,16 @@
   let renamingId = null;
   const collapsedGroups = new Set(); // group names (not saved; groups start open)
 
+  // One icon set for the Games tab: 24px outline paths drawn by the shared `.ico` style (stroke follows the text colour).
+  const ICONS = {
+    folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+    pencil: '<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
+    trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>',
+    down: '<path d="M6 9l6 6 6-6"/>',
+    right: '<path d="M9 6l6 6-6 6"/>',
+  };
+  const icon = (name) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICONS[name]}</svg>`;
+
   const SORTS = {
     recent: (a, b) => b.updatedAt - a.updatedAt,
     name: (a, b) => (a.name || '').localeCompare(b.name || '', G.i18n.locale, { numeric: true, sensitivity: 'base' }),
@@ -426,9 +436,9 @@
         </div>
         <div class="acts">
           ${isCur ? `<span class="tag">${esc(t('games.current'))}</span>` : `<button class="small" data-open="${esc(g.id)}">${esc(t('games.open'))}</button>`}
-          <button class="small" data-group-game="${esc(g.id)}" title="${esc(t('group.set'))}" aria-label="${esc(`${t('group.set')}: ${name}`)}">▤</button>
-          <button class="small" data-rename="${esc(g.id)}" title="${esc(t('games.rename'))}" aria-label="${esc(`${t('games.rename')}: ${name}`)}">✎</button>
-          <button class="small danger" data-delete="${esc(g.id)}" title="${esc(t('games.delete'))}" aria-label="${esc(`${t('games.delete')}: ${name}`)}">✕</button>
+          <button class="small icon-only" data-group-game="${esc(g.id)}" title="${esc(t('group.set'))}" aria-label="${esc(`${t('group.set')}: ${name}`)}">${icon('folder')}</button>
+          <button class="small icon-only" data-rename="${esc(g.id)}" title="${esc(t('games.rename'))}" aria-label="${esc(`${t('games.rename')}: ${name}`)}">${icon('pencil')}</button>
+          <button class="small danger icon-only" data-delete="${esc(g.id)}" title="${esc(t('games.delete'))}" aria-label="${esc(`${t('games.delete')}: ${name}`)}">${icon('trash')}</button>
         </div>
       </li>`;
     };
@@ -453,10 +463,10 @@
         const total = all.filter((g) => (g.group || '') === name).length;
         return `<li class="group-head" data-drop-group="${esc(name)}">
           <button class="group-toggle" data-group-toggle="${esc(name)}" aria-expanded="${open}">
-            <span aria-hidden="true">${open ? '▾' : '▸'}</span> ${esc(label)}
+            ${icon(open ? 'down' : 'right')}<span class="group-label">${esc(label)}</span>
           </button>
           <span class="meta">${esc(t('games.count', { shown: members.length, total }))}</span>
-          ${name ? `<button class="small" data-group-rename="${esc(name)}" title="${esc(t('group.rename'))}" aria-label="${esc(`${t('group.rename')}: ${name}`)}">✎</button>` : ''}
+          ${name ? `<button class="small icon-only" data-group-rename="${esc(name)}" title="${esc(t('group.rename'))}" aria-label="${esc(`${t('group.rename')}: ${name}`)}">${icon('pencil')}</button>` : ''}
         </li>${open ? members.map(item).join('') : ''}`;
       }).join('');
     }
