@@ -98,7 +98,7 @@
   // A cell in the active coordinate system: "H8" on edge coordinates, "#37" with cell numbers.
   function cellText(x, y, g = game) {
     return settings.coords === 'cell'
-      ? `#${G.coords.spiral(g.size)[g.key(x, y)]}`
+      ? `#${G.coords.numbers(g.size, settings.cellOrder)[g.key(x, y)]}`
       : G.coords.label(x, y, g.size);
   }
 
@@ -423,7 +423,10 @@
       b.setAttribute('aria-pressed', String(on));
     }
     for (const sec of $$('[data-for]')) sec.hidden = sec.dataset.for !== settings.theme;
-    $('#coordsHelp').textContent = t(settings.coords === 'cell' ? 'coords.cellHelp' : 'coords.edgeHelp');
+    $('#coordsHelp').textContent = t(settings.coords === 'cell'
+      ? (settings.cellOrder === 'sequence' ? 'coords.sequenceHelp' : 'coords.cellHelp')
+      : 'coords.edgeHelp');
+    $('#cellOrderRow').hidden = settings.coords !== 'cell';
     renderSwatches();
     renderAllPicks();
     renderContrast();

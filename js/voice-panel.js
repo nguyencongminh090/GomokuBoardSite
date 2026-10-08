@@ -191,7 +191,7 @@
         return;
       }
       const g = game();
-      const cell = G.voice.parseCell(text, g.size);
+      const cell = G.voice.parseCell(text, g.size, settings().cellOrder);
       if (!cell) {
         setState('idle');
         say(t('voice.unclear', { text }));
@@ -266,7 +266,7 @@
       if (!text) return;
       if (mode() !== 'play') return say2(t('cell.playOnly'));
       const g = game();
-      const cell = G.voice.parseCell(text, g.size);
+      const cell = G.voice.parseCell(text, g.size, settings().cellOrder);
       if (!cell) return say2(t('cell.unclear', { text }));
       if (!g.canPlay(cell.x, cell.y)) return say2(t('cell.cantPlay', { cell: cellText(cell.x, cell.y) }));
       play(cell.x, cell.y);

@@ -389,7 +389,7 @@
 
       // Spiral cell numbers on empty cells
       if (!edge) {
-        const nums = G.coords.spiral(n);
+        const nums = G.coords.numbers(n, s.cellOrder);
         const t = [];
         for (let k = 0; k < n * n; k++) {
           if (pos.has(k) || game.walls.has(k) || game.isPortal(k)) continue;

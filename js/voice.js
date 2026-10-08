@@ -191,15 +191,15 @@
 
   // The cell a spoken phrase names on a board of `size`: { x, y, kind: 'label' | 'number' }, or null.
   // Both forms are understood whatever the coordinate setting is: "H8" / "hát tám" and "37" / "ba mươi bảy".
-  function parseCell(text, size) {
+  function parseCell(text, size, order) {
     const heard = normalize(text).replace(/\bnuoc di\b/, '').split(' ').filter((w) => !FILLER.has(w)).join(' ');
     // Exactly what was heard comes first; only when that is no cell are real-but-wrong syllables swapped for number words.
-    return cellOf(heard, size) || cellOf(recover(heard), size);
+    return cellOf(heard, size, order) || cellOf(recover(heard), size, order);
   }
 
   // Reading order: a label as spoken, then a spiral number, and only then a label whose letter merely sounds right
   // ("ba năm" is 35 before it is "bê năm" misheard). A reading that falls off the board is dropped, not the phrase.
-  function cellOf(s, size) {
+  function cellOf(s, size, order) {
     const asLabel = (label) => {
       const x = label && G.coords.LETTERS.indexOf(label.letter.toUpperCase());
       const y = label && size - label.number;
@@ -208,7 +208,7 @@
     const n = parseNumber(s);
     const asNumber = () => {
       if (n === null || n < 1 || n > size * size) return null;
-      const k = G.coords.spiral(size).indexOf(n);
+      const k = G.coords.numbers(size, order).indexOf(n);
       return { x: k % size, y: Math.floor(k / size), kind: 'number' };
     };
     return asLabel(parseLabel(s, size, false)) || asNumber() || asLabel(parseLabel(s, size));

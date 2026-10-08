@@ -22,6 +22,7 @@
       style: 'glossy', // glossy | flat
     },
     coords: 'edge', // 'edge' (A–Z, 1–N around the board) | 'cell' (spiral numbers inside cells)
+    cellOrder: 'spiral', // numbering used by coords 'cell': 'spiral' (from the centre) | 'sequence' (1, 2, 3 ... from the top-left)
     showMoveNumbers: false,
     showLastMove: true,
     threatMap: false, // tag cells that would make 4-3 / 3-3 / open fours, and the cells that must be blocked

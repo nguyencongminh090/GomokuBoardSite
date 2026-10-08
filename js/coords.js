@@ -36,5 +36,15 @@
     return nums;
   }
 
-  G.coords = { LETTERS, label, spiral };
+  // Reading order, left to right and top to bottom: 1 2 3 ... Indexed by y*size+x.
+  function sequence(size) {
+    return Array.from({ length: size * size }, (_, k) => k + 1);
+  }
+
+  // Cell numbers in the chosen order: 'spiral' (default) or 'sequence'.
+  function numbers(size, order) {
+    return order === 'sequence' ? sequence(size) : spiral(size);
+  }
+
+  G.coords = { LETTERS, label, spiral, sequence, numbers };
 })(window.Gomoku = window.Gomoku || {});
