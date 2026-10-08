@@ -418,7 +418,7 @@
         ? `<input class="title-edit" data-rename-input="${esc(g.id)}" maxlength="80" spellcheck="false" value="${esc(g.name)}" aria-label="${esc(t('games.rename'))}">`
         : `<div class="title" data-rename="${esc(g.id)}" title="${esc(t('games.rename'))}">${esc(name)}</div>`;
       const players = g.players && g.players.some(Boolean) ? `<div class="meta">${esc(g.players.filter(Boolean).join(' vs '))}</div>` : '';
-      return `<li class="${isCur ? 'current' : ''}">
+      return `<li class="${isCur ? 'current' : ''}" data-game-id="${esc(g.id)}"${renamingId === g.id ? '' : ' draggable="true"'}>
         <button class="thumb" data-open="${esc(g.id)}" tabindex="-1" aria-hidden="true">${thumb}</button>
         <div class="info">
           ${title}${players}
@@ -451,7 +451,7 @@
         const open = !!q || !collapsedGroups.has(name); // a search always shows its matches
         const label = name || t('group.none');
         const total = all.filter((g) => (g.group || '') === name).length;
-        return `<li class="group-head">
+        return `<li class="group-head" data-drop-group="${esc(name)}">
           <button class="group-toggle" data-group-toggle="${esc(name)}" aria-expanded="${open}">
             <span aria-hidden="true">${open ? '▾' : '▸'}</span> ${esc(label)}
           </button>
@@ -796,7 +796,7 @@
     const grpRen = e.target.closest('[data-group-rename]');
     const grpTog = e.target.closest('[data-group-toggle]');
     if (grp) {
-      openGroupDialog({ id: grp.dataset.groupGame });
+      openGroupDialog({ ids: [grp.dataset.groupGame] });
     } else if (grpRen) {
       openGroupDialog({ rename: grpRen.dataset.groupRename });
     } else if (grpTog) {
@@ -842,19 +842,21 @@
 
   function openGroupDialog(ctx) {
     groupCtx = ctx;
-    const g = ctx.id ? games.get(ctx.id) : null;
-    if (ctx.id && !g) return;
-    $('#groupTitle').textContent = t(ctx.id ? 'group.set' : 'group.rename');
-    $('#groupNote').textContent = ctx.id ? (g.name || t('games.untitled')) : '';
-    $('#groupName').value = ctx.id ? g.group || '' : ctx.rename;
+    const members = (ctx.ids || []).map((id) => games.get(id)).filter(Boolean);
+    if (ctx.ids && !members.length) return;
+    const g = members[0];
+    $('#groupTitle').textContent = t(ctx.ids ? 'group.set' : 'group.rename');
+    $('#groupNote').textContent = members.map((m) => m.name || t('games.untitled')).join(' · ');
+    $('#groupName').value = ctx.ids ? (members.length === 1 ? g.group || '' : '') : ctx.rename;
     $('#groupOptions').innerHTML = groupNames().map((n) => `<option value="${esc(n)}">`).join('');
     const remove = $('#groupRemove');
-    remove.textContent = t(ctx.id ? 'group.remove' : 'group.dissolve');
-    remove.hidden = ctx.id ? !g.group : false;
+    remove.textContent = t(ctx.ids ? 'group.remove' : 'group.dissolve');
+    remove.hidden = ctx.ids ? !members.some((m) => m.group) : false;
     groupDlg.showModal();
     $('#groupName').select();
   }
   $('#groupCancel').addEventListener('click', () => groupDlg.close());
+  $('#groupRemove').addEventListener('click', () => groupDlg.close('remove'));
 
   // Grouping is bookkeeping, so it does not change `updatedAt` (the "newest" order stays put).
   function setGroup(id, name) {
@@ -870,11 +872,62 @@
     groupCtx = null;
     if (!ctx || !['ok', 'remove'].includes(groupDlg.returnValue)) return;
     const name = groupDlg.returnValue === 'remove' ? '' : $('#groupName').value.trim().slice(0, G.Game.MAX_GROUP_NAME);
-    if (ctx.id) setGroup(ctx.id, name);
+    if (ctx.ids) for (const id of ctx.ids) setGroup(id, name);
     else for (const g of [...games.values()]) if (g.group === ctx.rename) setGroup(g.id, name);
     if (ctx.rename !== undefined) {
       if (collapsedGroups.delete(ctx.rename) && name) collapsedGroups.add(name);
     }
+    flush();
+    renderGameList();
+  });
+
+  // Drag a game onto a group header (or onto a game in a group) to file it there, onto "Ungrouped" to free it, or onto
+  // another ungrouped game to start a new group with both (the dialog asks for its name). Mouse only: touch has no HTML5 drag.
+  const list = $('#gameList');
+  let dragId = null;
+  const dropTarget = (e) => e.target.closest('li[data-drop-group], li[data-game-id]');
+  const targetGroup = (li) => (li.dataset.dropGroup !== undefined ? li.dataset.dropGroup : (games.get(li.dataset.gameId) || {}).group || '');
+  const clearDrop = () => list.querySelectorAll('.drop-target').forEach((el) => el.classList.remove('drop-target'));
+
+  list.addEventListener('dragstart', (e) => {
+    const li = e.target.closest ? e.target.closest('li[data-game-id]') : null;
+    if (!li) return;
+    dragId = li.dataset.gameId;
+    e.dataTransfer.setData('text/plain', dragId);
+    e.dataTransfer.effectAllowed = 'move';
+    li.classList.add('dragging');
+  });
+  list.addEventListener('dragover', (e) => {
+    const li = dropTarget(e);
+    if (!dragId || !li || li.dataset.gameId === dragId) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    clearDrop();
+    li.classList.add('drop-target');
+  });
+  list.addEventListener('dragleave', (e) => {
+    if (!list.contains(e.relatedTarget)) clearDrop();
+  });
+  list.addEventListener('dragend', () => {
+    dragId = null;
+    clearDrop();
+    list.querySelectorAll('.dragging').forEach((el) => el.classList.remove('dragging'));
+  });
+  list.addEventListener('drop', (e) => {
+    const li = dropTarget(e);
+    const id = dragId;
+    if (!id || !li || li.dataset.gameId === id) return;
+    e.preventDefault();
+    dragId = null;
+    clearDrop();
+    const group = targetGroup(li);
+    if (!group && li.dataset.gameId) { // onto a loose game: name a new group for both
+      openGroupDialog({ ids: [id, li.dataset.gameId] });
+      return;
+    }
+    const g = games.get(id);
+    if (!g || (g.group || '') === group) return;
+    setGroup(id, group);
     flush();
     renderGameList();
   });

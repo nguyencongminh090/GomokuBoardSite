@@ -74,7 +74,7 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
     beside the board (also with the panel hidden) and highlights the side to move; a new game keeps the names.
   - `group` is an optional name (max `Game.MAX_GROUP_NAME`) that files the game under a collapsible header in the Games tab; written only when set.
     Groups exist only as that string (no group records): renaming one rewrites every member, an empty name dissolves it. Changing it does not
-    touch `updatedAt`. `main.js` edits the stored record and, for the open game, `game.group` too (`persist()` rewrites the record from `game`).
+    touch `updatedAt`. Dragging a game onto a group header / grouped game files it there, onto "Ungrouped" frees it, onto a loose game opens the dialog for a new group (mouse only). `main.js` edits the stored record and, for the open game, `game.group` too (`persist()` rewrites the record from `game`).
 - **`board.js` (`G.BoardView`)** re-renders the whole SVG as a string on every change and redraws only the hover ghost on
   pointer move. Both themes share one geometry: position `(x, y)` is centred at `m + (x + 0.5) * P`. Paper draws cell
   borders around the positions; Stone draws lines through them. Themes change only the drawing, never the model.
