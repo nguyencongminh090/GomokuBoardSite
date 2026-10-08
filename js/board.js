@@ -8,15 +8,22 @@
   const f = (n) => Math.round(n * 10) / 10;
   const COUNTER = '#0f766e'; // the defender's counter-attack (a four that forces a block)
   const ATTACK = { VCF: '#b91c1c', VCT: '#7c3aed' }; // attack chain colours: fours only / fours and open threes
-  // Heat blobs (Sabaki / Shudan `.shudan-heat_N`): [spread, blur, alpha] in cells, colour red < purple < blue < green.
-  const HEAT_RGB = ['240,35,17', '240,35,17', '146,39,143', '146,39,143', '72,134,213', '72,134,213', '72,134,213', '89,168,15', '89,168,15'];
-  const HEAT = [[.40, .75, .7], [.40, .75, .8], [.45, .80, .7], [.50, .85, .8], [.55, .90, .7], [.60, 1, .8], [.75, 1, .8], [.90, 1, .7], [1, 1, .8]];
+  // Heat blobs: the Turbo colour map (Google, polynomial fit by Mikhailov) over the winrate in 11 levels (0 %, 10 % ... 100 %).
+  // HEAT[level] = [spread, blur, alpha] in cells; a better move glows wider.
+  const turbo = (t) => [
+    0.13572138 + t * (4.61539260 + t * (-42.66032258 + t * (132.13108234 + t * (-152.94239396 + t * 59.28637943)))),
+    0.09140261 + t * (2.19418839 + t * (4.84296658 + t * (-14.18503333 + t * (4.27729857 + t * 2.82956604)))),
+    0.10667330 + t * (12.64194608 + t * (-60.58204836 + t * (110.36276771 + t * (-89.90310912 + t * 27.34824973))))
+  ].map((v) => Math.round(255 * Math.min(1, Math.max(0, v))));
+  const HEAT_LEVELS = 11;
+  const HEAT = Array.from({ length: HEAT_LEVELS }, (_, i) => [0.4 + 0.6 * i / (HEAT_LEVELS - 1), 0.9, 0.8]);
   const HEAT_SCALE = 0.6; // Sabaki's blobs are ~2 cells wide; candidates sit on neighbouring cells
   // The blob circle uses an inline style fill (a stylesheet rule would resolve url(#id) against the stylesheet).
   const HEAT_DEFS = '<defs>' + HEAT.map(([sp, bl, al], i) => {
     const solid = Math.max(0, sp - bl / 2) / (sp + bl / 2);
-    return `<radialGradient id="heat${i + 1}"><stop offset="${solid.toFixed(3)}" stop-color="rgb(${HEAT_RGB[i]})" stop-opacity="${al}"/>` +
-      `<stop offset="1" stop-color="rgb(${HEAT_RGB[i]})" stop-opacity="0"/></radialGradient>`;
+    const rgb = turbo(i / (HEAT_LEVELS - 1)).join(',');
+    return `<radialGradient id="heat${i + 1}"><stop offset="${solid.toFixed(3)}" stop-color="rgb(${rgb})" stop-opacity="${al}"/>` +
+      `<stop offset="1" stop-color="rgb(${rgb})" stop-opacity="0"/></radialGradient>`;
   }).join('') + '</defs>';
   const f3 = (n) => Math.round(n * 1000) / 1000;
 
