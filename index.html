@@ -7,7 +7,7 @@
   <!-- Release version. Bump it with `node tools/bump-version.js <version>` before each deploy: it is added to
        every asset URL (?v=), so returning visitors never mix cached old files with new ones. -->
   <meta name="engine-gate" content="https://gomoku-engine-gate.nguyencongminh2247.workers.dev">
-  <meta name="app-version" content="1.31.0">
+  <meta name="app-version" content="1.31.1">
   <meta name="description" content="Bàn cờ caro (gomoku, five in a row) online miễn phí cho livestream: ô tường, cổng dịch chuyển, bàn vòng, nhánh nước đi, phân tích engine, đánh bằng giọng nói.">
   <meta name="robots" content="index, follow, max-image-preview:large">
   <link rel="canonical" href="https://nguyencongminh090.github.io/GomokuBoardSite/">
@@ -38,7 +38,7 @@
       document.documentElement.dataset.ui = dark ? 'dark' : 'light';
     } catch (e) { /* storage unavailable: CSS default applies */ }
   </script>
-  <link rel="stylesheet" href="css/style.css?v=1.31.0">
+  <link rel="stylesheet" href="css/style.css?v=1.31.1">
 </head>
 <body>
   <noscript><h1>MCaro - Bàn cờ Caro Gomoku online</h1><p>Bàn cờ caro (gomoku, five in a row) online miễn phí cho livestream: ô tường, cổng dịch chuyển, bàn vòng, nhánh nước đi, phân tích engine, đánh bằng giọng nói. Cần bật JavaScript để dùng bàn cờ. / A free online gomoku (five in a row) board for livestreams, with walls, portals, torus board and engine analysis. It needs JavaScript.</p></noscript>
@@ -194,9 +194,9 @@
               <button data-set="engine.side:1" id="engSide1"></button>
             </div>
             <p class="muted small-text engine-note" id="engNote" hidden></p>
-            <div class="engine-actions cols-2">
+            <div class="engine-actions cols-act">
               <button id="engMove" class="primary" data-i18n="eng.move" data-icon="bolt" data-i18n-attr="title:eng.moveTitle"></button>
-              <button class="eng-stop" data-i18n="eng.stop" data-icon="stop" data-i18n-attr="title:eng.stopTitle"></button>
+              <button class="eng-stop ico-only" data-icon-only="stop" data-i18n-attr="title:eng.stopTitle;aria-label:eng.stop"></button>
             </div>
             <p class="muted small-text hint" data-i18n="eng.versusHelp"></p>
           </div>
@@ -213,10 +213,10 @@
           <p class="muted small-text hint" data-i18n="eng.levelHelp"></p>
           <div class="sub-label" data-i18n="eng.style"></div>
           <div class="seg seg-wrap" role="group" data-i18n-attr="aria-label:eng.style">
-            <button data-set="engine.style:normal" data-i18n="eng.style.normal"></button>
-            <button data-set="engine.style:aggressive" data-i18n="eng.style.aggressive"></button>
-            <button data-set="engine.style:defensive" data-i18n="eng.style.defensive"></button>
-            <button data-set="engine.style:troll" data-i18n="eng.style.troll"></button>
+            <button data-set="engine.style:normal" data-i18n="eng.style.normal" data-icon="scale"></button>
+            <button data-set="engine.style:aggressive" data-i18n="eng.style.aggressive" data-icon="sword"></button>
+            <button data-set="engine.style:defensive" data-i18n="eng.style.defensive" data-icon="shield"></button>
+            <button data-set="engine.style:troll" data-i18n="eng.style.troll" data-icon="smile"></button>
           </div>
           <p class="muted small-text engine-note" id="engStyleNote" hidden></p>
           <p class="muted small-text hint" data-i18n="eng.styleHelp"></p>
@@ -306,9 +306,9 @@
 
         <section class="card">
           <h3 data-i18n="eng.analysis"></h3>
-          <div class="engine-actions cols-2">
+          <div class="engine-actions cols-act">
             <button id="engAnalyze" class="primary" data-i18n="eng.analyze" data-icon="chart" data-i18n-attr="title:eng.analyzeTitle"></button>
-            <button class="eng-stop" data-i18n="eng.stop" data-icon="stop" data-i18n-attr="title:eng.stopTitle"></button>
+            <button class="eng-stop ico-only" data-icon-only="stop" data-i18n-attr="title:eng.stopTitle;aria-label:eng.stop"></button>
           </div>
           <label class="switch-row">
             <span><span data-i18n="eng.auto"></span><small data-i18n="eng.autoHelp"></small></span>
@@ -319,9 +319,9 @@
         <section class="card">
           <h3 data-i18n="exp.win"></h3>
           <p class="muted small-text" data-i18n="exp.winHelp"></p>
-          <div class="engine-actions cols-2">
+          <div class="engine-actions cols-act">
             <button id="expFind" class="primary" data-i18n="exp.find" data-icon="target"></button>
-            <button id="expClear" data-i18n="exp.clear" data-icon="eraser"></button>
+            <button id="expClear" class="ico-only" data-icon-only="eraser" data-i18n-attr="title:exp.clear;aria-label:exp.clear"></button>
           </div>
           <p class="muted small-text" id="expStatus" role="status" aria-live="polite"></p>
           <ol class="exp-steps" id="expSteps"></ol>
@@ -364,8 +364,8 @@
         <section class="card">
           <h3 data-i18n="eng.card.tools"></h3>
           <div class="engine-actions cols-2">
-            <button id="engClearHash" class="small" data-i18n="eng.clearHash"></button>
-            <button id="engHashUsage" class="small" data-i18n="eng.hashUsage"></button>
+            <button id="engClearHash" class="small" data-i18n="eng.clearHash" data-icon="eraser"></button>
+            <button id="engHashUsage" class="small" data-i18n="eng.hashUsage" data-icon="gauge"></button>
           </div>
           <details class="engine-log">
             <summary data-i18n="eng.log"></summary>
@@ -450,9 +450,9 @@
           </div>
           <div class="sub-label" data-i18n="set.page"></div>
           <div class="seg" role="group" data-i18n-attr="aria-label:set.page">
-            <button data-set="ui:light" data-i18n="set.ui.light"></button>
-            <button data-set="ui:dark" data-i18n="set.ui.dark"></button>
-            <button data-set="ui:auto" data-i18n="set.ui.auto"></button>
+            <button data-set="ui:light" data-i18n="set.ui.light" data-icon="sun"></button>
+            <button data-set="ui:dark" data-i18n="set.ui.dark" data-icon="moon"></button>
+            <button data-set="ui:auto" data-i18n="set.ui.auto" data-icon="auto"></button>
           </div>
         </section>
 
@@ -629,28 +629,28 @@
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="js/icons.js?v=1.31.0"></script>
-  <script src="js/i18n.js?v=1.31.0"></script>
-  <script src="js/contrast.js?v=1.31.0"></script>
-  <script src="js/coords.js?v=1.31.0"></script>
-  <script src="js/settings.js?v=1.31.0"></script>
-  <script src="js/game.js?v=1.31.0"></script>
-  <script src="js/security.js?v=1.31.0"></script>
-  <script src="js/storage.js?v=1.31.0"></script>
-  <script src="js/importers.js?v=1.31.0"></script>
-  <script src="js/explain.js?v=1.31.0"></script>
-  <script src="js/board.js?v=1.31.0"></script>
-  <script src="js/engine.js?v=1.31.0"></script>
-  <script src="js/engine-panel.js?v=1.31.0"></script>
-  <script src="js/explain-panel.js?v=1.31.0"></script>
-  <script src="js/security-panel.js?v=1.31.0"></script>
-  <script src="js/voice-lexicon.js?v=1.31.0"></script>
-  <script src="js/voice.js?v=1.31.0"></script>
-  <script src="js/voice-panel.js?v=1.31.0"></script>
-  <script src="js/search.js?v=1.31.0"></script>
-  <script src="js/commands.js?v=1.31.0"></script>
-  <script src="js/search-panel.js?v=1.31.0"></script>
-  <script src="js/install.js?v=1.31.0"></script>
-  <script src="js/main.js?v=1.31.0"></script>
+  <script src="js/icons.js?v=1.31.1"></script>
+  <script src="js/i18n.js?v=1.31.1"></script>
+  <script src="js/contrast.js?v=1.31.1"></script>
+  <script src="js/coords.js?v=1.31.1"></script>
+  <script src="js/settings.js?v=1.31.1"></script>
+  <script src="js/game.js?v=1.31.1"></script>
+  <script src="js/security.js?v=1.31.1"></script>
+  <script src="js/storage.js?v=1.31.1"></script>
+  <script src="js/importers.js?v=1.31.1"></script>
+  <script src="js/explain.js?v=1.31.1"></script>
+  <script src="js/board.js?v=1.31.1"></script>
+  <script src="js/engine.js?v=1.31.1"></script>
+  <script src="js/engine-panel.js?v=1.31.1"></script>
+  <script src="js/explain-panel.js?v=1.31.1"></script>
+  <script src="js/security-panel.js?v=1.31.1"></script>
+  <script src="js/voice-lexicon.js?v=1.31.1"></script>
+  <script src="js/voice.js?v=1.31.1"></script>
+  <script src="js/voice-panel.js?v=1.31.1"></script>
+  <script src="js/search.js?v=1.31.1"></script>
+  <script src="js/commands.js?v=1.31.1"></script>
+  <script src="js/search-panel.js?v=1.31.1"></script>
+  <script src="js/install.js?v=1.31.1"></script>
+  <script src="js/main.js?v=1.31.1"></script>
 </body>
 </html>

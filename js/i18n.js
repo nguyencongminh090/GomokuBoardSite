@@ -1341,6 +1341,8 @@
         el.textContent = text;
       }
     }
+    // data-icon-only: an icon with no visible text; its name comes from the title / aria-label set below.
+    for (const el of root.querySelectorAll('[data-icon-only]')) el.innerHTML = G.icons ? G.icons.svg(el.dataset.iconOnly) : '';
     for (const el of root.querySelectorAll('[data-i18n-html]')) el.innerHTML = t(el.dataset.i18nHtml);
     for (const el of root.querySelectorAll('[data-i18n-attr]')) {
       for (const pair of el.dataset.i18nAttr.split(';')) {

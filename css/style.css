@@ -75,6 +75,8 @@ button, .btn {
   transition: background .16s, border-color .16s, transform .16s;
 }
 /* Buttons with a data-icon: icon before the label (js/icons.js). */
+button.ico-only { padding: 8px 14px; }
+button.ico-only > .ico { width: 18px; height: 18px; }
 button > .ico { width: 16px; height: 16px; }
 .tabs button > .ico, .nav-row .nav-main > .ico { width: 18px; height: 18px; }
 button:hover:not(:disabled), .btn:hover { background: var(--surface-3); }
@@ -397,6 +399,7 @@ kbd {
 /* Engine (Play tab block and Engine tab) */
 .engine-on { display: flex; flex-direction: column; gap: 8px; }
 .engine-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.engine-actions.cols-act { grid-template-columns: 1fr auto; margin-top: 8px; }
 .engine-actions.cols-2 { grid-template-columns: repeat(2, 1fr); margin-top: 8px; }
 .engine-actions button.on { box-shadow: 0 0 0 2px var(--accent-text); }
 .engine-note { margin: 0; }
