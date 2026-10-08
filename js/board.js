@@ -482,6 +482,17 @@
       return out.join('');
     }
 
+    // Heat blobs (Sabaki / Shudan `.shudan-heat_N`): [spread, blur, alpha] in cells, colour red < purple < blue < green.
+    const HEAT_RGB = ['240,35,17', '240,35,17', '146,39,143', '146,39,143', '72,134,213', '72,134,213', '72,134,213', '89,168,15', '89,168,15'];
+    const HEAT = [[.40, .75, .7], [.40, .75, .8], [.45, .80, .7], [.50, .85, .8], [.55, .90, .7], [.60, 1, .8], [.75, 1, .8], [.90, 1, .7], [1, 1, .8]];
+    const HEAT_SCALE = 0.6; // Sabaki's blobs are ~2 cells wide; candidates sit on neighbouring cells
+    // Gradients are set through fill attributes (a CSS url(#id) would resolve against the stylesheet).
+    const HEAT_DEFS = '<defs>' + HEAT.map(([sp, bl, al], i) => {
+      const solid = Math.max(0, sp - bl / 2) / (sp + bl / 2);
+      return `<radialGradient id="heat${i + 1}"><stop offset="${solid.toFixed(3)}" stop-color="rgb(${HEAT_RGB[i]})" stop-opacity="${al}"/>` +
+        `<stop offset="1" stop-color="rgb(${HEAT_RGB[i]})" stop-opacity="0"/></radialGradient>`;
+    }).join('') + '</defs>';
+
     // Engine overlay, drawn in its own layer (like the hover ghost) so search updates don't re-render the board.
     // overlay: { cands: [{ x, y, rank, label, tier, tag }], busy, line: [[x, y], ...] | null, first: player of line[0], chain: G.explain.chain result (victory run start..end) | null, mark: index of the move to stress | -1 } or null.
     // tier (1 best, 2 close, 3 weaker, 0 unknown) sets the marker colour and size; busy pulses the best marker.
@@ -513,16 +524,28 @@
         const RADIUS = [10.5, 12, 11, 9.5];
         // Draw the best marker last so a weaker neighbour never covers it.
         const cands = (a.cands || []).slice().sort((p, q) => q.rank - p.rank);
-        for (const { x, y, rank, label, tier = 0, tag } of cands) {
+        const glow = cands.some((q) => q.strength);
+        if (glow) out.push(HEAT_DEFS);
+        const fs = f(Math.max(8, P * 0.36));
+        for (const { x, y, rank, label, tier = 0, strength = 0, tag } of cands) {
           const best = rank === 1;
-          const r = best ? 13 : RADIUS[tier];
-          const pulse = best && a.busy ? `<circle class="pulse" cx="${c(x)}" cy="${c(y)}" r="${r}"/>` : '';
-          out.push(`<g class="cand t${tier}${best ? ' best' : ''}">${pulse}<circle cx="${c(x)}" cy="${c(y)}" r="${r}"/>` +
-            `<text x="${c(x)}" y="${c(y)}" dy=".36em">${rank}</text></g>`);
+          const pulse = best && a.busy ? `<circle class="pulse" cx="${c(x)}" cy="${c(y)}" r="${f(P * 0.4)}"/>` : '';
+          let r;
+          if (strength) {
+            // Sabaki-style heat blob (soft glow, wider and greener the better the move) with the winrate centred in it
+            const h = HEAT[strength - 1];
+            r = (h[0] + h[1] / 2) * HEAT_SCALE * P;
+            out.push(`<g class="cand heat${best ? ' best' : ''}">${pulse}<circle cx="${c(x)}" cy="${c(y)}" r="${f(r)}" style="fill:url(#heat${strength})"/>` +
+              `<text x="${c(x)}" y="${c(y)}" dy=".36em" font-size="${fs}">${label || rank}</text></g>`);
+          } else {
+            r = best ? 13 : RADIUS[tier];
+            out.push(`<g class="cand t${tier}${best ? ' best' : ''}">${pulse}<circle cx="${c(x)}" cy="${c(y)}" r="${r}"/>` +
+              `<text x="${c(x)}" y="${c(y)}" dy=".36em">${rank}</text></g>`);
+          }
           if (tag) {
             out.push(`<text class="cand-tag" x="${c(x)}" y="${f(c(y) - r - 4)}" fill="${ATTACK[tag]}" stroke="${bg}" stroke-width="3" paint-order="stroke">${tag}</text>`);
           }
-          if (label) {
+          if (label && !strength) {
             out.push(`<text class="cand-label" x="${c(x)}" y="${f(c(y) + r + 10)}" fill="${ink}" stroke="${bg}" stroke-width="3" paint-order="stroke">${label}</text>`);
           }
         }

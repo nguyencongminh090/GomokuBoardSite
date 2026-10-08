@@ -579,8 +579,10 @@
         if (!first || first[0] < 0) return;
         const gap = l.winrate === undefined || top === undefined ? -1 : top - l.winrate;
         const tier = gap < 0 ? 0 : gap <= 0.03 ? 1 : gap <= 0.1 ? 2 : 3;
+        // glow strength 1..9: the best move is 9, one step less per 4 winrate points below it
+        const strength = i === 0 ? 9 : gap < 0 ? 0 : Math.max(1, 9 - Math.round(gap / 0.04));
         const chain = attackChain(l.line);
-        cands.push({ x: first[0], y: first[1], rank: i + 1, tier, tag: chain ? chain.kind : '', label: l.winrate === undefined ? '' : pct(l.winrate) });
+        cands.push({ x: first[0], y: first[1], rank: i + 1, tier, strength, tag: chain ? chain.kind : '', label: l.winrate === undefined ? '' : pct(l.winrate) });
       });
       app.board.setAnalysis({ cands, busy: busy() });
     }
