@@ -178,7 +178,7 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
   saved-game JSON, which `new G.Game` then validates). Errors carry `code` (`link | network | notFound | badData`), mapped to `import.err.*`. To
   support a new site add an entry and a test. **vncaro.com**: `GET /api/games/<id>` (CORS open) gives `nuocDi`/`oCam` as `[row, col]` (we store x = col, y = row),
   always 19x19, X first -> `players = [X, O]`; `cheDo` `vocuc` = torus, `xuyenkhong` = portal pairs; dates carry no zone and are read as +07:00. The game id is
-  `vncaro-<id>`, so importing twice finds the first copy; the cursor starts at the last move.
+  `vncaro-<id>`, so importing twice finds the first copy; "Paste from clipboard" (`#importPaste`) fills the box and imports at once when the text is a supported link; the cursor starts at the last move.
 - **Feature search** (`js/search.js` model, `js/search-panel.js` UI): the magnifier button in the top bar (`/` or Ctrl+K) opens a centred `<dialog>` over a dimmed page; it finds a control from a short
   question and jumps to it (closing the dialog first). The model is DOM-free NLP: fold tone marks (`cai dat` = `cài đặt`), drop stop words and question openers
   (`làm sao để`, `how do I`), light English stemming, a TF-IDF style index (title > keywords > description, both languages in one

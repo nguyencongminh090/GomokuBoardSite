@@ -1039,6 +1039,24 @@
     }
   }
   $('#importLinkGo').addEventListener('click', importLink);
+
+  // Paste: read the clipboard into the box and import at once when it holds a link we support.
+  $('#importPaste').addEventListener('click', async () => {
+    let text = '';
+    try {
+      text = (await navigator.clipboard.readText()).trim();
+    } catch (err) {
+      importStatus(t('import.err.clipboard'));
+      return;
+    }
+    if (!text) {
+      importStatus(t('import.err.empty'));
+      return;
+    }
+    $('#importLink').value = text;
+    if (G.importers.parseLink(text)) importLink();
+    else importStatus(t('import.err.link'));
+  });
   $('#importLink').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); importLink(); }
   });
