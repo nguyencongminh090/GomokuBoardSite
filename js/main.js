@@ -369,10 +369,30 @@
     }
   }
 
+  let gameQuery = '';
+  let gameSort = 'recent';
+  let renamingId = null;
+
+  const SORTS = {
+    recent: (a, b) => b.updatedAt - a.updatedAt,
+    name: (a, b) => (a.name || '').localeCompare(b.name || '', G.i18n.locale, { numeric: true, sensitivity: 'base' }),
+    moves: (a, b) => (b.nodes ? b.nodes.length : 0) - (a.nodes ? a.nodes.length : 0),
+    size: (a, b) => b.size - a.size || b.updatedAt - a.updatedAt,
+  };
+
+  // Search ignores case and tone marks ("van" finds "Ván"); it matches the name and the two player names.
+  const fold = (x) => G.search.fold(String(x || ''));
+
   function renderGameList() {
-    const list = [...games.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+    const all = [...games.values()];
+    const q = fold(gameQuery.trim());
+    const list = all
+      .filter((g) => !q || fold([g.name, ...(g.players || [])].join(' ')).includes(q))
+      .sort((a, b) => SORTS[gameSort](a, b) || b.updatedAt - a.updatedAt);
+    $('#gamesCount').textContent = all.length ? t('games.count', { shown: list.length, total: all.length }) : '';
+    $('#clearGames').disabled = !all.length;
     if (!list.length) {
-      $('#gameList').innerHTML = `<li class="empty">${esc(t('games.none'))}</li>`;
+      $('#gameList').innerHTML = `<li class="empty">${esc(t(all.length ? 'games.noMatch' : 'games.none'))}</li>`;
       return;
     }
     $('#gameList').innerHTML = list.map((g) => {
@@ -387,15 +407,34 @@
       if (portals) meta.push(t('games.portals', { n: portals }));
       if (g.torus === true) meta.push(t('games.torus'));
       meta.push(when);
+      let thumb = '';
+      try {
+        thumb = G.gamePreview(g, settings);
+      } catch (err) {
+        thumb = ''; // a damaged record still lists, so it can be deleted
+      }
+      const title = renamingId === g.id
+        ? `<input class="title-edit" data-rename-input="${esc(g.id)}" maxlength="80" spellcheck="false" value="${esc(g.name)}" aria-label="${esc(t('games.rename'))}">`
+        : `<div class="title" data-rename="${esc(g.id)}" title="${esc(t('games.rename'))}">${esc(name)}</div>`;
+      const players = g.players && g.players.some(Boolean) ? `<div class="meta">${esc(g.players.filter(Boolean).join(' vs '))}</div>` : '';
       return `<li class="${isCur ? 'current' : ''}">
+        <button class="thumb" data-open="${esc(g.id)}" tabindex="-1" aria-hidden="true">${thumb}</button>
         <div class="info">
-          <div class="title">${esc(name)}</div>
+          ${title}${players}
           <div class="meta">${esc(meta.join(' · '))}</div>
         </div>
-        ${isCur ? `<span class="tag">${esc(t('games.current'))}</span>` : `<button class="small" data-open="${esc(g.id)}">${esc(t('games.open'))}</button>`}
-        <button class="small danger" data-delete="${esc(g.id)}" title="${esc(t('games.delete'))}" aria-label="${esc(`${t('games.delete')}: ${name}`)}">✕</button>
+        <div class="acts">
+          ${isCur ? `<span class="tag">${esc(t('games.current'))}</span>` : `<button class="small" data-open="${esc(g.id)}">${esc(t('games.open'))}</button>`}
+          <button class="small" data-rename="${esc(g.id)}" title="${esc(t('games.rename'))}" aria-label="${esc(`${t('games.rename')}: ${name}`)}">✎</button>
+          <button class="small danger" data-delete="${esc(g.id)}" title="${esc(t('games.delete'))}" aria-label="${esc(`${t('games.delete')}: ${name}`)}">✕</button>
+        </div>
       </li>`;
     }).join('');
+    const edit = $('#gameList [data-rename-input]');
+    if (edit) {
+      edit.focus();
+      edit.select();
+    }
   }
 
   // ---------- settings ----------
@@ -722,7 +761,11 @@
   $('#gameList').addEventListener('click', (e) => {
     const open = e.target.closest('[data-open]');
     const del = e.target.closest('[data-delete]');
-    if (open) {
+    const ren = e.target.closest('[data-rename]');
+    if (ren) {
+      renamingId = ren.dataset.rename;
+      renderGameList();
+    } else if (open) {
       const data = games.get(open.dataset.open);
       try {
         const next = new G.Game(data);
@@ -744,6 +787,62 @@
       flush();
       renderGameList();
     }
+  });
+
+  // Renaming: Enter or leaving the field saves, Escape cancels. The open game's name field in the top bar follows.
+  function finishRename(input, save) {
+    const id = input.dataset.renameInput;
+    if (renamingId !== id) return;
+    renamingId = null;
+    const g = games.get(id);
+    const name = input.value.trim().slice(0, 80);
+    if (save && g && name !== g.name) {
+      if (id === game.id) {
+        game.name = name;
+        game.touch();
+        persist();
+        renderHeader();
+      } else {
+        g.name = name;
+        g.updatedAt = Date.now();
+      }
+      flush();
+    }
+    renderGameList();
+  }
+  $('#gameList').addEventListener('keydown', (e) => {
+    if (!e.target.matches('[data-rename-input]')) return;
+    if (e.key === 'Enter') finishRename(e.target, true);
+    else if (e.key === 'Escape') finishRename(e.target, false);
+  });
+  $('#gameList').addEventListener('focusout', (e) => {
+    if (e.target.matches('[data-rename-input]') && renamingId) finishRename(e.target, true);
+  });
+
+  $('#gameSearch').addEventListener('input', (e) => {
+    gameQuery = e.target.value;
+    renderGameList();
+  });
+  $('#gameSort').addEventListener('change', (e) => {
+    gameSort = e.target.value;
+    renderGameList();
+  });
+
+  // Expand: the panel grows over most of the page and the games become a grid of large position thumbnails.
+  $('#gamesExpand').addEventListener('click', () => {
+    const on = !document.body.classList.contains('games-wide');
+    document.body.classList.toggle('games-wide', on);
+    $('#gamesExpand').setAttribute('aria-pressed', String(on));
+  });
+
+  // Clean all: every saved game, including the open one, is removed and a fresh empty game of the same size starts.
+  $('#clearGames').addEventListener('click', () => {
+    if (!games.size || !confirm(t('games.confirmClear', { n: games.size }))) return;
+    games.clear();
+    openGame(G.Game.create(game.size, defaultName()));
+    flush();
+    renderGameList();
+    toast(t('games.cleared'));
   });
 
   $('#exportBtn').addEventListener('click', async () => {
@@ -813,6 +912,7 @@
     }
     for (const p of $$('[data-panel]')) p.hidden = p.dataset.panel !== name;
     $('#settingsBtn').setAttribute('aria-pressed', String(name === 'settings'));
+    document.body.classList.toggle('on-games', name === 'games');
     if (name === 'games') renderGameList();
     explain.render();
     engine.render();

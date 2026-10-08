@@ -187,6 +187,60 @@
       `${cross(P / 2, P / 2, s.paper.xColor, style, 3)}${ring(1.5 * P, P / 2, s.paper.oColor, style, 5)}</svg>`;
   }
 
+  // Thumbnail of a saved game's final position (the main line to its end), cropped to the stones. `data` is the
+  // stored JSON, so no Game is built per row. The last move is marked with an accent square.
+  function gamePreview(data, s) {
+    const size = data.size;
+    const rows = Array.isArray(data.nodes) ? data.nodes : [];
+    const first = new Map(); // node id -> first child, for nodes without a stored preference
+    rows.forEach(([parent], i) => first.has(parent) || first.set(parent, i + 1));
+    const prefs = Array.isArray(data.prefs) ? data.prefs : [];
+    const stones = [];
+    for (let id = 0, guard = 0; guard <= rows.length; guard++) {
+      const next = prefs[id] >= 0 && rows[prefs[id] - 1] && rows[prefs[id] - 1][0] === id ? prefs[id] : first.get(id);
+      if (next === undefined) break;
+      stones.push(rows[next - 1]);
+      id = next;
+    }
+    const walls = Array.isArray(data.walls) ? data.walls : [];
+    const used = stones.length ? stones : walls.map(([x, y]) => [0, x, y]);
+    let x0 = 0, y0 = 0, x1 = size - 1, y1 = size - 1;
+    if (used.length) {
+      x0 = Math.min(...used.map((r) => r[1])); x1 = Math.max(...used.map((r) => r[1]));
+      y0 = Math.min(...used.map((r) => r[2])); y1 = Math.max(...used.map((r) => r[2]));
+      const span = Math.max(x1 - x0, y1 - y0) + 3; // one free cell around the stones
+      const side = Math.min(size, Math.max(span, 7));
+      x0 = Math.max(0, Math.min(size - side, Math.floor((x0 + x1 + 1 - side) / 2)));
+      y0 = Math.max(0, Math.min(size - side, Math.floor((y0 + y1 + 1 - side) / 2)));
+      x1 = x0 + side - 1;
+      y1 = y0 + side - 1;
+    }
+    const paper = s.theme === 'paper';
+    const w = (x1 - x0 + 1) * P;
+    const h = (y1 - y0 + 1) * P;
+    const at = (x, y) => [(x - x0 + 0.5) * P, (y - y0 + 0.5) * P];
+    const out = [defs(s), `<rect width="${w}" height="${h}" fill="${paper ? s.paper.bg : s.stone.bg}"/>`];
+    if (!paper) out.push(`<rect width="${w}" height="${h}" fill="url(#gSheen)"/>`);
+    const line = paper ? s.paper.grid : s.stone.line;
+    let grid = '';
+    for (let i = 0; i <= x1 - x0 + 1; i++) grid += `M${i * P - (paper ? 0 : P / 2)} 0V${h}`;
+    for (let i = 0; i <= y1 - y0 + 1; i++) grid += `M0 ${i * P - (paper ? 0 : P / 2)}H${w}`;
+    out.push(`<path d="${grid}" stroke="${line}" stroke-width="${paper ? 1.5 : 2}" fill="none"/>`);
+    for (const [x, y] of walls) {
+      if (x >= x0 && x <= x1 && y >= y0 && y <= y1) out.push(wall((x - x0) * P, (y - y0) * P, s.theme));
+    }
+    stones.forEach(([, x, y], i) => {
+      const [cx, cy] = at(x, y);
+      out.push(piece(i % 2, cx, cy, s, i));
+    });
+    if (stones.length) {
+      const [, x, y] = stones[stones.length - 1];
+      const [cx, cy] = at(x, y);
+      out.push(`<rect x="${cx - P * 0.5 + 2}" y="${cy - P * 0.5 + 2}" width="${P - 4}" height="${P - 4}" rx="4" fill="none" stroke="#e11d48" stroke-width="3"/>`);
+    }
+    return `<svg viewBox="0 0 ${w} ${h}" aria-hidden="true">${out.join('')}</svg>`;
+  }
+
   // On phones the panel stacks under the board and the page grows with its content, so the board area has
   // no fixed height: the board is sized by width alone. With the panel hidden the page is one screen tall
   // (see css/style.css), so the board fits the full screen height too.
@@ -691,4 +745,5 @@
   G.symbolPreview = symbolPreview;
   G.themePreview = themePreview;
   G.stonePreview = stonePreview;
+  G.gamePreview = gamePreview;
 })(window.Gomoku = window.Gomoku || {});
