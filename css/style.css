@@ -821,6 +821,18 @@ details[open] > :not(summary) { animation: fade-in .22s ease-out; }
 summary { transition: color .16s; }
 .player.active .player-piece { transform: scale(1.06); }
 
+/* Sliding highlight (js/slider.js): one thumb glides under the selected button of a .seg or the tab bar. */
+.seg { position: relative; }
+.seg-thumb, .tab-thumb { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; opacity: 0; }
+.seg-thumb { background: var(--surface); box-shadow: var(--shadow), 0 0 0 1px var(--border); }
+:root[data-ui="dark"] .seg-thumb { background: var(--surface-3); box-shadow: none; }
+.tab-thumb { background: var(--accent); border-radius: 2px; }
+.slide > .seg-thumb, .slide > .tab-thumb { opacity: 1; }
+.seg-thumb.ready, .tab-thumb.ready { transition: transform .32s cubic-bezier(.3, .9, .3, 1), width .32s cubic-bezier(.3, .9, .3, 1), height .32s cubic-bezier(.3, .9, .3, 1), border-radius .32s; }
+.seg.slide button { position: relative; }
+.seg.slide button.on, :root[data-ui="dark"] .seg.slide button.on { background: transparent; box-shadow: none; }
+.tabs.slide button[aria-selected="true"] { border-bottom-color: transparent; }
+
 /* View modes: Live shows board controls only; Analyse adds the engine tabs and a wider panel. */
 body.view-live [data-tab="versus"], body.view-live [data-tab="analyze"],
 body.view-live #langBtn, body.view-live .panel-eval { display: none; }
