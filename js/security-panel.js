@@ -182,23 +182,23 @@
         el.innerHTML = `<p class="muted small-text">${esc(t('sec.unsupported'))}</p>`;
         return;
       }
-      const btn = (act, label, cls = '') => `<button class="small ${cls}" data-sec="${act}">${esc(t(label))}</button>`;
+      const btn = (act, label, cls = '', ico = '') => `<button class="small ${cls}" data-sec="${act}">${G.icons.svg(ico)}<span class="lbl">${esc(t(label))}</span></button>`;
       const trusted = keys.trusted.map((k) => `
         <li><code>${esc(k.fingerprint)}</code>
-          <button class="small" data-sec-remove="${esc(k.fingerprint)}">${esc(t('sec.remove'))}</button></li>`).join('');
+          <button class="small ico-only" data-sec-remove="${esc(k.fingerprint)}" title="${esc(t('sec.remove'))}" aria-label="${esc(t('sec.remove'))}">${G.icons.svg('trash')}</button></li>`).join('');
       const trustedHtml = `
         <div class="sub-label">${esc(t('sec.trusted'))}</div>
         <p class="muted small-text">${esc(t('sec.trustedHelp'))}</p>
         ${trusted ? `<ul class="key-list">${trusted}</ul>` : `<p class="muted small-text">${esc(t('sec.trustedNone'))}</p>`}
         <div class="btn-row">
-          ${btn('addTrustedCode', 'sec.addTrustedCode')}
-          <label class="btn small"><span>${esc(t('sec.addTrusted'))}</span><input type="file" data-sec-file="trusted" accept=".json,application/json" hidden></label>
+          ${btn('addTrustedCode', 'sec.addTrustedCode', '', 'plus')}
+          <label class="btn small">${G.icons.svg('upload')}<span class="lbl">${esc(t('sec.addTrusted'))}</span><input type="file" data-sec-file="trusted" accept=".json,application/json" hidden></label>
         </div>`;
 
       if (!keys.own) {
         el.innerHTML = `
           <p class="muted small-text">${esc(t('sec.intro'))}</p>
-          <div class="btn-row">${btn('create', 'sec.create', 'primary')}</div>
+          <div class="btn-row">${btn('create', 'sec.create', 'primary', 'key')}</div>
           ${trustedHtml}`;
         return;
       }
@@ -212,10 +212,10 @@
         <code class="fingerprint">${esc(sec.keyCode(keys.own.publicKey))}</code>
         <p class="muted small-text">${esc(t('sec.created', { date }))}. ${esc(t('sec.keyBound'))}</p>
         <div class="btn-row">
-          ${btn('copyCode', 'sec.copyCode')}
-          ${btn('copyPublic', 'sec.copyPublic')}
-          ${btn('savePublic', 'sec.savePublic')}
-          ${btn('deleteKeys', 'sec.delete')}
+          ${btn('copyCode', 'sec.copyCode', '', 'copy')}
+          ${btn('copyPublic', 'sec.copyPublic', '', 'copy')}
+          ${btn('savePublic', 'sec.savePublic', '', 'download')}
+          ${btn('deleteKeys', 'sec.delete', 'danger', 'trash')}
         </div>
         <p class="muted small-text">${esc(t('sec.engineRule'))}</p>
         ${trustedHtml}`;

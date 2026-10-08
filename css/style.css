@@ -306,7 +306,7 @@ body.focus .panel { display: none; }
 .turn-label { font-size: 17px; font-weight: 700; }
 
 .seg { display: flex; padding: 3px; gap: 3px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--border); }
-.seg button { flex: 1; border: 0; border-radius: 11px; background: transparent; color: var(--muted); padding: 7px 8px; }
+.seg button { flex: 1; border: 0; border-radius: 11px; background: transparent; color: var(--muted); padding: 7px 6px; white-space: nowrap; gap: 5px; }
 .seg button.on { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: var(--shadow), 0 0 0 1px var(--border); }
 :root[data-ui="dark"] .seg button.on { background: var(--surface-3); box-shadow: none; }
 
@@ -514,7 +514,9 @@ input:disabled, select:disabled { opacity: .45; }
   box-shadow: var(--shadow);
 }
 :root[data-ui="dark"] .card { background: var(--surface-2); }
-.card h3 { margin: 0 0 4px; font-size: 15px; font-weight: 700; }
+.card h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; font-size: 15px; font-weight: 700; }
+.card h3 > .ico, .about-card > summary > .ico { width: 18px; height: 18px; color: var(--accent-text); }
+.about-card > summary > .ico { vertical-align: -4px; margin-right: 6px; }
 .card .seg { background: var(--surface-2); }
 :root[data-ui="dark"] .card .seg { background: var(--surface); }
 .sub-label {
