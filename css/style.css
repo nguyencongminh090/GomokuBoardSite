@@ -633,6 +633,9 @@ input:disabled, select:disabled { opacity: .45; }
 .game-list li[draggable="true"] { cursor: grab; }
 .game-list li.dragging { opacity: .45; }
 .game-list li.drop-target { outline: 2px dashed var(--accent-text); outline-offset: 1px; }
+.game-list li[data-game-id] { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.game-list li[data-game-id] input { -webkit-user-select: text; user-select: text; }
+.drag-ghost { position: fixed; z-index: 100; transform: translate(-50%, -120%); max-width: 70vw; padding: 6px 12px; border-radius: 999px; background: var(--accent-text); color: var(--surface); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; box-shadow: 0 4px 14px rgba(0, 0, 0, .35); }
 .game-list .empty { justify-content: center; color: var(--muted); border-style: dashed; }
 .games-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .games-actions button { flex: 0 0 auto; min-width: 104px; text-align: center; }

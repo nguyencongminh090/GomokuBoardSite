@@ -913,13 +913,8 @@
     clearDrop();
     list.querySelectorAll('.dragging').forEach((el) => el.classList.remove('dragging'));
   });
-  list.addEventListener('drop', (e) => {
-    const li = dropTarget(e);
-    const id = dragId;
-    if (!id || !li || li.dataset.gameId === id) return;
-    e.preventDefault();
-    dragId = null;
-    clearDrop();
+  // Drop game `id` on list item `li`.
+  function dropGame(id, li) {
     const group = targetGroup(li);
     if (!group && li.dataset.gameId) { // onto a loose game: name a new group for both
       openGroupDialog({ ids: [id, li.dataset.gameId] });
@@ -930,7 +925,85 @@
     setGroup(id, group);
     flush();
     renderGameList();
+  }
+  list.addEventListener('drop', (e) => {
+    const li = dropTarget(e);
+    const id = dragId;
+    if (!id || !li || li.dataset.gameId === id) return;
+    e.preventDefault();
+    dragId = null;
+    clearDrop();
+    dropGame(id, li);
   });
+
+  // Touch has no HTML5 drag, so a long press picks a game up (a normal swipe still scrolls) and a ghost follows the finger.
+  const HOLD_MS = 350;
+  const HOLD_SLOP = 8;
+  let touch = null; // { id, x, y, timer, ghost, over }
+  const endTouch = () => {
+    if (!touch) return;
+    clearTimeout(touch.timer);
+    if (touch.ghost) touch.ghost.remove();
+    clearDrop();
+    list.querySelectorAll('.dragging').forEach((el) => el.classList.remove('dragging'));
+    touch = null;
+  };
+  const overItem = (x, y) => {
+    const el = document.elementFromPoint(x, y);
+    const li = el && el.closest ? el.closest('#gameList li[data-drop-group], #gameList li[data-game-id]') : null;
+    return li && li.dataset.gameId !== touch.id ? li : null;
+  };
+
+  list.addEventListener('dragstart', (e) => {
+    if (touch) e.preventDefault(); // a long press must not also start the browser's own drag
+  }, true);
+  list.addEventListener('contextmenu', (e) => {
+    if (touch) e.preventDefault();
+  });
+  list.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'touch' || e.target.closest('button:not(.thumb), input')) return;
+    const li = e.target.closest('li[data-game-id]');
+    if (!li || renamingId) return;
+    endTouch();
+    touch = { id: li.dataset.gameId, x: e.clientX, y: e.clientY, ghost: null, over: null };
+    touch.timer = setTimeout(() => {
+      const label = li.querySelector('.title');
+      touch.ghost = document.createElement('div');
+      touch.ghost.className = 'drag-ghost';
+      touch.ghost.textContent = label ? label.textContent : '';
+      document.body.append(touch.ghost);
+      touch.ghost.style.left = `${touch.x}px`;
+      touch.ghost.style.top = `${touch.y}px`;
+      li.classList.add('dragging');
+      if (navigator.vibrate) navigator.vibrate(15);
+    }, HOLD_MS);
+  });
+  list.addEventListener('pointermove', (e) => {
+    if (!touch || e.pointerType !== 'touch') return;
+    if (!touch.ghost) { // moved before the hold finished: the person is scrolling
+      if (Math.hypot(e.clientX - touch.x, e.clientY - touch.y) > HOLD_SLOP) endTouch();
+      return;
+    }
+    touch.x = e.clientX;
+    touch.y = e.clientY;
+    touch.ghost.style.left = `${e.clientX}px`;
+    touch.ghost.style.top = `${e.clientY}px`;
+    clearDrop();
+    touch.over = overItem(e.clientX, e.clientY);
+    if (touch.over) touch.over.classList.add('drop-target');
+  });
+  // While a game is held, the finger moves the ghost instead of scrolling the page.
+  list.addEventListener('touchmove', (e) => {
+    if (touch && touch.ghost) e.preventDefault();
+  }, { passive: false });
+  list.addEventListener('pointerup', (e) => {
+    if (!touch || e.pointerType !== 'touch') return;
+    const { id, ghost } = touch;
+    const li = ghost ? overItem(e.clientX, e.clientY) : null;
+    endTouch();
+    if (li) dropGame(id, li);
+  });
+  list.addEventListener('pointercancel', endTouch);
 
   // Renaming: Enter or leaving the field saves, Escape cancels. The open game's name field in the top bar follows.
   function finishRename(input, save) {
