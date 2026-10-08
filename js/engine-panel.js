@@ -258,6 +258,9 @@
         // Moves from the opening logic (e.g. on an empty board) come without an INFO feed: show the move alone.
         else if (move && move[0] >= 0 && !job.stopped) result.lines = [{ pv: 0, line: [move] }];
         result.done = true;
+        // Record the final numbers now: an engine move clears `result` below, before the next render would remember them.
+        const best = shownLines(result.lines)[0];
+        if (best && best.winrate !== undefined) remember(result.toMove === 0 ? best.winrate : 1 - best.winrate);
       }
       if (job.kind !== 'move' || job.superseded) return;
       const game = app.game();
@@ -266,8 +269,12 @@
         if (!job.stopped) app.toast(t('eng.noMove'));
         return;
       }
+      // The played move may not be the first line (strength, style): the new position gets that line's chance.
+      const played = result && shownLines(result.lines).find((l) => l.line[0] && l.line[0][0] === move[0] && l.line[0][1] === move[1]);
+      const toMove = result ? result.toMove : game.toMove();
       result = null;
       app.play(move[0], move[1], false);
+      if (played && played.winrate !== undefined) remember(toMove === 0 ? played.winrate : 1 - played.winrate, app.game().cur);
     }
 
     // ---------- rendering ----------
