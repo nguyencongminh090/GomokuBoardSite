@@ -74,6 +74,9 @@ button, .btn {
   user-select: none;
   transition: background .16s, border-color .16s, transform .16s;
 }
+/* Buttons with a data-icon: icon before the label (js/icons.js). */
+button > .ico { width: 16px; height: 16px; }
+.tabs button > .ico, .nav-row .nav-main > .ico { width: 18px; height: 18px; }
 button:hover:not(:disabled), .btn:hover { background: var(--surface-3); }
 button:active:not(:disabled) { transform: scale(.97); }
 button:disabled { opacity: .55; cursor: default; }

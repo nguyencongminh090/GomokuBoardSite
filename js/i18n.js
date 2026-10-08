@@ -120,7 +120,7 @@
       'nav.forward': 'Tiến',
       'nav.forwardTitle': 'Tiến (→)',
       'nav.last': 'Nước cuối (End)',
-      'nav.new': '+ Ván mới',
+      'nav.new': 'Ván mới',
 
       'turn.setup': 'Đang dựng bàn cờ',
       'turn.toMove': ({ name }) => `Lượt ${name}`,
@@ -138,7 +138,8 @@
       'moves.forks': ({ n }) => `· ${n} điểm rẽ nhánh`,
       'moves.start': 'Đầu ván',
       'moves.forkTitle': 'Nước này có lựa chọn khác',
-      'moves.delete': 'Xoá nước này và các nước sau',
+      'moves.delete': 'Xoá từ đây',
+      'moves.deleteTitle': 'Xoá nước này và các nước sau',
       'moves.confirmDelete': ({ d, move, after }) =>
         `Xoá nước ${d} (${move})${after ? ` và ${after} nước sau nó` : ''}?`,
       'keys.help': '<kbd>←</kbd><kbd>→</kbd> lùi / tiến · <kbd>↑</kbd><kbd>↓</kbd> đổi nhánh · ' +
@@ -293,7 +294,8 @@
       'a11y.line': 'Đường kẻ trên mặt bàn',
       'a11y.labels': 'Chữ số toạ độ trên nền',
       'a11y.blackStone': 'Quân đen trên mặt bàn',
-      'set.reset': 'Đặt lại cài đặt mặc định',
+      'set.reset': 'Đặt lại',
+      'set.resetTitle': 'Đặt lại cài đặt mặc định',
       'set.resetConfirm': 'Đặt lại toàn bộ cài đặt về mặc định? Các ván cờ không bị ảnh hưởng.',
 
       'preset.White': 'Trắng',
@@ -307,7 +309,7 @@
       'preset.Slate': 'Đá xám',
       'preset.Felt': 'Nỉ xanh',
 
-      'games.export': 'Xuất tất cả',
+      'games.export': 'Xuất',
       'games.import': 'Nhập',
       'games.note': 'Ván cờ chỉ được lưu trong trình duyệt này. Hãy dùng Xuất để sao lưu hoặc chuyển sang máy khác.',
       'games.none': 'Chưa có ván nào',
@@ -330,7 +332,7 @@
       'games.rename': 'Đổi tên ván',
       'games.count': ({ shown, total }) => (shown === total ? `${total} ván` : `${shown} / ${total} ván`),
       'games.noMatch': 'Không có ván nào khớp',
-      'games.clearAll': 'Xoá tất cả',
+      'games.clearAll': 'Xoá hết',
       'games.confirmClear': ({ n }) => `Xoá tất cả ${n} ván đã lưu? Không thể hoàn tác. Hãy Xuất trước nếu cần sao lưu.`,
       'games.cleared': 'Đã xoá tất cả ván',
       'group.set': 'Xếp vào nhóm',
@@ -347,9 +349,9 @@
       'import.linkTitle': 'Từ liên kết',
       'import.sites': ({ names }) => `Hỗ trợ: ${names}. Dán liên kết của một ván (hoặc chính bản ghi ván); tên hai người chơi và bên đi trước được giữ lại.`,
       'import.linkLabel': 'Liên kết',
-      'import.fromLink': 'Nhập từ liên kết',
+      'import.fromLink': 'Nhập liên kết',
       'import.close': 'Đóng',
-      'import.paste': 'Dán từ clipboard',
+      'import.paste': 'Dán',
       'import.err.clipboard': 'Không đọc được clipboard. Hãy cho phép truy cập hoặc dán tay vào ô.',
       'import.err.empty': 'Clipboard đang trống.',
       'import.loading': 'Đang tải ván…',
@@ -405,7 +407,8 @@
       'voice.confirmHelp': 'Hiện ô vừa nghe được trong một khoảnh khắc; bấm Huỷ để bỏ.',
       'voice.hint': 'Giữ nút micro (hoặc phím V) và nói tên ô, ví dụ “hát tám”, “H8”, “ba mươi bảy”.',
       'voice.privacy': 'Âm thanh được gửi tới Groq để nhận dạng. Khoá chỉ nằm trong trình duyệt này, không được xuất cùng ván cờ.',
-      'voice.hold': 'Giữ để nói nước đi',
+      'voice.hold': 'Giữ để nói',
+      'voice.holdTitle': 'Giữ để nói nước đi (phím V)',
       'voice.cancel': 'Huỷ',
       'voice.noKey': 'Hãy nhập khoá API Groq trong Cài đặt → Giọng nói.',
       'voice.playOnly': 'Chỉ nói được ở chế độ Chơi.',
@@ -770,7 +773,7 @@
       'nav.forward': 'Forward',
       'nav.forwardTitle': 'Forward (→)',
       'nav.last': 'Last move (End)',
-      'nav.new': '+ New game',
+      'nav.new': 'New game',
 
       'turn.setup': 'Setting up the board',
       'turn.toMove': ({ name }) => `${name} to move`,
@@ -788,7 +791,8 @@
       'moves.forks': ({ n }) => `· ${plural(n, 'branch point', 'branch points')}`,
       'moves.start': 'Start',
       'moves.forkTitle': 'This move has alternatives',
-      'moves.delete': 'Delete this move and everything after',
+      'moves.delete': 'Delete from here',
+      'moves.deleteTitle': 'Delete this move and everything after',
       'moves.confirmDelete': ({ d, move, after }) =>
         `Delete move ${d} (${move})${after ? ` and the ${plural(after, 'move', 'moves')} after it` : ''}?`,
       'keys.help': '<kbd>←</kbd><kbd>→</kbd> back / forward · <kbd>↑</kbd><kbd>↓</kbd> switch branch · ' +
@@ -943,7 +947,8 @@
       'a11y.line': 'Lines on board',
       'a11y.labels': 'Coordinate text on background',
       'a11y.blackStone': 'Black stones on board',
-      'set.reset': 'Reset settings to defaults',
+      'set.reset': 'Reset',
+      'set.resetTitle': 'Reset settings to defaults',
       'set.resetConfirm': 'Reset all settings to defaults? Your games are not affected.',
 
       'preset.White': 'White',
@@ -957,7 +962,7 @@
       'preset.Slate': 'Slate',
       'preset.Felt': 'Felt',
 
-      'games.export': 'Export all',
+      'games.export': 'Export',
       'games.import': 'Import',
       'games.note': 'Games are saved in this browser only. Use Export to keep a backup or move games to another computer.',
       'games.none': 'No saved games yet',
@@ -997,9 +1002,9 @@
       'import.linkTitle': 'From a link',
       'import.sites': ({ names }) => `Supported: ${names}. Paste the link of one game (or the game record itself); both player names and who moves first are kept.`,
       'import.linkLabel': 'Link',
-      'import.fromLink': 'Import from link',
+      'import.fromLink': 'Import link',
       'import.close': 'Close',
-      'import.paste': 'Paste from clipboard',
+      'import.paste': 'Paste',
       'import.err.clipboard': 'Could not read the clipboard. Allow access, or paste into the box by hand.',
       'import.err.empty': 'The clipboard is empty.',
       'import.loading': 'Loading the game…',
@@ -1056,7 +1061,8 @@
       'voice.confirmHelp': 'Shows the cell that was heard for a moment; press Cancel to drop it.',
       'voice.hint': 'Hold the mic button (or the V key) and say a cell, e.g. “hát tám”, “H8” or “ba mươi bảy”.',
       'voice.privacy': 'Audio is sent to Groq for recognition. The key stays in this browser and is never exported with a game.',
-      'voice.hold': 'Hold to say a move',
+      'voice.hold': 'Hold to speak',
+      'voice.holdTitle': 'Hold to say a move (V key)',
       'voice.cancel': 'Cancel',
       'voice.noKey': 'Enter your Groq API key in Settings → Voice.',
       'voice.playOnly': 'Voice moves work in Play mode only.',
@@ -1325,7 +1331,16 @@
   // Translates static markup: data-i18n (text), data-i18n-html (trusted markup from STRINGS)
   // and data-i18n-attr="title:key;aria-label:key".
   function apply(root = document) {
-    for (const el of root.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
+    for (const el of root.querySelectorAll('[data-i18n]')) {
+      const text = t(el.dataset.i18n);
+      // data-icon puts a shared icon (js/icons.js) before the label, which sits in its own <span>.
+      if (el.dataset.icon && G.icons) {
+        el.innerHTML = `${G.icons.svg(el.dataset.icon)}<span class="lbl"></span>`;
+        el.lastElementChild.textContent = text;
+      } else {
+        el.textContent = text;
+      }
+    }
     for (const el of root.querySelectorAll('[data-i18n-html]')) el.innerHTML = t(el.dataset.i18nHtml);
     for (const el of root.querySelectorAll('[data-i18n-attr]')) {
       for (const pair of el.dataset.i18nAttr.split(';')) {
