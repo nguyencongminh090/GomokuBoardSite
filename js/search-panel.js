@@ -37,6 +37,7 @@
     { id: 'presets', tab: 'settings', targets: ['#paperSwatches', '#stoneSwatches'] },
     { id: 'symbols', tab: 'settings', targets: ['#styleSwatches', '#stonePicks'] },
     { id: 'coords', tab: 'settings', targets: ['[data-set="coords:edge"]'] },
+    { id: 'cellOrder', tab: 'settings', targets: ['[data-set="cellOrder:spiral"]', '[data-set="coords:cell"]'] },
     { id: 'movenumbers', tab: 'settings', targets: ['[data-key="showMoveNumbers"]'] },
     { id: 'lastmove', tab: 'settings', targets: ['[data-key="showLastMove"]'] },
     { id: 'language', tab: 'settings', targets: ['[data-set="lang:vi"]'] },

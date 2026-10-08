@@ -69,6 +69,10 @@
       { value: 'glossy', re: /\b(glossy|gloss|shiny|bong)\b/, valueKey: 'stone.glossy' },
       { value: 'flat', re: /\b(flat|phang)\b/, valueKey: 'stone.flat' },
     ] },
+    { id: 'cellOrder', path: 'cellOrder', need: /(sequence|tuan tu|spiral|xoan oc|row by row|tung hang)/, options: [
+      { value: 'sequence', re: /(sequence|tuan tu|row by row|tung hang)/, valueKey: 'cellOrder.sequence' },
+      { value: 'spiral', re: /(spiral|xoan oc)/, valueKey: 'cellOrder.spiral' },
+    ] },
     { id: 'coords', path: 'coords', need: /(coord|toa do|label|cell number|so o|so trong o|spiral)/, options: [
       { value: 'cell', re: /(cell|spiral|so o|so trong o|number)/, valueKey: 'coords.cell' },
       { value: 'edge', re: /(edge|letter|chu cai|canh|vien|label)/, valueKey: 'coords.edge' },
