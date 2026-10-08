@@ -36,9 +36,11 @@
     return nums;
   }
 
-  // Reading order, left to right and top to bottom: 1 2 3 ... Indexed by y*size+x.
+  // Reading order, left to right and top to bottom. Each row starts on the next multiple of 10 plus 1
+  // (size 19: 1-19, 21-39, 41-59 ...), so the tens digit names the row. Indexed by y*size+x.
   function sequence(size) {
-    return Array.from({ length: size * size }, (_, k) => k + 1);
+    const stride = Math.ceil(size / 10) * 10;
+    return Array.from({ length: size * size }, (_, k) => Math.floor(k / size) * stride + (k % size) + 1);
   }
 
   // Cell numbers in the chosen order: 'spiral' (default) or 'sequence'.

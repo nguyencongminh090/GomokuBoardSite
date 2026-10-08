@@ -207,8 +207,9 @@
     };
     const n = parseNumber(s);
     const asNumber = () => {
-      if (n === null || n < 1 || n > size * size) return null;
+      if (n === null) return null;
       const k = G.coords.numbers(size, order).indexOf(n);
+      if (k < 0) return null; // out of range, or a number the sequence skips
       return { x: k % size, y: Math.floor(k / size), kind: 'number' };
     };
     return asLabel(parseLabel(s, size, false)) || asNumber() || asLabel(parseLabel(s, size));

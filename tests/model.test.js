@@ -39,6 +39,18 @@ test('spiral starts at the centre and turns clockwise', () => {
   assert.equal(s[8 * 15 + 8], 3); // down
 });
 
+test('sequence numbers rows from the top-left, each row starting on the next ten', () => {
+  const s = G.coords.sequence(19);
+  assert.equal(s[0], 1);
+  assert.equal(s[18], 19);
+  assert.equal(s[19], 21);
+  assert.equal(s[37], 39);
+  assert.equal(s[2 * 19], 41);
+  assert.equal(new Set(s).size, 19 * 19);
+  assert.equal(G.coords.sequence(10)[10], 11); // a multiple of ten has no gap
+  assert.equal(G.coords.sequence(22)[22], 31);
+});
+
 test('edge labels: row 1 at the bottom', () => {
   assert.equal(G.coords.label(7, 7, 15), 'H8');
   assert.equal(G.coords.label(0, 14, 15), 'A1');
