@@ -16,7 +16,7 @@
     function place() {
       const btn = selected();
       if (!btn || !btn.offsetWidth) {
-        host.classList.remove('slide');
+        if (host.classList.contains('slide')) host.classList.remove('slide');
         return;
       }
       const h = isTabs ? 2 : btn.offsetHeight;
@@ -25,7 +25,7 @@
       thumb.style.height = `${h}px`;
       thumb.style.transform = `translate(${btn.offsetLeft}px, ${y}px)`;
       if (!isTabs) thumb.style.borderRadius = getComputedStyle(btn).borderRadius;
-      host.classList.add('slide');
+      if (!host.classList.contains('slide')) host.classList.add('slide');
       if (!ready) {
         // Let the first placement land without animating from the corner.
         ready = true;
