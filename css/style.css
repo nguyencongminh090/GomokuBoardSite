@@ -634,6 +634,8 @@ input:disabled, select:disabled { opacity: .45; }
 .game-list li.dragging { opacity: .45; }
 .game-list li.drop-target { outline: 2px dashed var(--accent-text); outline-offset: 1px; }
 .game-list .empty { justify-content: center; color: var(--muted); border-style: dashed; }
+.games-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.games-actions button { flex: 0 0 auto; min-width: 104px; text-align: center; }
 .games-bar { display: flex; gap: 6px; align-items: center; }
 .games-search { flex: 1; min-width: 0; padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); }
 .games-bar select { max-width: 130px; }
