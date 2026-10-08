@@ -1049,3 +1049,16 @@ test('generating walls and portals replaces them and respects moves and distance
   assert.equal(small.generateWalls(3), 1 - 1 + small.walls.size, 'tiny board still valid');
   new G.Game(JSON.parse(JSON.stringify(small.toJSON())));
 });
+
+test('every classic script parses (a syntax error stops the whole page)', () => {
+  const vm = require('vm');
+  const files = fs.readdirSync(path.join(__dirname, '..', 'js')).filter((f) => f.endsWith('.js')).map((f) => `js/${f}`);
+  files.push('coi-serviceworker.js');
+  for (const f of files) {
+    try {
+      new vm.Script(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'), { filename: f });
+    } catch (e) {
+      assert.fail(`${f}: ${e.message}`);
+    }
+  }
+});
