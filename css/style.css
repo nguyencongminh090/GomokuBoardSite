@@ -177,7 +177,7 @@ select, input[type="number"], .field input:not([type]) {
 #board .cand.heat text { font-size: 12px; fill: #fff; stroke: rgba(0, 0, 0, .55); stroke-width: 3px; paint-order: stroke; stroke-linejoin: round; }
 #board .cand.heat.best text { font-size: 12px; }
 #board .cand.best text { font-size: 14px; }
-#board .cand.heat circle.pulse { stroke: #fff; }
+#board .cand.heat circle.pulse { stroke: #59a80f; }
 #board .cand circle.pulse { fill: none; stroke: #15803d; stroke-width: 2; transform-box: fill-box; transform-origin: center; animation: cand-pulse 1.4s ease-out infinite; }
 #board .tmap { pointer-events: none; }
 #board .tag rect { stroke: #fff; stroke-width: 1; opacity: .92; }
@@ -780,7 +780,7 @@ body.view-live #langBtn, body.view-live .panel-eval { display: none; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
   .search-hit { animation: none; box-shadow: 0 0 0 3px var(--accent-text); }
-  #board .cand.heat circle.pulse { stroke: #fff; }
+  #board .cand.heat circle.pulse { stroke: #59a80f; }
 #board .cand circle.pulse { animation: none; }
 }
 

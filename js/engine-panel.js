@@ -579,8 +579,8 @@
         if (!first || first[0] < 0) return;
         const gap = l.winrate === undefined || top === undefined ? -1 : top - l.winrate;
         const tier = gap < 0 ? 0 : gap <= 0.03 ? 1 : gap <= 0.1 ? 2 : 3;
-        // glow level 1..11 from the winrate itself (Turbo: 0 % dark blue ... 100 % red), so a lone weak best move does not look strong
-        const strength = l.winrate === undefined ? 0 : Math.min(11, Math.max(1, 1 + Math.round(l.winrate * 10)));
+        // glow strength 1..9 from the winrate itself (0 % red ... 100 % green), so a lone weak best move does not look strong
+        const strength = l.winrate === undefined ? 0 : Math.min(9, Math.max(1, 1 + Math.round(l.winrate * 8)));
         const chain = attackChain(l.line);
         cands.push({ x: first[0], y: first[1], rank: i + 1, tier, strength, tag: chain ? chain.kind : '', label: l.winrate === undefined ? '' : pct(l.winrate) });
       });
