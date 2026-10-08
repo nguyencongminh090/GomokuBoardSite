@@ -1142,3 +1142,61 @@ test('game group: optional, trimmed, capped, written only when set', () => {
   assert.equal(new G.Game({ size: 15, group: 'x'.repeat(99) }).group.length, G.Game.MAX_GROUP_NAME);
   assert.equal(new G.Game({ size: 15, group: 5 }).group, '');
 });
+
+const PLAYOK_SAMPLE = `[Event "?"]
+[Site "PlayOK"]
+[Date "2026.06.22"]
+[Round "-"]
+[Black "laney"]
+[White "faztnweaker5"]
+[Result "1-0"]
+[Time "17:06:43"]
+[TimeControl "60"]
+[GameType "61,15"]
+[BlackElo "1832"]
+[WhiteElo "1837"]
+
+1. d11 e13 2. e14 white 3. -- d10 4. e9 f9 5. g10 g11 6. h10 i10 7. i11 j12 8.
+h9 h8 9. i8 j7 10. k9 j10 11. g7 g6 12. e7 f7 13. e8 e10 14. f8 g9 15. c8 d8
+16. b9 e12 17. e6 e5 18. d7 f5 19. a10 1-0
+`;
+
+test('playok links: only /p/?g=gm<digits> on playok.com', () => {
+  assert.equal(G.importers.parseLink('https://www.playok.com/p/?g=gm171801662').id, '' + 'gm171801662');
+  assert.equal(G.importers.parseLink('https://playok.com/p/?g=gm171801662.txt').site.id, 'playok');
+  for (const bad of ['https://www.playok.com/p/', 'https://www.playok.com/p/?g=xx1', 'https://playok.com.evil.com/p/?g=gm1']) {
+    assert.equal(G.importers.parseLink(bad), null, bad);
+  }
+});
+
+test('playok record: size, names and sides, opening markers skipped, black plays the winning stone', () => {
+  const g = new G.Game(G.importers.SITES[1].toGame(PLAYOK_SAMPLE, 'gm171801662'));
+  assert.equal(g.size, 15);
+  assert.deepEqual(g.players, ['laney', 'faztnweaker5']); // Black first
+  assert.equal(g.nodes.length, 36); // 35 stones: `white` and `--` are not moves
+  assert.deepEqual([g.nodes[1].x, g.nodes[1].y], [3, 4]); // d11: column d, row 11 counted from the bottom
+  assert.deepEqual([g.nodes[4].x, g.nodes[4].y], [3, 5]); // d10, the first white stone
+  assert.equal(g.player(4), 1);
+  assert.equal(g.player(35), 0); // a10 is black's
+  assert.equal(g.cur, 35);
+  assert(/PlayOK #171801662/.test(g.name));
+});
+
+test('playok: a pasted record and its link give the same game id; bad records report badData', async () => {
+  const site = G.importers.SITES[1];
+  assert.equal(G.importers.recognises(PLAYOK_SAMPLE), true);
+  assert.equal(G.importers.recognises('hello'), false);
+  const pasted = (await G.importers.fromLink(PLAYOK_SAMPLE)).game;
+  assert.equal(pasted.id, site.toGame(PLAYOK_SAMPLE, 'gm171801662').id);
+  assert.throws(() => site.toGame('[GameType "61,15"]\n1. d11 d11', 'gm1'), (e) => e.code === 'badData');
+  assert.throws(() => site.toGame('[GameType "61,15"]\n1. z99', 'gm1'), (e) => e.code === 'badData');
+  assert.throws(() => site.toGame('[GameType "61,15"]', 'gm1'), (e) => e.code === 'badData');
+  G.importers.config.proxy = '';
+  await assert.rejects(G.importers.fromLink('https://www.playok.com/p/?g=gm171801662', async () => { throw new Error('x'); }), (e) => e.code === 'blocked' && /\.txt$/.test(e.url));
+  G.importers.config.proxy = 'https://relay.example';
+  const urls = [];
+  const res = await G.importers.fromLink('https://www.playok.com/p/?g=gm171801662', async (u) => { urls.push(u); return { ok: true, status: 200, text: async () => PLAYOK_SAMPLE }; });
+  G.importers.config.proxy = '';
+  assert.deepEqual(urls, ['https://relay.example/import/playok/gm171801662']);
+  assert.equal(res.site, 'PlayOK');
+});

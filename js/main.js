@@ -1086,6 +1086,9 @@
 
   // Import dialog: a file exported by this site, or a link to a game on another site (js/importers.js).
   const importDlg = $('#importDialog');
+  // Sites that send no CORS headers are fetched through the engine gate's Worker (same address as the engine gate).
+  const gateMeta = document.querySelector('meta[name="engine-gate"]');
+  G.importers.config.proxy = gateMeta ? gateMeta.content.trim().replace(/\/+$/, '') : '';
   const importStatus = (msg) => { $('#importStatus').textContent = msg; };
   $('#importBtn').addEventListener('click', () => {
     $('#importSites').textContent = t('import.sites', { names: G.importers.SITES.map((s) => s.name).join(', ') });
@@ -1116,7 +1119,7 @@
       input.value = '';
       toast(t('import.linkDone', { name: g.name }));
     } catch (err) {
-      importStatus(t(`import.err.${['link', 'network', 'notFound', 'badData'].includes(err.code) ? err.code : 'badData'}`));
+      importStatus(t(`import.err.${['link', 'network', 'notFound', 'badData', 'blocked'].includes(err.code) ? err.code : 'badData'}`, { url: err.url }));
     } finally {
       go.disabled = false;
     }
@@ -1137,11 +1140,11 @@
       return;
     }
     $('#importLink').value = text;
-    if (G.importers.parseLink(text)) importLink();
+    if (G.importers.recognises(text)) importLink();
     else importStatus(t('import.err.link'));
   });
   $('#importLink').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); importLink(); }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); importLink(); }
   });
 
   $('#importInput').addEventListener('change', async (e) => {

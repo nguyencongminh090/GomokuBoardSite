@@ -4,9 +4,13 @@
 (function (G) {
   'use strict';
 
-  function fail(code) {
+  // `config.proxy` is the base URL of a relay for sites that do not allow cross-origin requests (set by main.js).
+  const config = { proxy: '' };
+
+  function fail(code, url) {
     const e = new Error(code);
     e.code = code;
+    if (url) e.url = url; // where the person can fetch the data by hand
     return e;
   }
 
@@ -79,7 +83,80 @@
     },
   };
 
-  const SITES = [vncaro];
+  // ---------- playok.com ----------
+  // The page embeds a PGN-like record, also served as https://www.playok.com/p/?g=gm<id>.txt:
+  //   [Black "a"] [White "b"] [Date "2026.06.22"] [Time "17:06:43"] [GameType "61,15"]   (GameType = "<kind>,<board size>")
+  //   1. d11 e13 2. e14 white 3. -- d10 4. e9 f9 ... 19. a10 1-0
+  // Columns are letters from the left, rows count up from the bottom. `white`/`black` is the second player's colour choice after
+  // the opening stones and `--` an empty slot; neither is a move. Stones then alternate black, white, black... and the headers
+  // already name the final colours. The site sends no CORS headers, so the file comes through `config.proxy`.
+  const PLAYOK_DEFAULT_SIZE = 15;
+
+  function hash(text) { // FNV-1a, for a stable id when the record names no date or players
+    let h = 0x811c9dc5;
+    for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193) >>> 0;
+    return h.toString(36);
+  }
+
+  const playok = {
+    id: 'playok',
+    name: 'PlayOK',
+    match(url) {
+      if (!/^(www\.)?playok\.com$/i.test(url.hostname) || url.pathname !== '/p/') return null;
+      const m = /^(gm\d{1,12})(\.txt)?$/.exec(url.searchParams.get('g') || '');
+      return m ? m[1] : null;
+    },
+    looksLike(text) {
+      return /\[GameType\s+"/.test(text) || /^\s*1\.\s+[a-z]\d{1,2}\b/i.test(text);
+    },
+    async load(id, fetchFn) {
+      if (!config.proxy) throw fail('blocked', `https://www.playok.com/p/?g=${id}.txt`);
+      const res = await fetchFn(`${config.proxy}/import/playok/${id}`);
+      if (res.status === 404) throw fail('notFound');
+      if (!res.ok) throw fail('network');
+      return res.text();
+    },
+    toGame(text, id) {
+      const head = {};
+      String(text).replace(/^\s*\[(\w+)\s+"([^"]*)"\]/gm, (all, k, v) => { head[k] = v; return all; });
+      const size = Number((head.GameType || '').split(',')[1]) || PLAYOK_DEFAULT_SIZE;
+      if (size < 5 || size > 26) throw fail('badData');
+      const body = String(text).replace(/^\s*\[.*\]\s*$/gm, ' ');
+      const nodes = [];
+      const seen = new Set();
+      for (const tok of body.split(/\s+/)) {
+        const m = /^([a-z])(\d{1,2})$/i.exec(tok);
+        if (!m) continue; // move numbers, the result, `white`/`black`, `--`
+        const x = m[1].toLowerCase().charCodeAt(0) - 97;
+        const y = size - Number(m[2]);
+        if (x >= size || y < 0 || y >= size || seen.has(y * size + x)) throw fail('badData');
+        seen.add(y * size + x);
+        nodes.push([nodes.length, x, y]);
+      }
+      if (!nodes.length) throw fail('badData');
+
+      const names = [head.Black, head.White].map((n) => (n || '').trim());
+      const when = Date.parse(`${(head.Date || '').replace(/\./g, '-')}T${head.Time || '00:00:00'}Z`);
+      const createdAt = Number.isFinite(when) ? when : Date.now();
+      const key = [head.Date, head.Time, names[0], names[1]].filter(Boolean).join('-').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const title = names[0] && names[1] ? `${names[0]} vs ${names[1]}` : '';
+      return {
+        id: `playok-${key.length > 8 ? key : hash(body)}`, // the same record imported by link or by paste is one game
+        name: [title, id ? `PlayOK #${id.slice(2)}` : 'PlayOK'].filter(Boolean).join(' · '),
+        size,
+        createdAt,
+        updatedAt: createdAt,
+        players: names,
+        walls: [],
+        portals: [],
+        nodes,
+        prefs: [],
+        cur: nodes.length,
+      };
+    },
+  };
+
+  const SITES = [vncaro, playok];
 
   // The site and game id a pasted link points to, or null.
   function parseLink(text) {
@@ -97,10 +174,17 @@
     return null;
   }
 
-  // Fetch a link and return saved-game JSON. `fetchFn` is injectable for tests.
+  // True for a link we can fetch or a game record we can read as it is.
+  const recognises = (text) => !!parseLink(text) || SITES.some((s) => s.looksLike && s.looksLike(String(text)));
+
+  // Fetch a link (or read a pasted game record) and return saved-game JSON. `fetchFn` is injectable for tests.
   async function fromLink(text, fetchFn) {
     const hit = parseLink(text);
-    if (!hit) throw fail('link');
+    if (!hit) {
+      const site = SITES.find((s) => s.looksLike && s.looksLike(String(text)));
+      if (!site) throw fail('link');
+      return { site: site.name, game: site.toGame(String(text), null) };
+    }
     let data;
     try {
       data = await hit.site.load(hit.id, fetchFn || ((u) => fetch(u)));
@@ -110,5 +194,5 @@
     return { site: hit.site.name, game: hit.site.toGame(data, hit.id) };
   }
 
-  G.importers = { SITES, parseLink, fromLink };
+  G.importers = { SITES, config, parseLink, recognises, fromLink };
 })(window.Gomoku = window.Gomoku || {});

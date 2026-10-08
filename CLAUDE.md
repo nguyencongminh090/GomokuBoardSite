@@ -178,7 +178,15 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
   saved-game JSON, which `new G.Game` then validates). Errors carry `code` (`link | network | notFound | badData`), mapped to `import.err.*`. To
   support a new site add an entry and a test. **vncaro.com**: `GET /api/games/<id>` (CORS open) gives `nuocDi`/`oCam` as `[row, col]` (we store x = col, y = row),
   always 19x19, X first -> `players = [X, O]`; `cheDo` `vocuc` = torus, `xuyenkhong` = portal pairs; dates carry no zone and are read as +07:00. The game id is
-  `vncaro-<id>`, so importing twice finds the first copy; "Paste from clipboard" (`#importPaste`) fills the box and imports at once when the text is a supported link; the cursor starts at the last move.
+  `vncaro-<id>`, so importing twice finds the first copy. **playok.com**: `/p/?g=gm<id>` embeds a PGN-like record (also `...gm<id>.txt`): headers
+  `Black`/`White`/`Date`/`Time` and `GameType "61,15"` (second number = board size), moves `1. d11 e13 2. e14 white 3. -- d10 ...` (letter = column, number counts
+  from the bottom; `white`/`black` = the second player's colour choice and `--` an empty slot are skipped; stones alternate black first, and the headers name
+  the final colours). playok.com sends **no CORS headers**, so the page fetches it through the engine gate Worker (`GET /import/playok/gm<id>` in `gate/src/index.js`,
+  a fixed address only; `G.importers.config.proxy` = the `engine-gate` meta). Without the Worker deployed, the person pastes the record text instead
+  (`looksLike`/`recognises`; the link box is a `<textarea>` so newlines survive) and the error says where to copy it from. Dates have no zone and are read as UTC.
+  The Worker route needs `gate/deploy.sh` to go live.
+  Rest of the VNCaro notes:
+  (VNCaro) importing twice finds the first copy; "Paste from clipboard" (`#importPaste`) fills the box and imports at once when the text is a supported link; the cursor starts at the last move.
 - **Feature search** (`js/search.js` model, `js/search-panel.js` UI): the magnifier button in the top bar (`/` or Ctrl+K) opens a centred `<dialog>` over a dimmed page; it finds a control from a short
   question and jumps to it (closing the dialog first). The model is DOM-free NLP: fold tone marks (`cai dat` = `cài đặt`), drop stop words and question openers
   (`làm sao để`, `how do I`), light English stemming, a TF-IDF style index (title > keywords > description, both languages in one

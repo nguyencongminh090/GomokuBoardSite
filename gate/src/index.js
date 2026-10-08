@@ -5,6 +5,9 @@
 //                                              by the private key of a public key in allowed-keys.json
 //   GET  /engine/<file>?t=<token>              the engine file, if the token is valid and not expired
 //
+//   GET  /import/playok/gm<id>                 the PlayOK game record (text), so the page can import it: playok.com sends no CORS
+//                                              headers. Only that one fixed address is ever fetched (not an open proxy).
+//
 // The token is an HMAC over its expiry, not bound to a key: revoking a key takes effect once outstanding tokens
 // expire (TOKEN_TTL). Secret: `wrangler secret put TOKEN_SECRET`.
 'use strict';
@@ -123,6 +126,16 @@ async function serveEngine(env, request, url) {
   return env.ASSETS.fetch(new Request(asset, { method: 'GET' }));
 }
 
+async function importPlayok(url) {
+  const m = /^\/import\/playok\/(gm\d{1,12})$/.exec(url.pathname);
+  if (!m) return new Response('Not found', { status: 404 });
+  const res = await fetch(`https://www.playok.com/p/?g=${m[1]}.txt`, { cf: { cacheTtl: 3600, cacheEverything: true } });
+  if (!res.ok) return new Response('Not found', { status: res.status === 404 ? 404 : 502 });
+  const text = await res.text();
+  if (text.length > 50000) return new Response('Too large', { status: 502 });
+  return new Response(text, { headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -137,6 +150,7 @@ export default {
     if (request.method === 'GET' && url.pathname === '/challenge') res = await issueChallenge(env);
     else if (request.method === 'POST' && url.pathname === '/token') res = await issueToken(env, request);
     else if (request.method === 'GET' && url.pathname.startsWith('/engine/')) res = await serveEngine(env, request, url);
+    else if (request.method === 'GET' && url.pathname.startsWith('/import/playok/')) res = await importPlayok(url);
     else res = new Response('Not found', { status: 404 });
     return withCors(env, request, res);
   },
