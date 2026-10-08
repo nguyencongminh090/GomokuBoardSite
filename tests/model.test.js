@@ -8,7 +8,7 @@ const path = require('path');
 const assert = require('assert');
 
 global.window = {};
-for (const f of ['js/i18n.js', 'js/contrast.js', 'js/coords.js', 'js/voice-lexicon.js', 'js/voice.js', 'js/settings.js', 'js/game.js', 'js/security.js', 'js/explain.js', 'js/engine.js', 'js/search.js', 'js/commands.js', 'js/search-panel.js']) {
+for (const f of ['js/i18n.js', 'js/contrast.js', 'js/coords.js', 'js/voice-lexicon.js', 'js/voice.js', 'js/settings.js', 'js/game.js', 'js/security.js', 'js/explain.js', 'js/engine.js', 'js/search.js', 'js/commands.js', 'js/search-panel.js', 'js/importers.js']) {
   eval(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'));
 }
 const G = window.Gomoku;
@@ -1073,4 +1073,72 @@ test('every classic script parses (a syntax error stops the whole page)', () => 
       assert.fail(`${f}: ${e.message}`);
     }
   }
+});
+
+test('vncaro link: only game pages on vncaro.com are recognised', () => {
+  const hit = G.importers.parseLink(' https://vncaro.com/van/10392 ');
+  assert.equal(hit.id, '10392');
+  assert.equal(hit.site.id, 'vncaro');
+  assert(G.importers.parseLink('https://www.vncaro.com/van/7/'));
+  for (const bad of ['', 'vncaro.com/van/1', 'https://vncaro.com/', 'https://evil.com/van/1', 'https://vncaro.com.evil.com/van/1',
+    'https://vncaro.com/van/abc', 'javascript:alert(1)']) {
+    assert.equal(G.importers.parseLink(bad), null, bad);
+  }
+});
+
+const VNCARO_SAMPLE = {
+  van: {
+    id: 10392, ngay: '2026-10-02 13:08:47', X: { ten: 'Duong Thai' }, O: { ten: 'Caro Blue' }, thang: 123, hoa: false,
+    oCam: [[5, 10], [12, 13], [7, 5]], cheDo: [], xuyenKhong: [],
+    nuocDi: [[6, 9], [8, 9], [10, 8], [10, 10], [9, 10], [8, 11], [8, 8], [9, 11], [11, 9], [10, 11], [11, 11], [7, 11], [6, 11],
+      [10, 12], [10, 13], [8, 12], [16, 13], [8, 10], [16, 12], [8, 13]],
+  },
+};
+
+test('vncaro game becomes a 19x19 game: [row, col] swapped, walls, names, sides, finished position', async () => {
+  const { game: raw } = await G.importers.fromLink('https://vncaro.com/van/10392', async () => ({ ok: true, status: 200, json: async () => VNCARO_SAMPLE }));
+  const g = new G.Game(raw);
+  assert.equal(g.size, 19);
+  assert.equal(g.id, 'vncaro-10392');
+  assert.deepEqual(g.players, ['Duong Thai', 'Caro Blue']); // first player = X
+  assert.equal(g.nodes.length, 21);
+  assert.equal(g.cur, 20);
+  assert.deepEqual([g.nodes[1].x, g.nodes[1].y], [9, 6]); // [row 6, col 9] -> x 9, y 6
+  assert.equal(g.walls.size, 3);
+  assert(g.walls.has(g.key(10, 5)));
+  assert.equal(g.torus, false);
+  assert.equal(g.line().length, 20);
+  assert.equal(raw.createdAt, Date.parse('2026-10-02T13:08:47+07:00'));
+});
+
+test('vncaro modes: vocuc is a torus, xuyenkhong are portal pairs', () => {
+  const sample = JSON.parse(JSON.stringify(VNCARO_SAMPLE));
+  sample.van.cheDo = ['vocuc', 'xuyenkhong'];
+  sample.van.xuyenKhong = [[[1, 1], [1, 9]]];
+  const g = new G.Game(G.importers.SITES[0].toGame(sample, '1'));
+  assert.equal(g.torus, true);
+  assert.equal(g.portals.length, 1);
+});
+
+test('vncaro bad data and failures are reported with a code', async () => {
+  const site = G.importers.SITES[0];
+  const bad = JSON.parse(JSON.stringify(VNCARO_SAMPLE));
+  bad.van.nuocDi[1] = bad.van.nuocDi[0]; // a move on an earlier move
+  assert.throws(() => site.toGame(bad, '1'), (e) => e.code === 'badData');
+  const onWall = JSON.parse(JSON.stringify(VNCARO_SAMPLE));
+  onWall.van.nuocDi[0] = onWall.van.oCam[0];
+  assert.throws(() => site.toGame(onWall, '1'), (e) => e.code === 'badData');
+  assert.throws(() => site.toGame({ van: { nuocDi: [[99, 0]] } }, '1'), (e) => e.code === 'badData');
+  await assert.rejects(G.importers.fromLink('https://vncaro.com/van/1', async () => ({ ok: false, status: 404 })), (e) => e.code === 'notFound');
+  await assert.rejects(G.importers.fromLink('https://vncaro.com/van/1', async () => { throw new TypeError('offline'); }), (e) => e.code === 'network');
+  await assert.rejects(G.importers.fromLink('https://example.com/x'), (e) => e.code === 'link');
+});
+
+test('game group: optional, trimmed, capped, written only when set', () => {
+  const g = new G.Game({ size: 15, group: '  Giải 1  ' });
+  assert.equal(g.group, 'Giải 1');
+  assert.equal(g.toJSON().group, 'Giải 1');
+  assert(!('group' in new G.Game({ size: 15 }).toJSON()));
+  assert.equal(new G.Game({ size: 15, group: 'x'.repeat(99) }).group.length, G.Game.MAX_GROUP_NAME);
+  assert.equal(new G.Game({ size: 15, group: 5 }).group, '');
 });

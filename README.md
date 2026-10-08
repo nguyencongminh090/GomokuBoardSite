@@ -112,7 +112,7 @@ new release at once instead of a mix of old and new files. The current version i
 ```
 
 `x` and `y` are 0-based with the origin at the top-left. `portals` entries are `[ax, ay, bx, by]`
-(optional: older saves have none; pairs that break the placement rules are dropped on load). `players` (first and second player names, up to 24 characters) is optional and written only when a name is set. `torus` is optional
+(optional: older saves have none; pairs that break the placement rules are dropped on load). `group` (the group name shown in the Games tab, up to 40 characters) is optional and written only when set. `players` (first and second player names, up to 24 characters) is optional and written only when a name is set. `torus` is optional
 and written only when `true`; portal distances are then measured across the seam. `nodes[i]` is node `i + 1` as
 `[parent, x, y]`; node 0 is the empty board. `prefs[n]` is the child that Forward follows from
 node `n` (`-1` when there is none). `cur` is the node currently shown.

@@ -26,6 +26,8 @@
       // Optional names of the two players (first player, second player), shown beside the board in Live view.
       const names = Array.isArray(data.players) ? data.players : [];
       this.players = [0, 1].map((i) => (typeof names[i] === 'string' ? names[i].trim().slice(0, Game.MAX_PLAYER_NAME) : ''));
+      // Optional name of the group the game is filed under in the Games tab ('' = none).
+      this.group = typeof data.group === 'string' ? data.group.trim().slice(0, Game.MAX_GROUP_NAME) : '';
       this.createdAt = Number(data.createdAt) || Date.now();
       this.updatedAt = Number(data.updatedAt) || this.createdAt;
 
@@ -78,6 +80,7 @@
         updatedAt: this.updatedAt,
         ...(this.torus ? { torus: true } : {}),
         ...(this.players.some(Boolean) ? { players: [...this.players] } : {}),
+        ...(this.group ? { group: this.group } : {}),
         walls: [...this.walls].map((k) => [k % s, Math.floor(k / s)]),
         portals: this.portals.map(([a, b]) => [a % s, Math.floor(a / s), b % s, Math.floor(b / s)]),
         nodes: this.nodes.slice(1).map((n) => [n.parent, n.x, n.y]),
@@ -420,6 +423,7 @@
   Game.MIN_SIZE = MIN_SIZE;
   Game.MAX_SIZE = MAX_SIZE;
   Game.MAX_PLAYER_NAME = 24;
+  Game.MAX_GROUP_NAME = 40;
   Game.MIN_PORTAL_DISTANCE = MIN_PORTAL_DISTANCE;
   Game.MIN_GENERATED_GAP = 4; // generated walls and portals: distance from the edge and from each other
   G.Game = Game;

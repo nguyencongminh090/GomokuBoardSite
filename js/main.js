@@ -372,6 +372,7 @@
   let gameQuery = '';
   let gameSort = 'recent';
   let renamingId = null;
+  const collapsedGroups = new Set(); // group names (not saved; groups start open)
 
   const SORTS = {
     recent: (a, b) => b.updatedAt - a.updatedAt,
@@ -387,7 +388,7 @@
     const all = [...games.values()];
     const q = fold(gameQuery.trim());
     const list = all
-      .filter((g) => !q || fold([g.name, ...(g.players || [])].join(' ')).includes(q))
+      .filter((g) => !q || fold([g.name, g.group, ...(g.players || [])].join(' ')).includes(q))
       .sort((a, b) => SORTS[gameSort](a, b) || b.updatedAt - a.updatedAt);
     $('#gamesCount').textContent = all.length ? t('games.count', { shown: list.length, total: all.length }) : '';
     $('#clearGames').disabled = !all.length;
@@ -395,7 +396,7 @@
       $('#gameList').innerHTML = `<li class="empty">${esc(t(all.length ? 'games.noMatch' : 'games.none'))}</li>`;
       return;
     }
-    $('#gameList').innerHTML = list.map((g) => {
+    const item = (g) => {
       const moves = Array.isArray(g.nodes) ? g.nodes.length : 0;
       const walls = Array.isArray(g.walls) ? g.walls.length : 0;
       const when = new Date(g.updatedAt).toLocaleString(G.i18n.locale, { dateStyle: 'medium', timeStyle: 'short' });
@@ -425,11 +426,40 @@
         </div>
         <div class="acts">
           ${isCur ? `<span class="tag">${esc(t('games.current'))}</span>` : `<button class="small" data-open="${esc(g.id)}">${esc(t('games.open'))}</button>`}
+          <button class="small" data-group-game="${esc(g.id)}" title="${esc(t('group.set'))}" aria-label="${esc(`${t('group.set')}: ${name}`)}">▤</button>
           <button class="small" data-rename="${esc(g.id)}" title="${esc(t('games.rename'))}" aria-label="${esc(`${t('games.rename')}: ${name}`)}">✎</button>
           <button class="small danger" data-delete="${esc(g.id)}" title="${esc(t('games.delete'))}" aria-label="${esc(`${t('games.delete')}: ${name}`)}">✕</button>
         </div>
       </li>`;
-    }).join('');
+    };
+
+    // With no group anywhere the list stays flat; otherwise each group gets a collapsible header, ungrouped games last.
+    const byGroup = new Map();
+    for (const g of list) {
+      const key = g.group || '';
+      if (!byGroup.has(key)) byGroup.set(key, []);
+      byGroup.get(key).push(g);
+    }
+    if (!byGroup.size || (byGroup.size === 1 && byGroup.has(''))) {
+      $('#gameList').innerHTML = list.map(item).join('');
+    } else {
+      const names = [...byGroup.keys()].filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, G.i18n.locale, { numeric: true, sensitivity: 'base' }));
+      if (byGroup.has('')) names.push('');
+      $('#gameList').innerHTML = names.map((name) => {
+        const members = byGroup.get(name);
+        const open = !!q || !collapsedGroups.has(name); // a search always shows its matches
+        const label = name || t('group.none');
+        const total = all.filter((g) => (g.group || '') === name).length;
+        return `<li class="group-head">
+          <button class="group-toggle" data-group-toggle="${esc(name)}" aria-expanded="${open}">
+            <span aria-hidden="true">${open ? '▾' : '▸'}</span> ${esc(label)}
+          </button>
+          <span class="meta">${esc(t('games.count', { shown: members.length, total }))}</span>
+          ${name ? `<button class="small" data-group-rename="${esc(name)}" title="${esc(t('group.rename'))}" aria-label="${esc(`${t('group.rename')}: ${name}`)}">✎</button>` : ''}
+        </li>${open ? members.map(item).join('') : ''}`;
+      }).join('');
+    }
     const edit = $('#gameList [data-rename-input]');
     if (edit) {
       edit.focus();
@@ -762,7 +792,18 @@
     const open = e.target.closest('[data-open]');
     const del = e.target.closest('[data-delete]');
     const ren = e.target.closest('[data-rename]');
-    if (ren) {
+    const grp = e.target.closest('[data-group-game]');
+    const grpRen = e.target.closest('[data-group-rename]');
+    const grpTog = e.target.closest('[data-group-toggle]');
+    if (grp) {
+      openGroupDialog({ id: grp.dataset.groupGame });
+    } else if (grpRen) {
+      openGroupDialog({ rename: grpRen.dataset.groupRename });
+    } else if (grpTog) {
+      const name = grpTog.dataset.groupToggle;
+      if (!collapsedGroups.delete(name)) collapsedGroups.add(name);
+      renderGameList();
+    } else if (ren) {
       renamingId = ren.dataset.rename;
       renderGameList();
     } else if (open) {
@@ -787,6 +828,55 @@
       flush();
       renderGameList();
     }
+  });
+
+  // Groups: a game has at most one optional group name (`game.group`). The dialog files one game (`{ id }`) or renames
+  // a whole group (`{ rename }`; an empty name dissolves it and its games become ungrouped).
+  const groupDlg = $('#groupDialog');
+  let groupCtx = null;
+
+  function groupNames() {
+    return [...new Set([...games.values()].map((g) => g.group).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, G.i18n.locale, { numeric: true, sensitivity: 'base' }));
+  }
+
+  function openGroupDialog(ctx) {
+    groupCtx = ctx;
+    const g = ctx.id ? games.get(ctx.id) : null;
+    if (ctx.id && !g) return;
+    $('#groupTitle').textContent = t(ctx.id ? 'group.set' : 'group.rename');
+    $('#groupNote').textContent = ctx.id ? (g.name || t('games.untitled')) : '';
+    $('#groupName').value = ctx.id ? g.group || '' : ctx.rename;
+    $('#groupOptions').innerHTML = groupNames().map((n) => `<option value="${esc(n)}">`).join('');
+    const remove = $('#groupRemove');
+    remove.textContent = t(ctx.id ? 'group.remove' : 'group.dissolve');
+    remove.hidden = ctx.id ? !g.group : false;
+    groupDlg.showModal();
+    $('#groupName').select();
+  }
+  $('#groupCancel').addEventListener('click', () => groupDlg.close());
+
+  // Grouping is bookkeeping, so it does not change `updatedAt` (the "newest" order stays put).
+  function setGroup(id, name) {
+    const g = games.get(id);
+    if (!g) return;
+    if (name) g.group = name;
+    else delete g.group;
+    if (id === game.id) game.group = name;
+  }
+
+  groupDlg.addEventListener('close', () => {
+    const ctx = groupCtx;
+    groupCtx = null;
+    if (!ctx || !['ok', 'remove'].includes(groupDlg.returnValue)) return;
+    const name = groupDlg.returnValue === 'remove' ? '' : $('#groupName').value.trim().slice(0, G.Game.MAX_GROUP_NAME);
+    if (ctx.id) setGroup(ctx.id, name);
+    else for (const g of [...games.values()]) if (g.group === ctx.rename) setGroup(g.id, name);
+    if (ctx.rename !== undefined) {
+      if (collapsedGroups.delete(ctx.rename) && name) collapsedGroups.add(name);
+    }
+    flush();
+    renderGameList();
   });
 
   // Renaming: Enter or leaving the field saves, Escape cancels. The open game's name field in the top bar follows.
@@ -858,10 +948,53 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   });
 
+  // Import dialog: a file exported by this site, or a link to a game on another site (js/importers.js).
+  const importDlg = $('#importDialog');
+  const importStatus = (msg) => { $('#importStatus').textContent = msg; };
+  $('#importBtn').addEventListener('click', () => {
+    $('#importSites').textContent = t('import.sites', { names: G.importers.SITES.map((s) => s.name).join(', ') });
+    importStatus('');
+    importDlg.showModal();
+  });
+  $('#importClose').addEventListener('click', () => importDlg.close());
+
+  async function importLink() {
+    const input = $('#importLink');
+    const go = $('#importLinkGo');
+    if (!input.value.trim() || go.disabled) return;
+    go.disabled = true;
+    importStatus(t('import.loading'));
+    try {
+      const { game: raw } = await G.importers.fromLink(input.value);
+      const g = new G.Game(raw).toJSON();
+      if (games.has(g.id)) {
+        importStatus(t('import.linkExists'));
+        return;
+      }
+      games.set(g.id, g);
+      flush();
+      renderGameList();
+      importDlg.close();
+      dropIfEmpty();
+      openGame(g);
+      input.value = '';
+      toast(t('import.linkDone', { name: g.name }));
+    } catch (err) {
+      importStatus(t(`import.err.${['link', 'network', 'notFound', 'badData'].includes(err.code) ? err.code : 'badData'}`));
+    } finally {
+      go.disabled = false;
+    }
+  }
+  $('#importLinkGo').addEventListener('click', importLink);
+  $('#importLink').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); importLink(); }
+  });
+
   $('#importInput').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     e.target.value = '';
     if (!file) return;
+    importDlg.close();
     let parsed;
     try {
       parsed = JSON.parse(await file.text());

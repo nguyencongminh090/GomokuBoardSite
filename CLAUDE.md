@@ -51,7 +51,7 @@ Use a scratch `--user-data-dir` so the test run doesn't share localStorage with 
 
 ## Architecture
 
-The scripts are classic `<script>` tags, loaded in dependency order in `index.html`: `i18n → contrast → coords → settings → game → security → storage → explain → board → engine → engine-panel → explain-panel → security-panel → voice → voice-panel → search → commands → search-panel → install → main`.
+The scripts are classic `<script>` tags, loaded in dependency order in `index.html`: `i18n → contrast → coords → settings → game → security → storage → importers → explain → board → engine → engine-panel → explain-panel → security-panel → voice → voice-panel → search → commands → search-panel → install → main`.
 Each is an IIFE that attaches to the global namespace `window.Gomoku` (`G`). Keep it that way: ES modules would break
 `file://` use, and `tests/model.test.js` loads `coords.js`/`game.js`/`security.js`/`explain.js`/`engine.js` by `eval` with a stub `window`, so
 those files must stay free of DOM access at load time (`engine.js` touches `Worker` only when a load is requested).
@@ -72,6 +72,9 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
   - `players` is an optional pair of names (first, second player; trimmed, max `Game.MAX_PLAYER_NAME`), saved per game and written
     only when set. `playerName(p)` in `main.js` returns it, else X/O or Black/White. In Live view `#players` shows two name cards
     beside the board (also with the panel hidden) and highlights the side to move; a new game keeps the names.
+  - `group` is an optional name (max `Game.MAX_GROUP_NAME`) that files the game under a collapsible header in the Games tab; written only when set.
+    Groups exist only as that string (no group records): renaming one rewrites every member, an empty name dissolves it. Changing it does not
+    touch `updatedAt`. `main.js` edits the stored record and, for the open game, `game.group` too (`persist()` rewrites the record from `game`).
 - **`board.js` (`G.BoardView`)** re-renders the whole SVG as a string on every change and redraws only the hover ghost on
   pointer move. Both themes share one geometry: position `(x, y)` is centred at `m + (x + 0.5) * P`. Paper draws cell
   borders around the positions; Stone draws lines through them. Themes change only the drawing, never the model.
@@ -170,6 +173,12 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
   `gate/deploy.sh` copies the engine from `../GomokuEngineFiles` (outside the repo; `engine/rapfi-*` is git-ignored) into
   `gate/public` (git-ignored) and deploys. The engine files are no longer in the tree, but they are still in git history
   until it is rewritten, so the gate protects nothing until then. Revocation lags by `TOKEN_TTL`.
+- **Import from a link** (`js/importers.js`, `G.importers`; the Import button in the Games tab opens `#importDialog`: a file or a link): DOM-free.
+  `SITES` is the registry, one entry per site with `match(url)` (game id from a link), `load(id, fetch)` and `toGame(data, id)` (the site's data ->
+  saved-game JSON, which `new G.Game` then validates). Errors carry `code` (`link | network | notFound | badData`), mapped to `import.err.*`. To
+  support a new site add an entry and a test. **vncaro.com**: `GET /api/games/<id>` (CORS open) gives `nuocDi`/`oCam` as `[row, col]` (we store x = col, y = row),
+  always 19x19, X first -> `players = [X, O]`; `cheDo` `vocuc` = torus, `xuyenkhong` = portal pairs; dates carry no zone and are read as +07:00. The game id is
+  `vncaro-<id>`, so importing twice finds the first copy; the cursor starts at the last move.
 - **Feature search** (`js/search.js` model, `js/search-panel.js` UI): the magnifier button in the top bar (`/` or Ctrl+K) opens a centred `<dialog>` over a dimmed page; it finds a control from a short
   question and jumps to it (closing the dialog first). The model is DOM-free NLP: fold tone marks (`cai dat` = `cài đặt`), drop stop words and question openers
   (`làm sao để`, `how do I`), light English stemming, a TF-IDF style index (title > keywords > description, both languages in one

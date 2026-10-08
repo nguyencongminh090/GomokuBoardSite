@@ -14,7 +14,7 @@ const VERSION = new URL(self.location.href).searchParams.get('v') || 'dev';
 const CACHE = `gomoku-board-${VERSION}`;
 const SHELL = [
   './', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png',
-  'css/style.css', ...['i18n', 'contrast', 'coords', 'settings', 'game', 'security', 'storage', 'explain', 'board',
+  'css/style.css', ...['i18n', 'contrast', 'coords', 'settings', 'game', 'security', 'storage', 'importers', 'explain', 'board',
     'engine', 'engine-panel', 'explain-panel', 'security-panel', 'voice-lexicon', 'voice', 'voice-panel', 'search', 'commands', 'search-panel', 'install', 'main'].map((n) => `js/${n}.js`),
 ].map((u) => (/\.(css|js)$/.test(u) ? `${u}?v=${VERSION}` : u));
 
