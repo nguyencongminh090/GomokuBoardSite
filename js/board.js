@@ -8,15 +8,15 @@
   const f = (n) => Math.round(n * 10) / 10;
   const COUNTER = '#0f766e'; // the defender's counter-attack (a four that forces a block)
   const ATTACK = { VCF: '#b91c1c', VCT: '#7c3aed' }; // attack chain colours: fours only / fours and open threes
-  // Heat blobs (Sabaki / Shudan `.shudan-heat_N`): [spread, blur, alpha] in cells, colour red < purple < blue < green.
-  const HEAT_RGB = ['240,35,17', '240,35,17', '146,39,143', '146,39,143', '72,134,213', '72,134,213', '72,134,213', '89,168,15', '89,168,15'];
+  // Heat blobs (Sabaki / Shudan `.shudan-heat_N`): [spread, blur, alpha] in cells, colour red -> yellow -> green.
+  const HEAT_COLOR = Array.from({ length: 9 }, (_, i) => `hsl(${i * 15},85%,45%)`); // hue 0 (red) ... 120 (green) through yellow
   const HEAT = [[.40, .75, .7], [.40, .75, .8], [.45, .80, .7], [.50, .85, .8], [.55, .90, .7], [.60, 1, .8], [.75, 1, .8], [.90, 1, .7], [1, 1, .8]];
   const HEAT_SCALE = 0.6; // Sabaki's blobs are ~2 cells wide; candidates sit on neighbouring cells
   // The blob circle uses an inline style fill (a stylesheet rule would resolve url(#id) against the stylesheet).
   const HEAT_DEFS = '<defs>' + HEAT.map(([sp, bl, al], i) => {
     const solid = Math.max(0, sp - bl / 2) / (sp + bl / 2);
-    return `<radialGradient id="heat${i + 1}"><stop offset="${solid.toFixed(3)}" stop-color="rgb(${HEAT_RGB[i]})" stop-opacity="${al}"/>` +
-      `<stop offset="1" stop-color="rgb(${HEAT_RGB[i]})" stop-opacity="0"/></radialGradient>`;
+    return `<radialGradient id="heat${i + 1}"><stop offset="${solid.toFixed(3)}" stop-color="${HEAT_COLOR[i]}" stop-opacity="${al}"/>` +
+      `<stop offset="1" stop-color="${HEAT_COLOR[i]}" stop-opacity="0"/></radialGradient>`;
   }).join('') + '</defs>';
   const f3 = (n) => Math.round(n * 1000) / 1000;
 
