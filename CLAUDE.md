@@ -177,6 +177,10 @@ those files must stay free of DOM access at load time (`engine.js` touches `Work
   (`complete`) and "did you mean" (`correct`). `FEATURES` in `search-panel.js` maps each id to a tab and `targets` (first visible
   selector wins; `before: 'setup'` enters Setup mode first). A new feature needs a row there plus `find.<id>`, `.d` and `.k`
   (`;`-separated keywords and synonyms) in **both** languages; a test checks the strings and that `#id` / `data-*` targets exist.
+  **Rule: whenever a UI change adds, renames, moves or removes a user-facing function (button, setting, tab, option, control), update the
+  search index in the same change:** the `FEATURES` row (id, tab, `targets`), `find.<id>` / `.d` / `.k` in both languages, and, if the
+  function is a setting a user would say aloud ("hide last move", "strength 70"), a `js/commands.js` rule with `cmd.name.<id>`. Moved or
+  renamed controls must keep their `targets` selectors valid; removed ones lose their row. Run `node tests/model.test.js` to confirm.
 - **Search commands** (`js/commands.js`, `G.commands.parse(text, { settings, size })`): the same search box also applies settings
   ("set board 17x17", "bật chế độ tối", "strength 70", "hide last move"). DOM-free: it only returns actions (`set`, `preset`, `newGame`,
   `error`); `applyCommands` in `main.js` applies them through `settingsChanged()` / `startGame()`. Clauses split at "and/và/,"; the first
