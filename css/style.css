@@ -174,7 +174,6 @@ select, input[type="number"], .field input:not([type]) {
 #board .cand.t3 circle { fill: #b91c1c; }
 #board .cand.best circle { stroke-width: 2.5; }
 #board .cand.heat circle { stroke: none; }
-#board .cand.heat circle.ring { fill: none; stroke: #fff; stroke-width: 1.5; opacity: .85; }
 #board .cand.heat text { font-size: 12px; fill: #fff; stroke: rgba(0, 0, 0, .55); stroke-width: 3px; paint-order: stroke; stroke-linejoin: round; }
 #board .cand.heat.best text { font-size: 12px; }
 #board .cand.best text { font-size: 14px; }

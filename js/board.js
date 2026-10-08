@@ -542,7 +542,6 @@
             const h = HEAT[strength - 1];
             r = (h[0] + h[1] / 2) * HEAT_SCALE * P;
             out.push(`<g class="cand heat${best ? ' best' : ''}">${pulse}<circle cx="${c(x)}" cy="${c(y)}" r="${f(r)}" style="fill:url(#heat${strength})"/>` +
-              (best ? `<circle class="ring" cx="${c(x)}" cy="${c(y)}" r="${f(P * 0.4)}"/>` : '') +
               `<text x="${c(x)}" y="${c(y)}" dy=".36em" font-size="${fs}">${label || rank}</text></g>`);
           } else {
             r = best ? 13 : RADIUS[tier];
